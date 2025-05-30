@@ -2,13 +2,17 @@ package com.medco.HealthConnectProvider.services.impl.user;
 
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.config.securityConfig.jwtTokenService.JwtService;
+import com.medco.HealthConnectProvider.dto.PayerAdminDto;
+import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.token.RefreshToken;
 import com.medco.HealthConnectProvider.entity.user.Role;
 import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.UnauthorizedException;
+import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.user.RoleRepository;
 import com.medco.HealthConnectProvider.repository.user.UserRepository;
+import com.medco.HealthConnectProvider.services.mail.EmailService;
 import com.medco.HealthConnectProvider.services.token.TokenService;
 import com.medco.HealthConnectProvider.services.user.UserService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.ChangePasswordRequest;
@@ -18,9 +22,12 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.user.SignUpReque
 import com.medco.HealthConnectProvider.ui.response.auth.JwtResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.RefreshTokenResponse;
 import com.medco.HealthConnectProvider.ui.response.user.UserResponse;
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.mapper.MapperClass;
 import com.medco.HealthConnectProvider.utils.paginationUtils.Pagination;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +37,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
@@ -46,15 +54,23 @@ public class UserServiceImpl implements UserService {
     private final TokenService tokenService;
 
     private RoleRepository roleRepository;
+    private final PayerRepository payerRepository;
+
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
+
+    @Autowired
+    private EmailService emailService;
 
 
-    public UserServiceImpl(UserRepository userRepository, AuthenticationManager authenticationManager, JwtService jwtServiceImpl, PasswordEncoder passwordEncoder, TokenService tokenService, RoleRepository roleRepository) {
+    public UserServiceImpl(UserRepository userRepository, AuthenticationManager authenticationManager, JwtService jwtServiceImpl, PasswordEncoder passwordEncoder, TokenService tokenService, RoleRepository roleRepository, PayerRepository payerRepository) {
         this.userRepository = userRepository;
         this.authenticationManager = authenticationManager;
         JwtServiceImpl = jwtServiceImpl;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
         this.roleRepository = roleRepository;
+        this.payerRepository = payerRepository;
     }
 
     @Override
@@ -101,13 +117,15 @@ public class UserServiceImpl implements UserService {
             throw new BadRequestException("Mobile Phone is already in use!");
         }
 
-        Optional<Role> role = Optional.ofNullable(roleRepository.findByRoleUuid(signUpRequest.getRoleUuid())
-                .orElseThrow(() -> new BadRequestException("Can't Assign Role To User")));
+        Role role = roleRepository.findByRoleUuid(signUpRequest.getRoleUuid());
+        if (role == null){
+            throw new BadRequestException("Can't Assign Role To User");
+        }
 
         var user = new User();
         BeanUtils.copyProperties(signUpRequest, user);
         user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
-        user.setRole(role.get());
+        user.setRole(role);
         userRepository.save(user);
 
         var userResponse = new UserResponse();
@@ -197,5 +215,67 @@ public class UserServiceImpl implements UserService {
                 .filter(user -> (roleUuid == null || roleUuid.equals(user.getRole().getRoleUuid().toString())))
                 .filter(user -> (providerUuid == null || providerUuid.equals(user.getProviderUuid().toString())))
                 .map(MapperClass::mapToUserResponse).collect(Collectors.toList());
+    }
+
+
+    //Filmon
+
+
+    @Override
+    public UserResponse createUser(PayerAdminDto payerAdminDto) {
+        if (userRepository.existsByEmail(payerAdminDto.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Error: Email is already in use!");
+        }
+
+        User user = new User();
+
+        user.setEmail(payerAdminDto.getEmail());
+        user.setGender(payerAdminDto.getGender());
+        user.setTitle(payerAdminDto.getTitle());
+        user.setFirstName(payerAdminDto.getFirstName());
+        user.setFatherName(payerAdminDto.getFatherName());
+        user.setGrandFatherName(payerAdminDto.getGrandFatherName());
+        user.setMobilePhone(payerAdminDto.getMobilePhone());
+        user.setPayerUuid(payerAdminDto.getPayerUuid());
+
+        // Store the plain password temporarily for the email
+        String plainPassword = payerAdminDto.getPassword();
+        user.setPassword(passwordEncoder.encode(plainPassword));
+
+        Role role = roleRepository.findByRoleUuid(payerAdminDto.getRoleUuid());
+        if (role == null) {
+            throw new BadRequestException("Role", "roleUuid", payerAdminDto.getRoleUuid());
+        }
+        user.setRole(role);
+
+        if (payerAdminDto.getUserStatus() != null)
+            user.setUserStatus(payerAdminDto.getUserStatus());
+        else
+            user.setUserStatus(Status.ACTIVE);
+
+        User savedUser = userRepository.save(user);
+
+        // Get payer name for the email
+        String payerName = "your institution";
+        if (user.getPayerUuid() != null) {
+            Payer payer = payerRepository.findByPayerUuid(user.getPayerUuid());
+            if (payer != null) {
+                payerName = payer.getPayerName();
+            }
+        }
+
+        String loginUrl = frontendUrl + "/login?newUser=true&email=" + user.getEmail();
+
+        emailService.sendWelcomeEmail(
+                user.getEmail(),
+                user.getFirstName(),
+                plainPassword,
+                payerName,
+                loginUrl
+        );
+
+        UserResponse userResponse = new UserResponse();
+        BeanUtils.copyProperties(savedUser, userResponse);
+        return userResponse;
     }
 }

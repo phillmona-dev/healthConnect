@@ -7,12 +7,11 @@ import com.medco.HealthConnectProvider.shared.Audit;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,6 +39,9 @@ public class ContractHeader extends Audit implements Serializable {
     private String contractName;
     private String contractDescription;
 
+    private String approvedBy;
+    private Date approvalDate;
+
     @Temporal(TemporalType.DATE)
     private LocalDate startDate;
 
@@ -48,6 +50,14 @@ public class ContractHeader extends Audit implements Serializable {
 
     @Enumerated(EnumType.STRING)
     private Status status;
+
+    private String remark;
+
+    private String preparedBy;
+
+    private String description;
+
+    private String contractCode;
 
     // Many-to-One relationship with Payer
     @ManyToOne(fetch = FetchType.LAZY)

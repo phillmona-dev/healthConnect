@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.services.user;
 
+import com.medco.HealthConnectProvider.dto.PayerAdminDto;
 import com.medco.HealthConnectProvider.ui.request.auth.password.ChangePasswordRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.LoginRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.token.RefreshTokenRequest;
@@ -26,4 +27,6 @@ public interface UserService {
     ResponseEntity<?> changePassword(ChangePasswordRequest resetPasswordDetail, String userUuid);
 
     RefreshTokenResponse getNewToken(RefreshTokenRequest tokenRequest);
+
+    UserResponse createUser(PayerAdminDto payerAdminDto);
 }

@@ -4,13 +4,11 @@ import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.persons.EmployeeInsured;
 import com.medco.HealthConnectProvider.entity.user.User;
+import com.medco.HealthConnectProvider.shared.Audit;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Size;
 import lombok.*;
-import org.springframework.data.annotation.CreatedBy;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedBy;
-import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.util.ArrayList;
@@ -26,7 +24,7 @@ import java.util.UUID;
 @Entity
 @EntityListeners(AuditingEntityListener.class)
 @Table(name = "payers")
-public class Payer {
+public class Payer extends Audit {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,7 +42,21 @@ public class Payer {
     @Column(unique = true)
     private String telephone;
 
-    private String address;
+    @Size(max = 50)
+    private String category;
+
+    @Size(max = 50)
+    private String address1;
+
+    @Size(max = 50)
+    private String address2;
+
+    @Size(max = 50)
+    private String address3;
+
+    @Size(max = 50)
+    private String payerInsuranceNumber;
+
     private String city;
     private String state;
     private String zipCode;
@@ -57,46 +69,45 @@ public class Payer {
     private Date registrationDate;
 
     private String taxIdentification;
+    private Long tinNumber;
     private String bankingDetails;
+
+    private Integer counter;
+
+    @Size(max = 50)
+    private String payerNumber;
+
+    private double latitude;
+
+    private double longitude;
+
+    @Size(max = 15)
+    private String referralType;
+    @Size(max = 100)
+    private String referredBy;
+
+    @Size(max = 500)
+    private String description;
 
     @Builder.Default
     private boolean isDeleted = false;
 
-    // One-to-Many relationship with User
     @OneToMany(mappedBy = "payer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<User> users = new ArrayList<>();
 
-    // One-to-Many relationship with EmployeeInsured
     @OneToMany(mappedBy = "payer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<EmployeeInsured> employeeInsureds = new ArrayList<>();
 
-    // One-to-Many relationship with EmployeeDependantGroup
     @OneToMany(mappedBy = "payer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<EmployeeDependantGroup> employeeDependantGroups = new ArrayList<>();
 
-    // One-to-Many relationship with ContractHeader
     @OneToMany(mappedBy = "payer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ContractHeader> contractHeaders = new ArrayList<>();
 
-    @CreatedDate
-    @Temporal(TemporalType.TIMESTAMP)
-    @Column(updatable = false)
-    private Date createdDate;
-
-    @LastModifiedDate
-    @Temporal(TemporalType.TIMESTAMP)
-    private Date lastModifiedDate;
-
-    @CreatedBy
-    @Column(updatable = false)
-    private String createdBy;
-
-    @LastModifiedBy
-    private String lastModifiedBy;
 
     @PrePersist
     public void prePersist() {

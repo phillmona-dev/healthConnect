@@ -26,7 +26,7 @@ public class RoleController {
 
     @PostMapping
     //@PreAuthorize("hasRole('Create_Role')")
-    public ResponseEntity<?> createRole(@Valid @RequestBody RoleRequest roleRequest) {
+    public ResponseEntity<RoleResponse> createRole(@Valid @RequestBody RoleRequest roleRequest) {
         return roleService.createRole(roleRequest);
     }
 

@@ -1,0 +1,32 @@
+package com.medco.HealthConnectProvider.services.payer;
+
+import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerRequest;
+import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
+import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
+import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
+import com.medco.HealthConnectProvider.utils.enums.Status;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+
+import java.util.List;
+
+public interface PayerService {
+    PayerResponse createPayer(@Valid PayerRequest institutionRequest);
+
+    PayerResponse updatePayer(String institutionUuid, @Valid PayerRequest institutionRequest);
+
+    ResponseEntity<?> setPayerInsuranceNumber(String payerUuid, @Valid String payerInsuranceNumber);
+
+    ResponseEntity<?> updatePayerStatus(String payerUuid, Status payerStatus);
+
+    PayerResponse getPayer(String payerUuid);
+
+    List<PayerResponse> getPayers(String search, int page, int limit, Status status);
+
+    List<PolicyHolderListResponse> getPolicyHolders(String search, int page, int limit, Status status);
+
+    List<PayerProviderResponse> getProviderPolicyHolders(String providerUuid, String payerUuid);
+
+
+    ResponseEntity<?> deletePayer(String payerUuid);
+}

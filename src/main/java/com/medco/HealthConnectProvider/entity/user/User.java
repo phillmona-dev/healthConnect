@@ -50,7 +50,6 @@ public class User extends UserDateAudit {
     private String fatherName;
 
     @NotBlank
-    @Size(min = 2, max = 25)
     private String grandFatherName;
 
     @NotBlank
@@ -63,6 +62,8 @@ public class User extends UserDateAudit {
 
     @Enumerated(EnumType.STRING)
     private Status userStatus;
+
+    private String userType;
 
     @Size( max = 40)
     private String providerUuid;

@@ -46,8 +46,5 @@ public class Privilege {
     )
     private Set<Role> roles = new HashSet<>();
 
-   private boolean isDeleted;
-   private Date createdDate;
-   private Date lastModifiedDate;
 
 }

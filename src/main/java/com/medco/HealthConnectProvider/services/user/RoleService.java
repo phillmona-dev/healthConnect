@@ -9,7 +9,7 @@ import java.util.List;
 public interface RoleService {
     ResponseEntity<?> updateRole(String roleUuid, RoleRequest roleUpdateRequest);
 
-    ResponseEntity<?> createRole(RoleRequest roleRequest);
+    ResponseEntity<RoleResponse> createRole(RoleRequest roleRequest);
 
     RoleResponse getRoleByUuid(String roleUuid);
 

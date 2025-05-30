@@ -12,13 +12,10 @@ import com.medco.HealthConnectProvider.ui.response.auth.RoleResponse;
 import com.medco.HealthConnectProvider.utils.paginationUtils.Pagination;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-
-import java.beans.beancontext.BeanContext;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,8 +31,7 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
-    public ResponseEntity<?> createRole(RoleRequest roleRequest) {
-
+    public ResponseEntity<RoleResponse> createRole(RoleRequest roleRequest) {
         var role = new Role();
         BeanUtils.copyProperties(roleRequest, role);
 
@@ -43,29 +39,57 @@ public class RoleServiceImpl implements RoleService {
                 .stream()
                 .map(privilegeUuid -> {
                     Privilege privilege = privilegeRepository.findByPrivilegeUuid(privilegeUuid)
-                            .orElseThrow(() -> new BadRequestException("can't find Privilege With the provided Id "+ privilegeUuid));
-
+                            .orElseThrow(() -> new BadRequestException("Can't find Privilege with the provided ID: " + privilegeUuid));
                     return privilege;
                 }).collect(Collectors.toList());
+
         role.setPrivileges(privilegeList);
         privilegeList.forEach(privilege -> privilege.getRoles().add(role));
 
-        roleRepository.save(role);
-        return ResponseEntity.ok("Role Added Successfully");
+        Role savedRole = roleRepository.save(role);
+
+        RoleResponse roleResponse = new RoleResponse();
+        BeanUtils.copyProperties(savedRole, roleResponse);
+
+        List<PrivilegeResponse> privilegeResponses = savedRole.getPrivileges().stream()
+                .map(privilege -> {
+                    PrivilegeResponse privilegeResponse = new PrivilegeResponse();
+                    privilegeResponse.setPrivilegeUuid(privilege.getPrivilegeUuid());
+                    privilegeResponse.setPrivilegeName(privilege.getPrivilegeName());
+                    privilegeResponse.setPrivilegeDescription(privilege.getPrivilegeDescription());
+                    privilegeResponse.setPrivilegeCategory(privilege.getPrivilegeCategory());
+                    return privilegeResponse;
+                })
+                .collect(Collectors.toList());
+
+        roleResponse.setPrivilegeList(privilegeResponses);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(roleResponse);
     }
 
     @Override
     public RoleResponse getRoleByUuid(String roleUuid) {
+
+        Role role = roleRepository.findByRoleUuid(roleUuid);
+
+        if (role == null) {
+            throw new RuntimeException("Role not found with UUID: " + roleUuid);
+        }
+
         var response = new RoleResponse();
 
-        Optional<Role> role = Optional.ofNullable(roleRepository.findByRoleUuid(roleUuid)
-                .orElse(null));
+        BeanUtils.copyProperties(role, response);
 
-        BeanUtils.copyProperties(role.get(), response);
+        // Map privileges to privilege responses
         response.setPrivilegeList(
-                role.get().getPrivileges().stream()
-                        .map(privilege -> new PrivilegeResponse(privilege.getPrivilegeUuid(), privilege.getPrivilegeName(), privilege.getPrivilegeDescription(), privilege.getPrivilegeCategory())
-                        ).collect(Collectors.toList())
+                role.getPrivileges().stream()
+                        .map(privilege -> new PrivilegeResponse(
+                                privilege.getPrivilegeUuid(),
+                                privilege.getPrivilegeName(),
+                                privilege.getPrivilegeDescription(),
+                                privilege.getPrivilegeCategory())
+                        )
+                        .collect(Collectors.toList())
         );
 
         return response;
@@ -79,12 +103,16 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public ResponseEntity<?> deleteRole(String roleUuid) {
-        roleRepository.delete(
-                roleRepository.findByRoleUuid(roleUuid)
-                        .orElseThrow(() -> new BadRequestException("Can't find Role With The Provided Id"))
-        );
 
-        return ResponseEntity.ok("Role Removed Successfully");
+        Role role = roleRepository.findByRoleUuid(roleUuid);
+
+        if (role == null) {
+            throw new BadRequestException("Can't find Role with the provided ID");
+        }
+
+        roleRepository.delete(role);
+
+        return ResponseEntity.ok("Role removed successfully");
     }
 
     private List<RoleResponse> getAllWithOutSearch(Pageable pageable) {
@@ -109,7 +137,11 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public ResponseEntity<?> updateRole(String roleUuid, RoleRequest roleUpdateRequest) {
-        Role role = roleRepository.findByRoleUuid(roleUuid).orElseThrow(() -> new BadRequestException("Can't find Role for Update"));
+        Role role = roleRepository.findByRoleUuid(roleUuid);
+        if (role == null){
+            throw new  BadRequestException("Can't find Role for Update");
+        }
+
         BeanUtils.copyProperties(roleUpdateRequest, role);
 
         role.getPrivileges().clear();

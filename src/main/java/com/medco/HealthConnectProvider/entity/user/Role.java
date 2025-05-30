@@ -37,10 +37,6 @@ public class Role {
     @JsonManagedReference
     private List<Privilege> privileges;
 
-    private String isDeleted;
-    private Date createdDate;
-    private Date lastModifiedDate;
-    private String createdBy;
-    private String lastModifiedBy;
+    private String payerUuid;
 
 }

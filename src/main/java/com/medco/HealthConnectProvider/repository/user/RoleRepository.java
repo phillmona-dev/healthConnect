@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface RoleRepository extends JpaRepository<Role, Long> {
-    Optional<Role> findByRoleUuid(String roleUuid);
+    Role findByRoleUuid(String roleUuid);
 
     List<Role> findAllByRoleNameContaining(String search, Pageable pageable);
 }

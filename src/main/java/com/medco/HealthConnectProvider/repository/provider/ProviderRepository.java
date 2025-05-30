@@ -1,0 +1,53 @@
+package com.medco.HealthConnectProvider.repository.provider;
+
+import com.medco.HealthConnectProvider.entity.providers.Provider;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface ProviderRepository extends JpaRepository<Provider, Long> {
+    boolean existsByTelephone(String telephone);
+
+    boolean existsByEmail(String email);
+
+    boolean existsByProviderName(String name);
+
+    Optional<Provider> findByProviderUuid(String providerUuid);
+
+    List<Provider> findAllByProviderName(String name);
+
+    Page<Provider> findAllByProviderNameContaining(String searchKey, Pageable pageRequest);
+
+    /**
+     * Find providers that are not in contract with a specific payer
+     *
+     * @param payerUuid UUID of the payer
+     * @param pageable Pagination information
+     * @return Page of Provider entities
+     */
+    @Query("SELECT p FROM Provider p WHERE p.isDeleted = false AND p.providerUuid NOT IN " +
+            "(SELECT ch.provider.providerUuid FROM ContractHeader ch WHERE ch.payer.payerUuid = :payerUuid AND ch.isDeleted = false)")
+    Page<Provider> findAvailableProvidersForPayer(@Param("payerUuid") String payerUuid, Pageable pageable);
+
+    /**
+     * Find providers that are not in contract with a specific payer, filtered by name
+     *
+     * @param payerUuid UUID of the payer
+     * @param searchKey Search term for filtering by provider name
+     * @param pageable Pagination information
+     * @return Page of Provider entities
+     */
+    @Query("SELECT p FROM Provider p WHERE p.isDeleted = false AND p.providerName LIKE %:searchKey% AND p.providerUuid NOT IN " +
+            "(SELECT ch.provider.providerUuid FROM ContractHeader ch WHERE ch.payer.payerUuid = :payerUuid AND ch.isDeleted = false)")
+    Page<Provider> findAvailableProvidersForPayerWithSearch(
+            @Param("payerUuid") String payerUuid,
+            @Param("searchKey") String searchKey,
+            Pageable pageable);
+}
