@@ -1,7 +1,7 @@
 package com.medco.HealthConnectProvider.entity.providers;
 
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
-import com.medco.HealthConnectProvider.entity.services.Service;
+import com.medco.HealthConnectProvider.entity.services.Servicelist;
 import com.medco.HealthConnectProvider.shared.Audit;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
@@ -65,7 +65,7 @@ public class Provider extends Audit implements Serializable {
     private Set<ContractHeader> contractHeaders = new HashSet<>();
 
     @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Service> serviceLists = new ArrayList<>();
+    private List<Servicelist> servicelistLists = new ArrayList<>();
 
     @NotBlank
     @Size(min = 3, max = 50)

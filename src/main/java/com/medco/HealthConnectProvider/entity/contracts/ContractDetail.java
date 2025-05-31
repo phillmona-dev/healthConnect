@@ -3,7 +3,7 @@ package com.medco.HealthConnectProvider.entity.contracts;
 import com.medco.HealthConnectProvider.entity.groups.ContractDetailEmployeeGroup;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.services.ProvidedService;
-import com.medco.HealthConnectProvider.entity.services.Service;
+import com.medco.HealthConnectProvider.entity.services.Servicelist;
 import com.medco.HealthConnectProvider.shared.Audit;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.Entity;
@@ -73,7 +73,7 @@ public class ContractDetail extends Audit implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "service_id")
     @JsonBackReference(value = "service-details")
-    private Service service;
+    private Servicelist servicelist;
 
     // Many-to-Many relationship with EmployeeDependantGroup
     @ManyToMany

@@ -59,17 +59,27 @@ public class ContractHeader extends Audit implements Serializable {
 
     private String contractCode;
 
-    // Many-to-One relationship with Payer
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payer_id")
     private Payer payer;
 
-    // Many-to-One relationship with Provider
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "provider_id")
     private Provider provider;
 
-    // One-to-Many relationship with ContractDetail
+    @Temporal(TemporalType.DATE)
+    private Date terminationDate;
+
+    private String terminationReason;
+
+    @Column(columnDefinition = "TEXT")
+    private String terminationNotes;
+
+    private String terminatedBy;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date terminationRequestDate;
+
     @OneToMany(mappedBy = "contractHeader", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ContractDetail> contractDetails = new ArrayList<>();

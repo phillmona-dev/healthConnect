@@ -7,6 +7,7 @@ import com.medco.HealthConnectProvider.entity.groups.ContractDetailEmployeeGroup
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
+import com.medco.HealthConnectProvider.entity.services.Servicelist;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.contract.ContractDetailRepository;
@@ -15,15 +16,20 @@ import com.medco.HealthConnectProvider.repository.group.ContractDetailEmployeeGr
 import com.medco.HealthConnectProvider.repository.group.EmployeeDependantGroupRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
-import com.medco.HealthConnectProvider.repository.service.ServiceRepository;
+import com.medco.HealthConnectProvider.repository.service.ServicelistRepository;
 import com.medco.HealthConnectProvider.services.contract.ContractService;
+import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractDetailRequest;
+import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractRenewalRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractRequest;
+import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractTerminationRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractServiceGroupAssignmentRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
+import com.medco.HealthConnectProvider.ui.response.contracts.ContractDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractListPayerResponse;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractResponse;
+import com.medco.HealthConnectProvider.ui.response.groups.EmployeeGroupResponse;
 import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.service.ServiceResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
@@ -45,6 +51,7 @@ import org.json.JSONObject;
 
 import jakarta.validation.Valid;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -58,7 +65,7 @@ public class ContractServiceImpl implements ContractService {
 
     private final ContractRepository contractRepository;
     private final ProviderRepository providerRepository;
-    private final ServiceRepository serviceRepository;
+    private final ServicelistRepository servicelistRepository;
     private final PayerRepository payerRepository;
     private final ContractDetailRepository contractDetailRepository;
     private final EmployeeDependantGroupRepository employeeDependantGroupRepository;
@@ -70,12 +77,12 @@ public class ContractServiceImpl implements ContractService {
     @Value("${provider.HostDomain}")
     private String providerHostDomain;
 
-    public ContractServiceImpl(ContractRepository contractRepository, ProviderRepository providerRepository, ServiceRepository serviceRepository, PayerRepository payerRepository, ContractDetailRepository contractDetailRepository, EmployeeDependantGroupRepository employeeDependantGroupRepository, ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository) {
+    public ContractServiceImpl(ContractRepository contractRepository, ProviderRepository providerRepository, ServicelistRepository servicelistRepository, PayerRepository payerRepository, ContractDetailRepository contractDetailRepository, EmployeeDependantGroupRepository employeeDependantGroupRepository, ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository) {
         this.contractRepository = contractRepository;
 
 
         this.providerRepository = providerRepository;
-        this.serviceRepository = serviceRepository;
+        this.servicelistRepository = servicelistRepository;
         this.payerRepository = payerRepository;
         this.contractDetailRepository = contractDetailRepository;
         this.employeeDependantGroupRepository = employeeDependantGroupRepository;
@@ -145,7 +152,7 @@ public class ContractServiceImpl implements ContractService {
         UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getInstitutionUuid();
 //		List <Contract> payerProviderContractList =contractRepository.findByInstitutionInstitutionUuidAndStatusAndIsDeleted(payerUuid,status,false,pageable);
-        List <ContractHeader> payerProviderContractList = (List<ContractHeader>) contractRepository.findByProviderProviderUuidAndStatusAndIsDeleted("c403bb86-a9f3-4429-abe7-d61dd1a07f66",status,false,pageable);
+        List<ContractHeader> payerProviderContractList = (List<ContractHeader>) contractRepository.findByProviderProviderUuidAndStatusAndIsDeleted("c403bb86-a9f3-4429-abe7-d61dd1a07f66", status, false, pageable);
 //		return contractListRepository.findPayerProvidersContractAll(payerUuid, searchKey, page, limit, status);
         return getContractListPayerResponse(payerProviderContractList);
     }
@@ -153,8 +160,8 @@ public class ContractServiceImpl implements ContractService {
 
     private List<ContractListPayerResponse> getContractListPayerResponse(List<ContractHeader> payerProviderContractList) {
         return payerProviderContractList.stream().map(contract -> {
-            ContractListPayerResponse contractListPayerResponse=new ContractListPayerResponse();
-            BeanUtils.copyProperties(contract,contractListPayerResponse);
+            ContractListPayerResponse contractListPayerResponse = new ContractListPayerResponse();
+            BeanUtils.copyProperties(contract, contractListPayerResponse);
             contractListPayerResponse.setProviderName(contract.getProvider().getProviderName());
             contractListPayerResponse.setProviderPhone(contract.getProvider().getTelephone());
             contractListPayerResponse.setProviderUuid(contract.getProvider().getProviderUuid());
@@ -331,9 +338,9 @@ public class ContractServiceImpl implements ContractService {
     @Override
     public ResponseEntity<?> payerAgreementResponse(String payerProviderContractUuid, String status, String remark) {
         ContractHeader contract = contractRepository.findByContractHeaderUuid(payerProviderContractUuid);
-         if (contract==null){
-             throw new ResourceNotFoundException("Payer Provider Contract", "contractUuid", payerProviderContractUuid);
-         }
+        if (contract == null) {
+            throw new ResourceNotFoundException("Payer Provider Contract", "contractUuid", payerProviderContractUuid);
+        }
         contract.setStatus(Status.valueOf(status));
         contract.setRemark(remark);
         contractRepository.save(contract);
@@ -391,11 +398,11 @@ public class ContractServiceImpl implements ContractService {
         }
 
         // Find services for this provider
-        Page<com.medco.HealthConnectProvider.entity.services.Service> services;
+        Page<Servicelist> services;
         if (searchKey != null && !searchKey.isEmpty()) {
-            services = serviceRepository.findByProviderAndNameContaining(provider, searchKey, pageable);
+            services = servicelistRepository.findByProviderAndNameContaining(provider, searchKey, pageable);
         } else {
-            services = serviceRepository.findByProvider(provider, pageable);
+            services = servicelistRepository.findByProvider(provider, pageable);
         }
 
         // Map to response DTOs
@@ -510,6 +517,423 @@ public class ContractServiceImpl implements ContractService {
         }
 
         return ResponseEntity.ok(new MessageResponse("Created " + assignmentCount + " service-group assignments"));
+    }
+
+
+    //Filmon
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> addServiceToContract(String contractUuid, @Valid ContractDetailRequest detailRequest) {
+        // Validate contract exists and belongs to the payer
+        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getInstitutionUuid();
+
+        ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
+        if (contract == null) {
+            throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
+        }
+
+        if (!contract.getPayer().getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("Contract does not belong to this payer");
+        }
+
+        // Check if service already exists in contract
+        boolean serviceExists = contractDetailRepository.existsByContractHeaderContractHeaderUuidAndServicelistServiceUuid(
+                contractUuid, detailRequest.getServiceUuid());
+        if (serviceExists) {
+            throw new BadRequestException("Service already exists in this contract");
+        }
+
+        // Get service
+        Servicelist service = servicelistRepository.findByServiceUuid(detailRequest.getServiceUuid())
+                .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceUuid", detailRequest.getServiceUuid()));
+
+        // Create contract detail
+        ContractDetail contractDetail = new ContractDetail();
+        contractDetail.setContractHeader(contract);
+        contractDetail.setServicelist(service);
+        contractDetail.setContractHeaderUuid(contractUuid);
+        contractDetail.setServiceUuid(detailRequest.getServiceUuid());
+        contractDetail.setNegotiatedPrice(detailRequest.getNegotiatedPrice());
+        contractDetail.setStatus(Status.PENDING);
+
+        // Save contract detail
+        contractDetail = contractDetailRepository.save(contractDetail);
+
+        // Add employee groups if provided
+        if (detailRequest.getEmployeeGroupUuids() != null && !detailRequest.getEmployeeGroupUuids().isEmpty()) {
+            for (String groupUuid : detailRequest.getEmployeeGroupUuids()) {
+                EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
+                if (group != null) {
+                    contractDetail.addEmployeeDependantGroup(group);
+                }
+            }
+            contractDetailRepository.save(contractDetail);
+        }
+
+        return ResponseEntity.ok(new MessageResponse("Service added to contract successfully"));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> updateContractDetail(String contractDetailUuid, @Valid ContractDetailRequest detailRequest) {
+        // Validate contract detail exists
+        ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(contractDetailUuid);
+        if (contractDetail == null) {
+            throw new ResourceNotFoundException("Contract Detail", "contractDetailUuid", contractDetailUuid);
+        }
+
+        // Validate user has access to this contract
+        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getInstitutionUuid();
+
+        if (!contractDetail.getContractHeader().getPayer().getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("Contract does not belong to this payer");
+        }
+
+        // Update negotiated price
+        contractDetail.setNegotiatedPrice(detailRequest.getNegotiatedPrice());
+
+        // Update service if changed
+        if (!contractDetail.getServiceUuid().equals(detailRequest.getServiceUuid())) {
+            Servicelist service = servicelistRepository.findByServiceUuid(detailRequest.getServiceUuid())
+                    .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceUuid", detailRequest.getServiceUuid()));
+
+            contractDetail.setServicelist(service);
+            contractDetail.setServiceUuid(detailRequest.getServiceUuid());
+        }
+
+        // Update employee groups
+        if (detailRequest.getEmployeeGroupUuids() != null) {
+            // Clear existing groups
+            contractDetail.getEmployeeDependantGroups().clear();
+
+            // Add new groups
+            for (String groupUuid : detailRequest.getEmployeeGroupUuids()) {
+                EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
+                if (group != null) {
+                    contractDetail.addEmployeeDependantGroup(group);
+                }
+            }
+        }
+
+        contractDetailRepository.save(contractDetail);
+        return ResponseEntity.ok(new MessageResponse("Contract detail updated successfully"));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> removeServiceFromContract(String contractDetailUuid) {
+        // Validate contract detail exists
+        ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(contractDetailUuid);
+        if (contractDetail == null) {
+            throw new ResourceNotFoundException("Contract Detail", "contractDetailUuid", contractDetailUuid);
+        }
+
+        // Validate user has access to this contract
+        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getInstitutionUuid();
+
+        if (!contractDetail.getContractHeader().getPayer().getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("Contract does not belong to this payer");
+        }
+
+        // Soft delete the contract detail
+        contractDetail.setDeleted(true);
+        contractDetailRepository.save(contractDetail);
+
+        return ResponseEntity.ok(new MessageResponse("Service removed from contract successfully"));
+    }
+
+    @Override
+    public List<ContractDetailResponse> getContractDetails(String contractUuid, Pageable pageable) {
+        // Validate contract exists
+        ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
+        if (contract == null) {
+            throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
+        }
+
+        // Get contract details
+        List<ContractDetail> details = contractDetailRepository.findByContractHeaderContractHeaderUuid(contractUuid);
+
+        // Map to response DTOs
+        return details.stream().map(detail -> {
+            ContractDetailResponse response = new ContractDetailResponse();
+            response.setContractDetailUuid(detail.getContractDetailUuid());
+            response.setServiceUuid(detail.getServiceUuid());
+            response.setServiceName(detail.getServicelist().getServiceName());
+            response.setServiceCode(detail.getServicelist().getServiceCode());
+            response.setServiceCategory(detail.getServicelist().getServiceCategory());
+            response.setServiceSubCategory(detail.getServicelist().getServiceSubCategory());
+            response.setNegotiatedPrice(detail.getNegotiatedPrice());
+            response.setDefaultPrice(detail.getServicelist().getDefaultPrice());
+            response.setStatus(detail.getStatus().toString());
+
+            // Map assigned groups
+            response.setAssignedGroups(detail.getEmployeeDependantGroups().stream()
+                    .map(group -> {
+                        EmployeeGroupResponse groupResponse = new EmployeeGroupResponse();
+                        groupResponse.setGroupUuid(group.getGroupUuid());
+                        groupResponse.setGroupName(group.getGroupName());
+                        groupResponse.setGroupDescription(group.getGroupDescription());
+                        groupResponse.setEstimatedMembers(group.getEstimatedMembers());
+                        return groupResponse;
+                    }).collect(Collectors.toList()));
+
+            return response;
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> submitContractForApproval(String contractUuid) {
+        // Validate contract exists
+        ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
+        if (contract == null) {
+            throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
+        }
+
+        // Validate user has access to this contract
+        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getInstitutionUuid();
+
+        if (!contract.getPayer().getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("Contract does not belong to this payer");
+        }
+
+        // Validate contract has details
+        List<ContractDetail> details = contractDetailRepository.findByContractHeaderContractHeaderUuid(contractUuid);
+        if (details.isEmpty()) {
+            throw new BadRequestException("Contract must have at least one service before submission");
+        }
+
+        // Update contract status
+        contract.setStatus(Status.PENDING_APPROVAL);
+        contractRepository.save(contract);
+
+        // TODO: Send notification to approvers
+
+        return ResponseEntity.ok(new MessageResponse("Contract submitted for approval successfully"));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> reviewContract(String contractUuid, String reviewerComments, boolean approved) {
+        // Validate contract exists
+        ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
+        if (contract == null) {
+            throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
+        }
+
+        // Validate contract is in pending approval state
+        if (contract.getStatus() != Status.PENDING_APPROVAL) {
+            throw new BadRequestException("Contract is not pending approval");
+        }
+
+        // Get current user
+        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        String reviewerUuid = userDetails.getUserUuid();
+
+        // Update contract status based on approval decision
+        if (approved) {
+            contract.setStatus(Status.APPROVED);
+            contract.setApprovedBy(reviewerUuid);
+            contract.setApprovalDate(new Date());
+        } else {
+            contract.setStatus(Status.REJECTED);
+            contract.setRemark(reviewerComments);
+        }
+
+        contractRepository.save(contract);
+
+        // TODO: Send notification to contract creator
+
+        return ResponseEntity.ok(new MessageResponse(
+                approved ? "Contract approved successfully" : "Contract rejected"));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> initiateContractRenewal(String contractUuid, @Valid ContractRenewalRequest renewalRequest) {
+        // Validate contract exists
+        ContractHeader originalContract = contractRepository.findByContractHeaderUuid(contractUuid);
+        if (originalContract == null) {
+            throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
+        }
+
+        // Validate user has access to this contract
+        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getInstitutionUuid();
+
+        if (!originalContract.getPayer().getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("Contract does not belong to this payer");
+        }
+
+        // Validate dates
+        if (renewalRequest.getEndDate().isBefore(renewalRequest.getStartDate())) {
+            throw new BadRequestException("End date must be after start date");
+        }
+
+        // Create new contract as a renewal
+        ContractHeader renewalContract = new ContractHeader();
+        renewalContract.setContractName(originalContract.getContractName() + " (Renewal)");
+        renewalContract.setContractDescription(originalContract.getContractDescription());
+        renewalContract.setContractNumber(originalContract.getContractNumber() + "-R");
+        renewalContract.setContractCode(originalContract.getContractCode() + "-R");
+        renewalContract.setStartDate(renewalRequest.getStartDate());
+        renewalContract.setEndDate(renewalRequest.getEndDate());
+        renewalContract.setStatus(Status.DRAFT);
+        renewalContract.setPreparedBy(userDetails.getUserUuid());
+        renewalContract.setPayer(originalContract.getPayer());
+        renewalContract.setProvider(originalContract.getProvider());
+        renewalContract.setRemark(renewalRequest.getRenewalNotes());
+
+        contractRepository.save(renewalContract);
+
+        // Copy contract details if requested
+        if (renewalRequest.isCopyExistingTerms()) {
+            List<ContractDetail> originalDetails = contractDetailRepository.findByContractHeaderContractHeaderUuid(contractUuid);
+
+            for (ContractDetail originalDetail : originalDetails) {
+                ContractDetail newDetail = new ContractDetail();
+                newDetail.setContractHeader(renewalContract);
+                newDetail.setServicelist(originalDetail.getServicelist());
+                newDetail.setContractHeaderUuid(renewalContract.getContractHeaderUuid());
+                newDetail.setServiceUuid(originalDetail.getServiceUuid());
+                newDetail.setNegotiatedPrice(originalDetail.getNegotiatedPrice());
+                newDetail.setStatus(Status.PENDING);
+
+                ContractDetail savedDetail = contractDetailRepository.save(newDetail);
+
+                // Copy employee group assignments
+                for (EmployeeDependantGroup group : originalDetail.getEmployeeDependantGroups()) {
+                    savedDetail.addEmployeeDependantGroup(group);
+                }
+
+                contractDetailRepository.save(savedDetail);
+            }
+        }
+
+        return ResponseEntity.ok(new MessageResponse("Contract renewal initiated successfully. New contract UUID: "
+                + renewalContract.getContractHeaderUuid()));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> cancelRenewal(String renewalUuid) {
+        // Validate renewal contract exists
+        ContractHeader renewalContract = contractRepository.findByContractHeaderUuid(renewalUuid);
+        if (renewalContract == null) {
+            throw new ResourceNotFoundException("Contract", "renewalUuid", renewalUuid);
+        }
+
+        // Validate user has access to this contract
+        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getInstitutionUuid();
+
+        if (!renewalContract.getPayer().getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("Contract does not belong to this payer");
+        }
+
+        // Validate contract is in draft or pending approval state
+        if (renewalContract.getStatus() != Status.DRAFT && renewalContract.getStatus() != Status.PENDING_APPROVAL) {
+            throw new BadRequestException("Only draft or pending approval contracts can be cancelled");
+        }
+
+        // Delete the renewal contract
+        renewalContract.setDeleted(true);
+        contractRepository.save(renewalContract);
+
+        // Delete associated contract details
+        List<ContractDetail> details = contractDetailRepository.findByContractHeaderContractHeaderUuid(renewalUuid);
+        for (ContractDetail detail : details) {
+            detail.setDeleted(true);
+            contractDetailRepository.save(detail);
+        }
+
+        return ResponseEntity.ok(new MessageResponse("Contract renewal cancelled successfully"));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> terminateContract(String contractUuid, ContractTerminationRequest terminationRequest) {
+        // Validate contract exists
+        ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
+        if (contract == null) {
+            throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
+        }
+
+        // Validate user has access to this contract
+        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getInstitutionUuid();
+
+        if (!contract.getPayer().getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("Contract does not belong to this payer");
+        }
+
+        // Validate contract is active
+        if (contract.getStatus() != Status.ACTIVE) {
+            throw new BadRequestException("Only active contracts can be terminated");
+        }
+
+        // Validate termination date
+        LocalDate today = LocalDate.now();
+        if (terminationRequest.getTerminationDate().isBefore(today)) {
+            throw new BadRequestException("Termination date cannot be in the past");
+        }
+
+        // Update contract status and termination details
+        contract.setStatus(Status.TERMINATION_PENDING);
+        contract.setTerminationDate(Date.from(terminationRequest.getTerminationDate()
+                .atStartOfDay(ZoneId.systemDefault()).toInstant()));
+        contract.setTerminationReason(terminationRequest.getTerminationReason());
+        contract.setTerminationNotes(terminationRequest.getAdditionalNotes());
+        contract.setTerminatedBy(userDetails.getUserUuid());
+        contract.setTerminationRequestDate(new Date());
+
+        contractRepository.save(contract);
+
+        // TODO: Send notification to provider about termination
+
+        return ResponseEntity.ok(new MessageResponse("Contract termination request submitted successfully"));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> withdrawTermination(String contractUuid) {
+        // Validate contract exists
+        ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
+        if (contract == null) {
+            throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
+        }
+
+        // Validate user has access to this contract
+        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getInstitutionUuid();
+
+        if (!contract.getPayer().getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("Contract does not belong to this payer");
+        }
+
+        // Validate contract is in termination pending state
+        if (contract.getStatus() != Status.TERMINATION_PENDING) {
+            throw new BadRequestException("Only contracts with pending termination can have termination withdrawn");
+        }
+
+        // Reset termination details
+        contract.setStatus(Status.ACTIVE);
+        contract.setTerminationDate(null);
+        contract.setTerminationReason(null);
+        contract.setTerminationNotes(null);
+        contract.setTerminatedBy(null);
+        contract.setTerminationRequestDate(null);
+
+        contractRepository.save(contract);
+
+        // TODO: Send notification to provider about termination withdrawal
+
+        return ResponseEntity.ok(new MessageResponse("Contract termination request withdrawn successfully"));
     }
 
 }

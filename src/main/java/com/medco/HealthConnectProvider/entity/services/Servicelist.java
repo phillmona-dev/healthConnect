@@ -20,7 +20,7 @@ import java.util.List;
 @Builder
 @Entity
 @Table(name = "services")
-public class Service extends Audit implements Serializable {
+public class Servicelist extends Audit implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -40,6 +40,7 @@ public class Service extends Audit implements Serializable {
     private String serviceDescription;
 
     private String serviceCategory;
+    private String serviceSubCategory;
 
     @Column(precision = 19, scale = 2)
     private BigDecimal defaultPrice;
@@ -47,13 +48,15 @@ public class Service extends Audit implements Serializable {
     @Enumerated(EnumType.STRING)
     private Status status;
 
+    private Double price;
+
     // Many-to-One relationship with Provider
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "provider_id")
     private Provider provider;
 
     // One-to-Many relationship with ContractDetail
-    @OneToMany(mappedBy = "service", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "servicelist", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ContractDetail> contractDetails = new ArrayList<>();
 
@@ -70,12 +73,12 @@ public class Service extends Audit implements Serializable {
     // Helper methods to maintain bidirectional relationship with ContractDetail
     public void addContractDetail(ContractDetail contractDetail) {
         contractDetails.add(contractDetail);
-        contractDetail.setService(this);
+        contractDetail.setServicelist(this);
     }
 
     public void removeContractDetail(ContractDetail contractDetail) {
         contractDetails.remove(contractDetail);
-        contractDetail.setService(null);
+        contractDetail.setServicelist(null);
     }
 }
 
