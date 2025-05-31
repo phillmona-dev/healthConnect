@@ -12,9 +12,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
-import org.springframework.lang.Contract;
 
 import java.io.Serial;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -26,7 +26,7 @@ import java.util.UUID;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
-public class EmployeeInsured {
+public class Insured implements Serializable {
 
     @Serial
     private static final long serialVersionUID = -8081981920526009965L;
@@ -35,10 +35,10 @@ public class EmployeeInsured {
     private Long id;
 
     @Size(min = 36, max = 40)
-    private String employeeInsuredUuid = UUID.randomUUID().toString();
+    private String insuredUuid = UUID.randomUUID().toString();
 
     @Size(min = 36, max = 40)
-    private String institutionUuid;
+    private String payerUuid;
 
 
     @Size(max = 50)
@@ -62,7 +62,7 @@ public class EmployeeInsured {
 
     @NotBlank(message = "Gender cant be empty")
     @Size( max = 8)
-    private String Gender;
+    private String gender;
 
     @NotNull(message = "birth date can't be empty ")
     private Date birthDate;
@@ -120,39 +120,39 @@ public class EmployeeInsured {
     @Column(columnDefinition = "boolean default false")
     private boolean isDeleted;
 
-    @OneToMany(mappedBy = "employeeInsured", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @OneToMany(mappedBy = "insured", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonManagedReference(value = "employee-insured-groups")
     @Builder.Default
     private List<EmployeeInsuredGroup> employeeInsuredGroups = new ArrayList<>();
 
     public void addEmployeeInsuredGroup(EmployeeInsuredGroup group) {
         employeeInsuredGroups.add(group);
-        group.setEmployeeInsured(this);
-        group.setEmployeeInsuredUuid(this.getEmployeeInsuredUuid());
+        group.setInsured(this);
+        group.setEmployeeInsuredUuid(this.getInsuredUuid());
     }
 
     public void removeEmployeeInsuredGroup(EmployeeInsuredGroup group) {
         employeeInsuredGroups.remove(group);
-        group.setEmployeeInsured(null);
+        group.setInsured(null);
     }
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payer_id")
     private Payer payer;
 
-    @OneToMany(mappedBy = "employeeInsured", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @OneToMany(mappedBy = "insured", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonManagedReference(value = "employee-provided-services")
     @Builder.Default
     private List<ProvidedService> providedServices = new ArrayList<>();
 
     public void addProvidedService(ProvidedService providedService) {
         providedServices.add(providedService);
-        providedService.setEmployeeInsured(this);
+        providedService.setInsured(this);
     }
 
     public void removeProvidedService(ProvidedService providedService) {
         providedServices.remove(providedService);
-        providedService.setEmployeeInsured(null);
+        providedService.setInsured(null);
     }
 
     @OneToMany(mappedBy = "insured", cascade = CascadeType.ALL, orphanRemoval = true)

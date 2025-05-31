@@ -1,7 +1,7 @@
 package com.medco.HealthConnectProvider.entity.groups;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.medco.HealthConnectProvider.entity.persons.EmployeeInsured;
+import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.shared.Audit;
 import jakarta.persistence.*;
 import lombok.*;
@@ -38,7 +38,7 @@ public class EmployeeInsuredGroup extends Audit implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_insured_id")
     @JsonBackReference(value = "employee-insured-groups")
-    private EmployeeInsured employeeInsured;
+    private Insured insured;
 
     // Many-to-One relationship with EmployeeDependantGroup
     @ManyToOne(fetch = FetchType.LAZY)
@@ -49,8 +49,8 @@ public class EmployeeInsuredGroup extends Audit implements Serializable {
     @PrePersist
     public void prePersist() {
         // Synchronize UUIDs if needed
-        if (employeeInsuredUuid == null && employeeInsured != null) {
-            employeeInsuredUuid = employeeInsured.getEmployeeInsuredUuid();
+        if (employeeInsuredUuid == null && insured != null) {
+            employeeInsuredUuid = insured.getInsuredUuid();
         }
 
         if (groupUuid == null && employeeDependantGroup != null) {

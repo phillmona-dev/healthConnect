@@ -4,26 +4,21 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
-import com.medco.HealthConnectProvider.entity.persons.EmployeeInsured;
+import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.shared.Audit;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serial;
 import java.util.Date;
 import java.util.UUID;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Where;
 
-import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
 
@@ -92,7 +87,7 @@ public class ProvidedService extends Audit implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_insured_id")
     @JsonBackReference(value = "employee-provided-services")
-    private EmployeeInsured employeeInsured;
+    private Insured insured;
 
     // Many-to-One relationship with Dependant (optional)
     @ManyToOne(fetch = FetchType.LAZY)

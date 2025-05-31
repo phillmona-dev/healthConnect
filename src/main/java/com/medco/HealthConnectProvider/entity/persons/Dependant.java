@@ -13,6 +13,7 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.io.Serial;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -24,7 +25,7 @@ import java.util.UUID;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
-public class Dependant {
+public class Dependant implements Serializable {
 
     @Serial
     private static final long serialVersionUID = -8081981920526009965L;
@@ -54,7 +55,7 @@ public class Dependant {
 
     @NotBlank
     @Size(min = 1, max = 10)
-    private String Gender;
+    private String gender;
     @NotNull
     private Date birthDate;
 
@@ -72,7 +73,7 @@ public class Dependant {
 
     @ManyToOne
     @JoinColumn(name = "insured_uuid", nullable = false)
-    private EmployeeInsured insured;
+    private Insured insured;
 
     @OneToMany(mappedBy = "dependant", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonManagedReference(value = "dependant-provided-services")

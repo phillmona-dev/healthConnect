@@ -2,7 +2,7 @@ package com.medco.HealthConnectProvider.entity.payers;
 
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
-import com.medco.HealthConnectProvider.entity.persons.EmployeeInsured;
+import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.shared.Audit;
 import com.medco.HealthConnectProvider.utils.enums.Status;
@@ -98,7 +98,7 @@ public class Payer extends Audit {
 
     @OneToMany(mappedBy = "payer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private List<EmployeeInsured> employeeInsureds = new ArrayList<>();
+    private List<Insured> insureds = new ArrayList<>();
 
     @OneToMany(mappedBy = "payer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
@@ -127,14 +127,14 @@ public class Payer extends Audit {
         user.setPayer(null);
     }
 
-    public void addEmployeeInsured(EmployeeInsured employeeInsured) {
-        employeeInsureds.add(employeeInsured);
-        employeeInsured.setPayer(this);
+    public void addEmployeeInsured(Insured insured) {
+        insureds.add(insured);
+        insured.setPayer(this);
     }
 
-    public void removeEmployeeInsured(EmployeeInsured employeeInsured) {
-        employeeInsureds.remove(employeeInsured);
-        employeeInsured.setPayer(null);
+    public void removeEmployeeInsured(Insured insured) {
+        insureds.remove(insured);
+        insured.setPayer(null);
     }
 
     public void addEmployeeDependantGroup(EmployeeDependantGroup group) {

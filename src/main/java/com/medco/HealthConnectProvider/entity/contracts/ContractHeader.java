@@ -1,7 +1,7 @@
 package com.medco.HealthConnectProvider.entity.contracts;
 
 import com.medco.HealthConnectProvider.entity.payers.Payer;
-import com.medco.HealthConnectProvider.entity.persons.EmployeeInsured;
+import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.shared.Audit;
 import com.medco.HealthConnectProvider.utils.enums.Status;
@@ -91,15 +91,15 @@ public class ContractHeader extends Audit implements Serializable {
             inverseJoinColumns = @JoinColumn(name = "employee_insured_id")
     )
     @Builder.Default
-    private List<EmployeeInsured> insured = new ArrayList<>();
+    private List<Insured> insured = new ArrayList<>();
 
     // Helper methods for the relationship
-    public void addInsured(EmployeeInsured employee) {
+    public void addInsured(Insured employee) {
         insured.add(employee);
         employee.getContracts().add(this);
     }
 
-    public void removeInsured(EmployeeInsured employee) {
+    public void removeInsured(Insured employee) {
         insured.remove(employee);
         employee.getContracts().remove(this);
     }

@@ -34,7 +34,7 @@ public interface ProviderRepository extends JpaRepository<Provider, Long> {
      */
     @Query("SELECT p FROM Provider p WHERE p.isDeleted = false AND p.providerUuid NOT IN " +
             "(SELECT ch.provider.providerUuid FROM ContractHeader ch WHERE ch.payer.payerUuid = :payerUuid AND ch.isDeleted = false)")
-    Page<Provider> findAvailableProvidersForPayer(@Param("payerUuid") String payerUuid, Pageable pageable);
+    Page<Provider> findAvailableProvidersForPayerNotInContract(@Param("payerUuid") String payerUuid, Pageable pageable);
 
     /**
      * Find providers that are not in contract with a specific payer, filtered by name
@@ -49,5 +49,21 @@ public interface ProviderRepository extends JpaRepository<Provider, Long> {
     Page<Provider> findAvailableProvidersForPayerWithSearch(
             @Param("payerUuid") String payerUuid,
             @Param("searchKey") String searchKey,
+            Pageable pageable);
+
+
+    @Query("SELECT p FROM Provider p WHERE p.isDeleted = false " +
+            "AND p.status = 'ACTIVE' " +
+            "AND (p.providerName LIKE %:search% OR p.email LIKE %:search% OR p.telephone LIKE %:search%) " +
+            "AND p.providerUuid NOT IN (" +
+            "    SELECT c.provider.providerUuid FROM ContractHeader c " +
+            "    WHERE c.payer.payerUuid = :payerUuid " +
+            "    AND c.status = :status " +
+            "    AND c.isDeleted = false" +
+            ")")
+    Page<Provider> findAvailableProvidersForPayer(
+            @Param("payerUuid") String payerUuid,
+            @Param("search") String search,
+            @Param("status") String status,
             Pageable pageable);
 }

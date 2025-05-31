@@ -1,6 +1,8 @@
 package com.medco.HealthConnectProvider.services.contract;
 
 import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractRequest;
+import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractServiceGroupAssignmentRequest;
+import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractListPayerResponse;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
@@ -26,4 +28,11 @@ public interface ContractService {
     List<ContractListPayerResponse> getPayerProvidersContractLists(String searchKey, Pageable pageable, String status);
 
     List<ContractListPayerResponse> getProvidersContractLists(String providerUuid, String searchKey, int page, int limit, Status status);
+
+    //Filmon
+
+    ResponseEntity<?> getAvailableProvidersForContract(String searchKey, Pageable pageable);
+    ResponseEntity<?> getAvailableServicesForProvider(String providerUuid, String searchKey, Pageable pageable);
+    ResponseEntity<?> addEmployeeGroupsToContract(String contractUuid, List<EmployeeGroupRequest> groups);
+    ResponseEntity<?> assignServicesToEmployeeGroups(String contractUuid, List<ContractServiceGroupAssignmentRequest> assignments);
 }

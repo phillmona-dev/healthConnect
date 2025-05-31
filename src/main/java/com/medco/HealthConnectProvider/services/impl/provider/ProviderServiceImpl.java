@@ -122,7 +122,7 @@ public class ProviderServiceImpl implements ProviderService {
     }
 
     @Override
-    public List<ProviderResponse> getAvailableProvidersForPayer(String payerUuid, String searchKey, int page, int limit) {
+    public List<ProviderResponse> getAvailableProvidersForPayerNotInContract(String payerUuid, String searchKey, int page, int limit) {
         if (page > 0) {
             page = page - 1;
         }
@@ -136,7 +136,7 @@ public class ProviderServiceImpl implements ProviderService {
             providerPage = providerRepository.findAvailableProvidersForPayerWithSearch(payerUuid, searchKey, pageRequest);
 
         } else {
-            providerPage = providerRepository.findAvailableProvidersForPayer(payerUuid, pageRequest);
+            providerPage = providerRepository.findAvailableProvidersForPayerNotInContract(payerUuid, pageRequest);
         }
 
         List<Provider> providerList = providerPage.getContent();

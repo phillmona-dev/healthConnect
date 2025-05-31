@@ -21,7 +21,7 @@ public interface ProviderService {
 
     ResponseEntity<?> deleteProvider(String providerUuid);
 
-    List<ProviderResponse> getAvailableProvidersForPayer(String payerUuid, String searchKey, int page, int limit);
+    List<ProviderResponse> getAvailableProvidersForPayerNotInContract(String payerUuid, String searchKey, int page, int limit);
 
     List<PayersNameForProviderResponse> getPayersNameForProvider(String providerUuid, String searchKey);
 

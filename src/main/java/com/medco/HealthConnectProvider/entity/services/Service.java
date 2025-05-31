@@ -34,6 +34,8 @@ public class Service extends Audit implements Serializable {
     @Column(nullable = false)
     private String serviceName;
 
+    private String serviceCode;
+
     @Column(columnDefinition = "TEXT")
     private String serviceDescription;
 

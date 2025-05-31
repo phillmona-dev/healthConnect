@@ -56,12 +56,12 @@ public class ProviderController {
 
     //Filmon
     @GetMapping("/payer/available-providers")
-    public List<ProviderResponse> getAvailableProvidersForPayer(
+    public List<ProviderResponse> getAvailableProvidersForPayerNotInContract(
             @RequestParam(value = "payerUuid", required = true) String payerUuid,
             @RequestParam(value = "search", required = false) String searchKey,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "limit", defaultValue = "25") int limit) {
-        return providerService.getAvailableProvidersForPayer(payerUuid, searchKey, page, limit);
+        return providerService.getAvailableProvidersForPayerNotInContract(payerUuid, searchKey, page, limit);
     }
 
 }

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
-import com.medco.HealthConnectProvider.entity.persons.EmployeeInsured;
+import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.shared.Audit;
 import com.medco.HealthConnectProvider.utils.enums.GroupType;
 import com.medco.HealthConnectProvider.utils.enums.Status;
@@ -42,8 +42,11 @@ public class EmployeeDependantGroup extends Audit implements Serializable {
     @Column(nullable = false, unique = true)
     private String groupUuid;
 
+    private String groupName;
+    private Integer estimatedMembers;
+
     @Column
-    private String description;
+    private String groupDescription;
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
@@ -134,11 +137,11 @@ public class EmployeeDependantGroup extends Audit implements Serializable {
     }
 
     // Helper methods for EmployeeInsuredGroup
-    public void addEmployee(EmployeeInsured employee) {
+    public void addEmployee(Insured employee) {
         EmployeeInsuredGroup employeeGroup = EmployeeInsuredGroup.builder()
-                .employeeInsured(employee)
+                .insured(employee)
                 .employeeDependantGroup(this)
-                .employeeInsuredUuid(employee.getEmployeeInsuredUuid())
+                .employeeInsuredUuid(employee.getInsuredUuid())
                 .groupUuid(this.getGroupUuid())
                 .build();
 
@@ -146,14 +149,14 @@ public class EmployeeDependantGroup extends Audit implements Serializable {
         employee.getEmployeeInsuredGroups().add(employeeGroup);
     }
 
-    public void removeEmployee(EmployeeInsured employee) {
+    public void removeEmployee(Insured employee) {
         this.employeeInsuredGroups.stream()
-                .filter(eg -> eg.getEmployeeInsured().equals(employee))
+                .filter(eg -> eg.getInsured().equals(employee))
                 .findFirst()
                 .ifPresent(eg -> {
                     this.employeeInsuredGroups.remove(eg);
                     employee.getEmployeeInsuredGroups().remove(eg);
-                    eg.setEmployeeInsured(null);
+                    eg.setInsured(null);
                     eg.setEmployeeDependantGroup(null);
                 });
     }
