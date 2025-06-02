@@ -103,4 +103,22 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
             @Param("isDeleted") boolean isDeleted,
             Pageable pageable);
 
+    /**
+     * Find active contract between a provider and payer
+     * @param providerUuid UUID of the provider
+     * @param payerUuid UUID of the payer
+     * @param status Status of the contract (should be ACTIVE)
+     * @return The active ContractHeader or null if none exists
+     */
+    @Query("SELECT ch FROM ContractHeader ch " +
+            "WHERE ch.provider.providerUuid = :providerUuid " +
+            "AND ch.payer.payerUuid = :payerUuid " +
+            "AND ch.status = :status " +
+            "AND ch.isDeleted = false " +
+            "AND CURRENT_DATE BETWEEN ch.startDate AND ch.endDate")
+    ContractHeader findActiveContractBetweenProviderAndPayer(
+            @Param("providerUuid") String providerUuid,
+            @Param("payerUuid") String payerUuid,
+            @Param("status") Status status);
+
 }

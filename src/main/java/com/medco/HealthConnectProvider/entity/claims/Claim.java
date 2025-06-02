@@ -1,188 +1,300 @@
 package com.medco.HealthConnectProvider.entity.claims;
 
-import java.io.Serializable;
-import java.time.Instant;
-import java.util.*;
-
+import com.medco.HealthConnectProvider.entity.services.ProvidedService;
 import com.medco.HealthConnectProvider.shared.Audit;
+import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
+import com.medco.HealthConnectProvider.entity.payers.Payer;
+import com.medco.HealthConnectProvider.entity.providers.Provider;
+import com.medco.HealthConnectProvider.entity.persons.Insured;
+import com.medco.HealthConnectProvider.entity.persons.Dependant;
+import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import jakarta.persistence.*;
-import org.hibernate.annotations.ColumnDefault;
-import org.springframework.data.annotation.CreatedDate;
-
-import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Getter
+import java.io.Serial;
+import java.time.Instant;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+
 @Setter
+@Getter
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(
-        name = "claims",
-        indexes = {
-                @Index(name = "idx_claim_uud", columnList = "claimUuid"),
-                @Index(name = "idx_deleted", columnList = "isDeleted"),
-//				@Index(name = "idx_insured_institution", columnList = "institutionUuid")
-        }
-)
-public class Claim  extends Audit implements Serializable {
+@Table(name = "claims")
+public class Claim extends Audit {
 
-    private static final long serialVersionUID = 640850128570066909L;
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Size(min = 36, max = 40)
-    private String claimUuid;
+    @Column(nullable = false, unique = true)
+    private String claimUuid = UUID.randomUUID().toString();
 
-    @Size(min = 36, max = 40)
-    private String payerUuid;
+    @Column(nullable = false, unique = true)
+    private Long claimNumber;
 
-    @Size(max = 40)
-    private String dependantUuid;
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private ClaimStatus status;
 
-    @Size(max = 40)
-    private String insuredPersonUuid;
-
-    @Size(min = 36, max = 40)
+    // Add explicit UUID columns for repository queries
+    @Column(name = "provider_uuid")
     private String providerUuid;
 
-    @Size(min = 36, max = 40)
-    private String contractUuid;
+    @Column(name = "payer_uuid")
+    private String payerUuid;
 
-    @Size(min = 36, max = 50)
+    // Claim details
+    @Column(nullable = false)
     private String mrnNumber;
 
-    private Long tempClaimNumber;
-    private Long claimNumber;
-    @Size( max = 40)
-    private String batchCode;
-    @Size( max = 40)
-    private String claimCode;
-
-    private double totalAmount;
-
-
-    @Size(min = 24, max = 40)
-    private String paymentCode;
-
-    private String relationship;
-
+    @Column(nullable = false)
     private Date visitDate;
 
-    @Size( max = 40)
-    private String preparedByProviderUuid;
-    @Size( max = 40)
-    private String approvedByProviderUuid;
+    @Column(nullable = false)
+    private Double totalAmount;
 
-    private String approvedByPayerUuid;
-
-    @Size(min = 24, max = 40)
-    private String paidByPayerUuid;
-
-    @Column(name = "prepared_by_provider_status")
-    @ColumnDefault("'Pending'")
-    private String preparedByProviderStatus;
-
-    @Column(name = "approved_by_provider_status")
-    @ColumnDefault("'Pending'")
-    private String approvedByProviderStatus;
-
-
-    @Column(name = "approved_by_payer_status", columnDefinition = "VARCHAR(25)")
-    @ColumnDefault("'Pending'")
-    private String approvedByPayerStatus;
-
-    @Column(name = "paid_status", columnDefinition = "VARCHAR(25)")
-    @ColumnDefault("'Pending'")
-    private String paidStatus;
-
-    @Column(name = "payer_status", columnDefinition = "VARCHAR(25)")
-    @ColumnDefault("'Pending'")
-    private String payerStatus;
-
-    @CreatedDate
-    private Instant preparedByProviderDate;
-    private Date approvedByProviderDate;
-    private Date approvedByPayerDate;
-    private Date paidDate;
-
-    @Size(max = 25)
-    private String checkNumber;
-
-    @Size(max = 100)
-    private String fromBank;
-
-    @Size(max = 100)
-    private String toBank;
-
-    @Size(max = 25)
-    private String transactionNumber;
-
-    @Size(max = 500)
     private String providerComment;
 
-    @Size(max = 100)
-    private String insuredPersonName;
+    // Submission information
+    private Date submissionDate;
+    private String submittedByUuid;
+    private String submittedByName;
 
+    // Provider approval information
+    private String preparedByProviderUuid;
+    private String preparedByProviderStatus;
+    private Instant preparedByProviderDate;
 
-    @Size(max = 100)
-    private String dependantFullName;
+    private String approvedByProviderUuid;
+    private String approvedByProviderStatus;
+    private Instant approvedByProviderDate;
 
-    @Size(max = 100)
-    private String insuredPersonPhone;
+    // Payer approval information
+    private String approvedByPayerUuid;
+    private String approvedByPayerStatus;
+    private Instant approvedByPayerDate;
 
+    // Payment information
+    private String paymentRequestedByUuid;
+    private Date paymentRequestedDate;
+    private String paidByPayerUuid;
+    private String paidByPayerName;
+    private Date paidDate;
+    private String paidStatus;
+    private String paymentCode;
+    private String paymentType;
+    private String checkNumber;
+    private String fromBank;
+    private String toBank;
+    private String transactionNumber;
 
-    @Size(max = 100)
-    private String institutionName;
+    // Cancellation information
+    private String cancelledByUuid;
+    private Date cancelledDate;
 
-    @Size(max = 40)
-    private String institutionUuid;
+    // Relationships with other entities
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contract_id")
+    private ContractHeader contract;
 
-    @Size(max = 50)
-    private String ContractCode;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "provider_id")
+    private Provider provider;
 
-    @Size(max = 100)
-    private String institutionPhone;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payer_id")
+    private Payer payer;
 
-    @Size(max = 50)
-    private String institutionInsuranceNumber;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "insured_id")
+    private Insured insuredPerson;
 
-    @Size(max = 25)
-    private String insuranceId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dependant_id")
+    private Dependant dependant;
 
-    @Size(max = 10)
-    private String gender;
-    @Size(max = 10)
-    private String dependantGender;
+    // Child entity relationships
+    @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ClaimAttachment> attachments;
 
-    private Date insuredBirthDate;
-    private Date dependantBirthDate;
+    @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ClaimComment> comments;
 
-    @Size(max = 60)
-    private String approverFullName;
+    @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ClaimLogs> logs;
 
+    @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ClaimPayment> payments;
 
-    @Size(max = 15)
-    private String requestPaymentStatus;
-    @Size(max = 40)
-    private String requestPaymentByUuid;
-    @Size(max = 75)
-    private String requestPaymentByFullName;
+    @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProvidedService> providedServices;
 
-    private Date requestPaymentDate;
+    @PrePersist
+    public void prePersist() {
+        if (submissionDate == null) {
+            submissionDate = Date.from(Instant.now());
+        }
 
-    @Size(max = 60)
-    private String payerApproverFullName;
+        if (status == null) {
+            status = ClaimStatus.SUBMITTED;
+        }
 
-    @Size(max = 60)
-    private String paidByFullName;
+        if (claimUuid == null) {
+            claimUuid = UUID.randomUUID().toString();
+        }
 
-    @Column(columnDefinition = "boolean default false")
-    private boolean isDeleted;
+        // Set the UUID fields from the related entities if they're not already set
+        if (providerUuid == null && provider != null) {
+            providerUuid = provider.getProviderUuid();
+        }
 
+        if (payerUuid == null && payer != null) {
+            payerUuid = payer.getPayerUuid();
+        }
+    }
+
+    // Helper methods to get related entity UUIDs
+    public String getContractUuid() {
+        return contract != null ? contract.getContractHeaderUuid() : null;
+    }
+
+    public String getProviderUuid() {
+        return provider != null ? provider.getProviderUuid() : providerUuid;
+    }
+
+    public String getPayerUuid() {
+        return payer != null ? payer.getPayerUuid() : payerUuid;
+    }
+
+    public String getInsuredPersonUuid() {
+        return insuredPerson != null ? insuredPerson.getInsuredUuid() : null;
+    }
+
+    public String getDependantUuid() {
+        return dependant != null ? dependant.getDependantUuid() : null;
+    }
+
+    // Helper methods to get related entity names/details
+    public String getContractName() {
+        return contract != null ? contract.getContractName() : null;
+    }
+
+    public String getContractCode() {
+        return contract != null ? contract.getContractCode() : null;
+    }
+
+    public String getProviderName() {
+        return provider != null ? provider.getProviderName() : null;
+    }
+
+    public String getProviderCode() {
+        return provider != null ? provider.getProviderCode() : null;
+    }
+
+    public String getPayerName() {
+        return payer != null ? payer.getPayerName() : null;
+    }
+
+    public String getPayerCode() {
+        return payer != null ? payer.getPayerCode() : null;
+    }
+
+    public String getInsuredPersonName() {
+        return insuredPerson != null ? insuredPerson.getFirstName() + " " + insuredPerson.getFatherName() : null;
+    }
+
+    public String getInsuredPersonCode() {
+        return insuredPerson != null ? insuredPerson.getInsuranceId() : null;
+    }
+
+    public String getInsuredPersonPhone() {
+        return insuredPerson != null ? insuredPerson.getPhone() : null;
+    }
+
+    public String getInsuredPersonGender() {
+        return insuredPerson != null ? insuredPerson.getGender() : null;
+    }
+
+    public Date getInsuredBirthDate() {
+        return insuredPerson != null ? insuredPerson.getBirthDate() : null;
+    }
+
+    public String getDependantFullName() {
+        return dependant != null ? dependant.getFirstName() + " " + dependant.getFatherName() : null;
+    }
+
+    public String getDependantRelationship() {
+        return dependant != null ? dependant.getRelationship().toString() : null;
+    }
+
+    public String getDependantGender() {
+        return dependant != null ? dependant.getGender() : null;
+    }
+
+    public Date getDependantBirthDate() {
+        return dependant != null ? dependant.getBirthDate() : null;
+    }
+
+    // Helper methods for bidirectional relationship management
+    public void addAttachment(ClaimAttachment attachment) {
+        attachments.add(attachment);
+        attachment.setClaim(this);
+    }
+
+    public void removeAttachment(ClaimAttachment attachment) {
+        attachments.remove(attachment);
+        attachment.setClaim(null);
+    }
+
+    public void addComment(ClaimComment comment) {
+        comments.add(comment);
+        comment.setClaim(this);
+    }
+
+    public void removeComment(ClaimComment comment) {
+        comments.remove(comment);
+        comment.setClaim(null);
+    }
+
+    public void addLog(ClaimLogs log) {
+        logs.add(log);
+        log.setClaim(this);
+        log.setClaimUuid(this.claimUuid);
+    }
+
+    public void removeLog(ClaimLogs log) {
+        logs.remove(log);
+        log.setClaim(null);
+    }
+
+    public void addPayment(ClaimPayment payment) {
+        payments.add(payment);
+        payment.setClaim(this);
+    }
+
+    public void removePayment(ClaimPayment payment) {
+        payments.remove(payment);
+        payment.setClaim(null);
+    }
+
+    public void addProvidedService(ProvidedService service) {
+        providedServices.add(service);
+        service.setClaim(this);
+        service.setClaimUuid(this.claimUuid);
+    }
+
+    public void removeProvidedService(ProvidedService service) {
+        providedServices.remove(service);
+        service.setClaim(null);
+        service.setClaimUuid(null);
+    }
 }

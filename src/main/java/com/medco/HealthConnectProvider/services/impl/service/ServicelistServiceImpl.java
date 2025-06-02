@@ -2,6 +2,9 @@ package com.medco.HealthConnectProvider.services.impl.service;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -35,39 +38,104 @@ import com.medco.HealthConnectProvider.entity.services.Servicelist;
 @Service
 public class ServicelistServiceImpl implements ServicelistService {
 
-    @Value("${rabbitmq.services.exchange}")
+    @Value("${rabbitmq.services.exchange:service-exchange}")
     private String serviceExchange;
 
-    @Value("${rabbitmq.services.routingkey}")
+    @Value("${rabbitmq.services.routingkey:services_routingkey}")
     private String serviceKey;
 
-    @Autowired
-    private ServicelistRepository servicelistRepository;
+    private final ServicelistRepository servicelistRepository;
+    private final ProviderRepository providerRepository;
 
-    @Autowired
-    private ProviderRepository providerRepository;
-
-    @Autowired
+    // Make RabbitTemplate optional
+    @Autowired(required = false)
     private RabbitTemplate template;
 
+    @Autowired
+    public ServicelistServiceImpl(
+            ServicelistRepository servicelistRepository,
+            ProviderRepository providerRepository) {
+        this.servicelistRepository = servicelistRepository;
+        this.providerRepository = providerRepository;
+    }
 
     @Override
-    public ResponseEntity<?> createService(String providerUuid , ServicelistRequest serviceRequest) {
-
+    public ResponseEntity<ServicelistResponse> createService(String providerUuid, ServicelistRequest serviceRequest) {
         Provider provider = providerRepository.findByProviderUuid(providerUuid)
                 .orElseThrow(() -> new BadRequestException("can't find provider with the provided Id"));
 
         var service = new Servicelist();
         BeanUtils.copyProperties(serviceRequest, service);
+
+        // Explicitly map fields from request to entity
+        service.setServiceCode(serviceRequest.getServiceCode());
+        service.setServiceName(serviceRequest.getServiceName());
+        service.setServiceCategory(serviceRequest.getCategory());
+        service.setServiceSubCategory(serviceRequest.getSubCategory());
+        service.setPrice(BigDecimal.valueOf(serviceRequest.getPrice()));
+        service.setServiceDescription(serviceRequest.getServiceDescription());
+
+        // Set status enum from string
+        if (serviceRequest.getStatus() != null && !serviceRequest.getStatus().isEmpty()) {
+            try {
+                service.setStatus(Status.valueOf(serviceRequest.getStatus().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                service.setStatus(Status.ACTIVE);
+            }
+        } else {
+            service.setStatus(Status.ACTIVE);
+        }
+
         service.setProvider(provider);
 
         var serviceEntity = servicelistRepository.save(service);
 
         var response = new ServicelistResponse();
-        BeanUtils.copyProperties(serviceEntity,response);
-        template.convertAndSend( serviceExchange , serviceKey, "Testing rabbit mq configuration");
 
-        return ResponseEntity.ok("Service Item added successfully!");
+        // Explicitly set all fields in response
+        response.setServiceUuid(serviceEntity.getServiceUuid());
+        response.setServiceCode(serviceEntity.getServiceCode());
+        response.setServiceName(serviceEntity.getServiceName());
+        response.setServiceCategory(serviceEntity.getServiceCategory());
+        response.setServiceSubCategory(serviceEntity.getServiceSubCategory());
+        response.setProviderName(provider.getProviderName());
+
+        // Convert Instant to LocalDateTime for audit fields
+        if (serviceEntity.getCreatedAt() != null) {
+            response.setCreatedAt(LocalDateTime.ofInstant(serviceEntity.getCreatedAt(), ZoneId.systemDefault()));
+        }
+
+        if (serviceEntity.getUpdatedAt() != null) {
+            response.setUpdatedAt(LocalDateTime.ofInstant(serviceEntity.getUpdatedAt(), ZoneId.systemDefault()));
+        }
+
+        // Handle price - use either price or defaultPrice
+        if (serviceEntity.getPrice() != null) {
+            response.setPrice(serviceEntity.getPrice());
+        } else if (serviceEntity.getDefaultPrice() != null) {
+            response.setPrice(BigDecimal.valueOf(serviceEntity.getDefaultPrice().doubleValue()));
+        } else {
+            response.setPrice(BigDecimal.valueOf(0.0));
+        }
+
+        // Set status as string
+        if (serviceEntity.getStatus() != null) {
+            response.setStatus(serviceEntity.getStatus().toString());
+        } else {
+            response.setStatus("ACTIVE"); // Default status
+        }
+
+        // Only send message if RabbitTemplate is available
+        if (template != null) {
+            try {
+                template.convertAndSend(serviceExchange, serviceKey, "Testing rabbit mq configuration");
+            } catch (Exception e) {
+                // Log the error but don't fail the operation
+                System.err.println("Failed to send message to RabbitMQ: " + e.getMessage());
+            }
+        }
+
+        return ResponseEntity.ok(response);
     }
 
     @Override
@@ -202,7 +270,7 @@ public class ServicelistServiceImpl implements ServicelistService {
                 serPriceCell.setCellStyle(cellStyle);
                 // Handle both price fields
                 if (service.getPrice() != null) {
-                    serPriceCell.setCellValue(service.getPrice());
+                    serPriceCell.setCellValue((RichTextString) service.getPrice());
                 } else if (service.getDefaultPrice() != null) {
                     serPriceCell.setCellValue(service.getDefaultPrice().doubleValue());
                 } else {
@@ -254,7 +322,7 @@ public class ServicelistServiceImpl implements ServicelistService {
                 servicelist.setServiceName(row.getCell(1).getStringCellValue());
                 servicelist.setServiceCategory(row.getCell(2).getStringCellValue());
                 servicelist.setServiceSubCategory(row.getCell(3).getStringCellValue());
-                servicelist.setPrice(row.getCell(3).getNumericCellValue());
+                servicelist.setPrice(BigDecimal.valueOf(row.getCell(3).getNumericCellValue()));
                 servicelist.setStatus(Status.valueOf("Active"));
                 servicelistList.add(servicelist);
 

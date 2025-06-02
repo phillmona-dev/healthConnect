@@ -26,7 +26,7 @@ public class EmailServiceImpl implements EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
             helper.setTo(to);
-            helper.setSubject("Welcome to HealthConnect Provider System");
+            helper.setSubject("Welcome to HealthConnect System");
 
             // If loginUrl is not provided, use the default frontend URL
             if (loginUrl == null || loginUrl.isEmpty()) {
@@ -37,7 +37,7 @@ public class EmailServiceImpl implements EmailService {
                     "<html><body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>" +
                             "<div style='max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px;'>" +
                             "<div style='text-align: center; margin-bottom: 20px;'>" +
-                            "<h2 style='color: #0066cc;'>Welcome to HealthConnect Provider System</h2>" +
+                            "<h2 style='color: #0066cc;'>Welcome to HealthConnect System</h2>" +
                             "</div>" +
                             "<p>Dear " + firstName + ",</p>" +
                             "<p>Your account has been created as an administrator for <strong>" + payerName + "</strong>.</p>" +
@@ -54,7 +54,7 @@ public class EmailServiceImpl implements EmailService {
                             "<p style='word-break: break-all;'><a href='" + loginUrl + "'>" + loginUrl + "</a></p>" +
                             "<hr style='border: none; border-top: 1px solid #ddd; margin: 20px 0;'>" +
                             "<p>If you have any questions, please contact our support team.</p>" +
-                            "<p>Best regards,<br/>HealthConnect Provider Team</p>" +
+                            "<p>Best regards,<br/>Medco HealthConnect Team</p>" +
                             "</div></body></html>";
 
             helper.setText(emailContent, true);

@@ -48,7 +48,7 @@ public class Servicelist extends Audit implements Serializable {
     @Enumerated(EnumType.STRING)
     private Status status;
 
-    private Double price;
+    private BigDecimal price;
 
     // Many-to-One relationship with Provider
     @ManyToOne(fetch = FetchType.LAZY)

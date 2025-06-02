@@ -1,48 +1,56 @@
 package com.medco.HealthConnectProvider.entity.claims;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.medco.HealthConnectProvider.shared.Audit;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.io.Serial;
 import java.time.Instant;
+import java.util.UUID;
 
-@Getter
 @Setter
+@Getter
 @NoArgsConstructor
 @AllArgsConstructor
-
 @Entity
-public class ClaimLogs  {
+@Table(name = "claim_logs")
+public class ClaimLogs extends Audit {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true)
+    private String logUuid = UUID.randomUUID().toString();
 
-    @Size(min = 36, max = 40)
+    @Column(nullable = false)
     private String claimUuid;
 
-    @Size(min = 36, max = 40)
+    @ManyToOne
+    @JoinColumn(name = "claim_id", nullable = false)
+    private Claim claim;
+
+    @Column(nullable = false)
     private String actionByUuid;
 
-    @NotBlank
-    @Size(min = 2, max = 500)
-    private String comment;
+    private String actionByName;
 
+    private String actionByRole;
+
+    @Column(nullable = false)
     private Instant actionDate;
 
+    @Column(nullable = false)
     private String actionStatus;
 
     private String previousStatus;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "claimId",referencedColumnName = "id",updatable = false)
-    @JsonBackReference
-    private Claim claim;
-
+    @Column(length = 500)
+    private String comment;
 }

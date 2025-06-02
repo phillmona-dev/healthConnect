@@ -1,30 +1,32 @@
 package com.medco.HealthConnectProvider.ui.request.auth.password.service;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class ServicelistRequest {
 
-    @Size( max = 30)
+    @NotBlank(message = "Service code is required")
     private String serviceCode;
-    @NotBlank
-    @Size( max = 500)
+
+    @NotBlank(message = "Service name is required")
     private String serviceName;
 
-    @Size( max = 150)
     private String subCategory;
 
-    @Size( max = 150)
     private String category;
 
-    double price;
+    @NotNull(message = "Price is required")
+    private Double price;
 
-    @NotBlank
-    @Size(min = 3, max = 25)
     private String status;
 
+    private String serviceDescription;
 }

@@ -6,110 +6,62 @@ import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.shared.Audit;
-import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.io.Serial;
-import java.util.Date;
 import java.util.UUID;
 
-import lombok.*;
-import org.hibernate.annotations.Where;
-
-import java.io.Serializable;
-import java.math.BigDecimal;
-
-@Entity
-@Getter
 @Setter
-@AllArgsConstructor
+@Getter
 @NoArgsConstructor
-@Builder
+@AllArgsConstructor
+@Entity
 @Table(name = "provided_services")
-@Where(clause = "is_deleted = false")
-public class ProvidedService extends Audit implements Serializable {
+public class ProvidedService extends Audit {
 
     @Serial
-    private static final long serialVersionUID = 4245199917479888677L;
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
-    private String providedServiceUuid;
+    @Column(nullable = false, unique = true)
+    private String providedServiceUuid = UUID.randomUUID().toString();
 
     @Column(nullable = false)
-    private String contractDetailUuid;
-
-    @Column(nullable = false)
-    private String employeeInsuredUuid;
-
-    private String dependantUuid;
-
-    @Temporal(TemporalType.TIMESTAMP)
-    private Date serviceDate;
-
     private String claimUuid;
 
-    // Financial details
-    @Column(precision = 19, scale = 2)
-    private BigDecimal amount;
-
-    @Column(precision = 19, scale = 2)
-    private BigDecimal unitPrice;
-
-    @Column(precision = 10, scale = 2)
-    private BigDecimal qty;
-
-    // Record tracking
-    private String recordNumber;
-
-    // File attachment
-    private String file;
-
-    @Enumerated(EnumType.STRING)
-    private Status status;
-
-    @Builder.Default
-    private boolean isDeleted = false;
-
-    // Many-to-One relationship with ContractDetail
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "contract_detail_id")
-    @JsonBackReference(value = "contract-detail-provided-services")
+    @ManyToOne
+    @JoinColumn(name = "contract_detail_id", nullable = false)
     private ContractDetail contractDetail;
 
-    // Many-to-One relationship with EmployeeInsured
+    @Column(nullable = false)
+    private Double quantity;
+
+    @Column(nullable = false)
+    private Double unitPrice;
+
+    @Column(nullable = false)
+    private Double totalPrice;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_insured_id")
+    @JoinColumn(name = "insured_id")
     @JsonBackReference(value = "employee-provided-services")
     private Insured insured;
 
-    // Many-to-One relationship with Dependant (optional)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dependant_id")
     @JsonBackReference(value = "dependant-provided-services")
     private Dependant dependant;
 
-    // Many-to-One relationship with Claim (optional)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "claim_id")
-    @JsonBackReference(value = "claim-provided-services")
+    @JsonBackReference
     private Claim claim;
 
-    @PrePersist
-    public void prePersist() {
-        if (providedServiceUuid == null) {
-            providedServiceUuid = UUID.randomUUID().toString();
-        }
-
-        // Calculate amount if not set but unitPrice and qty are available
-        if (amount == null && unitPrice != null && qty != null) {
-            amount = unitPrice.multiply(qty);
-        }
-    }
 }

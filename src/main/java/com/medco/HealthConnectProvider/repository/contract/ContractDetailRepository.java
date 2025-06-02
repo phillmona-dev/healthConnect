@@ -49,4 +49,18 @@ public interface ContractDetailRepository extends JpaRepository<ContractDetail, 
     // Alternative method using property path notation
     boolean existsByContractHeaderContractHeaderUuidAndServicelistServiceUuid(
             String contractHeaderUuid, String serviceUuid);
+
+    /**
+     * Find contract details by contract header UUID and service UUID
+     * @param contractHeaderUuid The UUID of the contract header
+     * @param serviceUuid The UUID of the service
+     * @return List of contract details
+     */
+    @Query("SELECT cd FROM ContractDetail cd " +
+            "WHERE cd.contractHeaderUuid = :contractHeaderUuid " +
+            "AND cd.serviceUuid = :serviceUuid " +
+            "AND cd.isDeleted = false")
+    List<ContractDetail> findByContractHeaderAndService(
+            @Param("contractHeaderUuid") String contractHeaderUuid,
+            @Param("serviceUuid") String serviceUuid);
 }

@@ -141,7 +141,7 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
             "FROM Insured i " +
             "JOIN i.payer p " +
             "JOIN i.contracts c " +
-            "LEFT JOIN i.dependents d " +
+            "LEFT JOIN i.dependants d " +
             "WHERE c.contractHeaderUuid = :contractHeaderUuid " +
             "AND i.isDeleted = false " +
             "AND (d IS NULL OR d.isDeleted = false) " +
@@ -150,4 +150,41 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
     List<InsuredDependantListResponse> findInsuredPersonsAndDependants(
             @Param("contractHeaderUuid") String contractHeaderUuid,
             Pageable pageable);
+
+    /**
+     * Find an insured person by phone number and payer UUID
+     * @param phone The phone number
+     * @param payerUuid The UUID of the payer
+     * @return The insured person or null if not found
+     */
+    @Query("SELECT i FROM Insured i WHERE i.phone = :phone AND i.payer.payerUuid = :payerUuid AND i.isDeleted = false")
+    Insured findByPhoneAndPayer(@Param("phone") String phone, @Param("payerUuid") String payerUuid);
+
+    /**
+     * Find an insured person by insurance ID and payer UUID
+     * @param insuranceId The insurance ID
+     * @param payerUuid The UUID of the payer
+     * @return The insured person or null if not found
+     */
+    @Query("SELECT i FROM Insured i WHERE i.insuranceId = :insuranceId AND i.payer.payerUuid = :payerUuid AND i.isDeleted = false")
+    Insured findByInsuranceIdAndPayer(@Param("insuranceId") String insuranceId, @Param("payerUuid") String payerUuid);
+
+    /**
+     * Find an insured person by employee ID and payer UUID
+     * @param employeeId The employee ID
+     * @param payerUuid The UUID of the payer
+     * @return The insured person or null if not found
+     */
+    @Query("SELECT i FROM Insured i WHERE i.employeeId = :employeeId AND i.payer.payerUuid = :payerUuid AND i.isDeleted = false")
+    Insured findByEmployeeIdAndPayer(@Param("employeeId") String employeeId, @Param("payerUuid") String payerUuid);
+
+    /**
+     * Find an insured person by national ID and payer UUID
+     * @param nationalId The national ID
+     * @param payerUuid The UUID of the payer
+     * @return The insured person or null if not found
+     */
+    @Query("SELECT i FROM Insured i WHERE i.nationalId = :nationalId AND i.payer.payerUuid = :payerUuid AND i.isDeleted = false")
+    Insured findByNationalIdAndPayer(@Param("nationalId") String nationalId, @Param("payerUuid") String payerUuid);
+
 }

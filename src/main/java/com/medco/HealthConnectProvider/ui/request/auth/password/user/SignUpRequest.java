@@ -43,9 +43,6 @@ public class SignUpRequest {
     @NotBlank
     @Size(min = 9, max = 13)
     private String mobilePhone;
-    @NotBlank
-    @Size(max = 50)
-    private String providerUuid;
 
     private String roleUuid;
 

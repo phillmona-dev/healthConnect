@@ -2,26 +2,38 @@ package com.medco.HealthConnectProvider.services.impl.provider;
 
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
+import com.medco.HealthConnectProvider.entity.user.Role;
+import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
+import com.medco.HealthConnectProvider.repository.user.RoleRepository;
+import com.medco.HealthConnectProvider.repository.user.UserRepository;
+import com.medco.HealthConnectProvider.services.mail.EmailService;
 import com.medco.HealthConnectProvider.services.providers.ProviderService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.providers.ProviderRequest;
+import com.medco.HealthConnectProvider.ui.request.auth.password.user.SignUpRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PayersNameForProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,6 +44,21 @@ public class ProviderServiceImpl implements ProviderService {
 
     @Autowired
     ContractRepository contractRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private EmailService emailService;
+
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     @Override
     public ResponseEntity<ProviderResponse> createProvider(ProviderRequest providerRequest) {
@@ -57,12 +84,95 @@ public class ProviderServiceImpl implements ProviderService {
         BeanUtils.copyProperties(providerRequest, provider);
         Provider savedProvider = providerRepository.save(provider);
 
+        // Create a role for the provider manager
+        Role role = new Role();
+// Truncate the provider name if it's too long to fit in role name
+        String providerNameForRole = providerRequest.getProviderName();
+        if (providerNameForRole.length() > 40) {
+            providerNameForRole = providerNameForRole.substring(0, 40);
+        }
+        role.setRoleName(providerNameForRole + "_Manager");
+        role.setProviderUuid(savedProvider.getProviderUuid());
+        role.setRoleDescription("Manages the system for " + providerRequest.getProviderName());
+        Role savedRole = roleRepository.save(role);
+
+        // Create provider manager user
+        createProviderManager(providerRequest, savedRole, savedProvider);
+
         ProviderResponse providerResponse = new ProviderResponse();
         BeanUtils.copyProperties(savedProvider, providerResponse);
         providerResponse.setStatus("Provider added successfully");
         providerResponse.setProviderUuid(savedProvider.getProviderUuid());
 
         return ResponseEntity.ok(providerResponse);
+    }
+
+    private void createProviderManager(ProviderRequest providerRequest, Role savedRole, Provider savedProvider) {
+        // Create DTO for provider manager
+        SignUpRequest managerDto = new SignUpRequest();
+        managerDto.setEmail(providerRequest.getEmail());
+        managerDto.setGender("Male");
+        managerDto.setTitle("Mr");
+        managerDto.setFirstName("Provider");
+        managerDto.setFatherName("Manager");
+        managerDto.setGrandFatherName("Default");
+        managerDto.setMobilePhone(providerRequest.getTelephone());
+
+        // Generate a random password
+        String randomPassword = generateRandomPassword();
+        managerDto.setPassword(randomPassword);
+
+        managerDto.setRoleUuid(savedRole.getRoleUuid());
+        //managerDto.setProviderUuid(savedProvider.getProviderUuid());
+        managerDto.setUserStatus(Status.ACTIVE);
+
+        // Create the user
+        try {
+            User savedUser = createProviderManagerUser(managerDto);
+
+            // Send welcome email
+            String loginUrl = frontendUrl + "/login?newUser=true&email=" + savedUser.getEmail();
+            emailService.sendWelcomeEmail(
+                    savedUser.getEmail(),
+                    savedUser.getFirstName(),
+                    randomPassword,
+                    savedProvider.getProviderName(),
+                    loginUrl
+            );
+        } catch (Exception e) {
+            // Log error but don't fail provider creation
+            System.err.println("Failed to create provider manager: " + e.getMessage());
+        }
+    }
+
+    private User createProviderManagerUser(SignUpRequest managerDto) {
+        if (userRepository.existsByEmail(managerDto.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Error: Email is already in use!");
+        }
+
+        User user = new User();
+        BeanUtils.copyProperties(managerDto, user);
+        user.setPassword(passwordEncoder.encode(managerDto.getPassword()));
+
+        Role role = roleRepository.findByRoleUuid(managerDto.getRoleUuid());
+        if (role == null) {
+            throw new BadRequestException("Role not found");
+        }
+        user.setRole(role);
+
+        return userRepository.save(user);
+    }
+
+    private static String generateRandomPassword() {
+        // Generate a random password with 6 characters
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
+        StringBuilder sb = new StringBuilder();
+        Random random = new Random();
+        for (int i = 0; i < 6; i++) {
+            int index = random.nextInt(chars.length());
+            sb.append(chars.charAt(index));
+        }
+        return sb.toString();
     }
 
     @Override
@@ -177,4 +287,5 @@ public class ProviderServiceImpl implements ProviderService {
     private List<ContractHeader> getPayerNameWithSearch(String providerUuid, String searchKey) {
         return contractRepository.findAllByProviderProviderUuidAndIsDeletedGroupByPayerPayerUuidAndContainingName(providerUuid, false, searchKey);
     }
+
 }

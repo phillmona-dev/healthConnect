@@ -15,6 +15,7 @@ import lombok.*;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -40,6 +41,19 @@ public class Insured implements Serializable {
     @Size(min = 36, max = 40)
     private String payerUuid;
 
+    // Added for eligibility verification
+    @Size(max = 50)
+    private String employeeId;
+
+    @Size(max = 50)
+    private String nationalId;
+
+    @Size(max = 50)
+    private String policyNumber;
+
+    // Policy dates using LocalDate for easier comparison
+    private LocalDate policyStartDate;
+    private LocalDate policyEndDate;
 
     @Size(max = 50)
     private String email;
@@ -78,24 +92,19 @@ public class Insured implements Serializable {
     @Size( max = 50)
     private String position;
 
-
     @Size(max = 50)
     private String idNumber;
 
-    //
-//	@NotBlank(message ="insurance Id can't be empty")
     @Size(min = 2, max = 50)
     private String insuranceId;
 
     @NotBlank(message = "address1 can't be empty")
     @Size(max = 50)
     private String address1;
-    //
-//	@NotBlank(message = "address2 can't be empty")
+
     @Size(max = 50)
     private String address2;
-    //
-//	@NotBlank(message = "address3 can't be empty")
+
     @Size(max = 50)
     private String address3;
 
@@ -110,7 +119,6 @@ public class Insured implements Serializable {
     private Date beginDate;
 
     private Date endDate;
-
 
     private String profilePicture;
 
@@ -156,8 +164,7 @@ public class Insured implements Serializable {
     }
 
     @OneToMany(mappedBy = "insured", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Dependant> dependents;
-
+    private List<Dependant> dependants;  // Renamed from dependents to match usage in EligibilityServiceImpl
 
     @JsonBackReference
     @ManyToMany(mappedBy = "insured")

@@ -51,6 +51,8 @@ public class Payer extends Audit {
     @Size(max = 50)
     private String address2;
 
+    private String payerCode;
+
     @Size(max = 50)
     private String address3;
 

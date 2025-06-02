@@ -13,7 +13,7 @@ import java.util.List;
 
 public interface ServicelistService {
 
-    ResponseEntity<?> createService(String providerUuid, @Valid ServicelistRequest serviceRequest);
+   
 
     ResponseEntity<?> updateService(String serviceUuid, @Valid ServicelistRequest serviceRequest);
 
@@ -26,4 +26,6 @@ public interface ServicelistService {
     ResponseEntity<?> deleteService(String serviceUuid);
 
     ResponseEntity<?> importServiceListData(File convert, String providerUuid) throws IOException;
+
+    ResponseEntity<ServicelistResponse> createService(String providerUuid, @Valid ServicelistRequest serviceRequest);
 }

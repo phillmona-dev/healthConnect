@@ -4,7 +4,9 @@ import com.medco.HealthConnectProvider.services.user.PrivilegeService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.PrivilegeRequest;
 import com.medco.HealthConnectProvider.ui.response.auth.PrivilegeResponse;
 import com.medco.HealthConnectProvider.utils.paginationUtils.Pagination;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -15,8 +17,9 @@ import java.util.List;
 
 //@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
-@RequestMapping("/api/provider/healthConnectProvider/users/privilege")
+@RequestMapping("/api/v1/healthConnect/users/privilege")
 @SecurityRequirement(name = "bearerAuth")
+@Tag(name = "Privilege Management", description = "APIs for managing user privileges and permissions")
 public class PrivilegeController {
 
     private PrivilegeService privilegeService;
@@ -27,6 +30,7 @@ public class PrivilegeController {
 
     @PostMapping
 //    @PreAuthorize("hasRole('Create-Privilege')")
+    @Operation(summary = "Create privilege", description = "Creates a new privilege in the system")
     public PrivilegeResponse createPrivilege(@Valid @RequestBody PrivilegeRequest privilegeRequest) {
         return privilegeService.createPrivilege(privilegeRequest);
 
@@ -34,11 +38,13 @@ public class PrivilegeController {
 
     @GetMapping(path="/{privilegeUuid}")
     //@PreAuthorize("hasRole('Read-Privilege')")
+    @Operation(summary = "Get privilege", description = "Retrieves a specific privilege by UUID")
     public PrivilegeResponse getRole(@PathVariable String privilegeUuid) {
         return privilegeService.getPrivilege(privilegeUuid);
     }
 
     @GetMapping("/all")
+    @Operation(summary = "List privileges", description = "Retrieves a list of privileges with pagination and search capabilities")
     public List<PrivilegeResponse> getAllPrivileges(
             @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "page", defaultValue = "1") int page,
@@ -49,11 +55,13 @@ public class PrivilegeController {
     }
 
     @PutMapping("/{privilegeUuid}")
+    @Operation(summary = "Update privilege", description = "Updates an existing privilege by UUID")
     public ResponseEntity<?> updatePrivilege(@PathVariable String privilegeUuid, @Valid @RequestBody PrivilegeRequest request){
         return privilegeService.updatePrivilege(privilegeUuid,request);
     }
 
     @DeleteMapping("/{privilegeUuid}")
+    @Operation(summary = "Delete privilege", description = "Deletes a privilege by UUID")
     public ResponseEntity<?> deletePrivilege(@PathVariable String privilegeUuid){
         return privilegeService.deletePrivilege(privilegeUuid);
     }

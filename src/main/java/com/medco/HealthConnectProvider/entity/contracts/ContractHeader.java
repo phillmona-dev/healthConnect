@@ -80,6 +80,8 @@ public class ContractHeader extends Audit implements Serializable {
     @Temporal(TemporalType.TIMESTAMP)
     private Date terminationRequestDate;
 
+    private Double coPaymentPercentage;
+
     @OneToMany(mappedBy = "contractHeader", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ContractDetail> contractDetails = new ArrayList<>();

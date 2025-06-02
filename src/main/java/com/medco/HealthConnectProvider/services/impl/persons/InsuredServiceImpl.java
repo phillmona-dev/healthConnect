@@ -140,8 +140,8 @@ public class InsuredServiceImpl implements InsuredService {
         response.setAddress2(insured.getAddress2());
 
         // Add dependants if they exist
-        if (insured.getDependents() != null && !insured.getDependents().isEmpty()) {
-            for (Dependant dependant : insured.getDependents()) {
+        if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
+            for (Dependant dependant : insured.getDependants()) {
                 // Skip deleted dependants
                 if (dependant.isDeleted()) {
                     continue;
@@ -209,8 +209,8 @@ public class InsuredServiceImpl implements InsuredService {
         if (insuredRequest.getDependants() != null && !insuredRequest.getDependants().isEmpty()) {
             // Create a map of existing dependants by UUID for quick lookup
             Map<String, Dependant> existingDependants = new HashMap<>();
-            if (insured.getDependents() != null) {
-                for (Dependant dependant : insured.getDependents()) {
+            if (insured.getDependants() != null) {
+                for (Dependant dependant : insured.getDependants()) {
                     if (!dependant.isDeleted()) {
                         existingDependants.put(dependant.getDependantUuid(), dependant);
                     }
@@ -250,10 +250,10 @@ public class InsuredServiceImpl implements InsuredService {
                     dependantRepository.save(newDependant);
 
                     // Add to the insured person's dependents collection
-                    if (insured.getDependents() == null) {
-                        insured.setDependents(new ArrayList<>());
+                    if (insured.getDependants() == null) {
+                        insured.setDependants(new ArrayList<>());
                     }
-                    insured.getDependents().add(newDependant);
+                    insured.getDependants().add(newDependant);
                 }
             }
 
@@ -626,8 +626,8 @@ public class InsuredServiceImpl implements InsuredService {
                         person.setPayer(payer);
 
                         // Initialize the dependents collection
-                        if (person.getDependents() == null) {
-                            person.setDependents(new ArrayList<>());
+                        if (person.getDependants() == null) {
+                            person.setDependants(new ArrayList<>());
                         }
 
                         // Save the insured person first to get an ID
@@ -744,7 +744,7 @@ public class InsuredServiceImpl implements InsuredService {
 
                         // Update the insured person's dependents collection
                         if (!dependants.isEmpty()) {
-                            person.getDependents().addAll(dependants);
+                            person.getDependants().addAll(dependants);
                             insuredRepository.save(person);
                         }
 
@@ -886,7 +886,7 @@ public class InsuredServiceImpl implements InsuredService {
             response.setInsuredUuid(insured.getPayer().getPayerUuid());
             response.setInsuredUuid(insured.getPayer().getPayerUuid());
             response.setInsuredUuid(insured.getPayer().getPayerUuid());
-            response.setDependants(convertToDependantResponse(insured.getDependents()));
+            response.setDependants(convertToDependantResponse(insured.getDependants()));
             return response;
         }).toList();
 
@@ -948,8 +948,8 @@ public class InsuredServiceImpl implements InsuredService {
             response.setAddress1(insured.getAddress1());
             response.setAddress2(insured.getAddress2());
 
-            if (insured.getDependents() != null && !insured.getDependents().isEmpty()) {
-                for (Dependant dependant : insured.getDependents()) {
+            if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
+                for (Dependant dependant : insured.getDependants()) {
                     // Skip deleted dependants
                     if (dependant.isDeleted()) {
                         continue;

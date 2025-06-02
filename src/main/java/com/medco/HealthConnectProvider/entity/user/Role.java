@@ -38,5 +38,6 @@ public class Role {
     private List<Privilege> privileges;
 
     private String payerUuid;
+    private String providerUuid;
 
 }

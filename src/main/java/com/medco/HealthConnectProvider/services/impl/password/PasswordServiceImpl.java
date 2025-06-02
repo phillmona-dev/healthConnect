@@ -62,9 +62,35 @@ public class PasswordServiceImpl implements PasswordService {
         String token = RandomNumberGenerator.generateSixDigitNumber();
         var passwordToken = createPasswordResetTokenForUser(user, token);
 
-        sendEmailToUser(request.getEmail(),token);
+        // Send simple email instead of using Thymeleaf template
+        sendSimpleResetEmail(user, token);
 
-        return ResponseEntity.ok("an email containing a code is sent to your inbox. please get the random number and fill before it expires at: "+ passwordToken.getExpiryDate());
+        return ResponseEntity.ok("An email containing a code is sent to your inbox. Please use the code before it expires at: " + passwordToken.getExpiryDate());
+    }
+
+    private void sendSimpleResetEmail(User user, String token) {
+        String subject = "Your Password Reset Code: " + token;
+        String content = "Dear " + user.getFirstName() + " " + user.getFatherName() + ",\n\n"
+                + "You have requested to reset your password for the HealthConnect system.\n\n"
+                + "Your password reset code is: " + token + "\n\n"
+                + "This code will expire in 2 minutes.\n\n"
+                + "If you did not request this password reset, please ignore this email.\n\n"
+                + "Best regards,\n"
+                + "Medco HealthConnect Team";
+
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper helper = null;
+        try {
+            helper = new MimeMessageHelper(message, false);
+            helper.setSubject(subject);
+            helper.setFrom(username, customSenderName);
+            helper.setTo(user.getEmail());
+            helper.setText(content);
+            mailSender.send(message);
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            // Log the error but don't fail the operation
+            System.err.println("Failed to send password reset email: " + e.getMessage());
+        }
     }
 
     @Override

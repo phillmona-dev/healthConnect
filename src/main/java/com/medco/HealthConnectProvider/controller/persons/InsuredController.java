@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
@@ -33,10 +34,10 @@ import java.util.List;
 
 
 @RestController
-@RequestMapping("/api/payer/claimconnect/insuredperson")
+@RequestMapping("/api/v1/healthConnect/insuredperson")
 @SecurityRequirement(name = "bearerAuth")
+@Tag(name = "Insured Person Management", description = "APIs for managing insured persons and their dependants")
 public class InsuredController {
-
 
     private final InsuredService insuredService;
 
@@ -46,9 +47,15 @@ public class InsuredController {
 
     @PostMapping
 //	@PreAuthorize("hasRole('Create-Insured-Person')")
+    @Operation(summary = "Create insured person", description = "Creates a new insured person")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Insured person created successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid input"),
+            @ApiResponse(responseCode = "422", description = "Email or phone already in use"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     public ResponseEntity<?> createInsuredPerson(@Valid @RequestBody InsuredRequest insuredRequest) {
         return insuredService.createInsuredPerson(insuredRequest);
-
     }
 
     @PutMapping(path = "/{insuredUuid}")
@@ -148,12 +155,19 @@ public class InsuredController {
      */
     @GetMapping(path = "/{insuredUuid}")
     //@PreAuthorize("hasRole('Read-Insured-Person')")
+    @Operation(summary = "Get insured person", description = "Retrieves a specific insured person by UUID with their dependants")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successful operation"),
+            @ApiResponse(responseCode = "400", description = "Insured person not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
     public ResponseEntity<?> getInsuredPerson(@PathVariable String insuredUuid) {
         return insuredService.getInsuredPerson(insuredUuid);
     }
 
     @GetMapping(path = "/list/{payerInstitutionContractId}")
 //	@PreAuthorize("hasRole('Read-Insured-Persons')")
+    @Operation(summary = "List insured persons", description = "Retrieves a list of insured persons for a specific payer institution contract with pagination and search")
     public List<InsuredResponse> getInsuredPersons(@PathVariable String payerInstitutionContractId,
                                                    @RequestParam(name = "search", required = false) String search,
                                                    @RequestParam(value = "page", defaultValue = "1") int page,
@@ -162,6 +176,7 @@ public class InsuredController {
     }
 
     @GetMapping(path = "/list/withdependant/{payerInstitutionContractUuid}")
+    @Operation(summary = "List insured persons with dependants", description = "Retrieves a list of insured persons with their dependants for a specific payer institution contract")
     public List<InsuredDependantResponse> getInsuredPersonsAndDependants(
             @PathVariable String payerInstitutionContractUuid,
             @RequestParam(name = "search", required = false) String search,
@@ -172,18 +187,21 @@ public class InsuredController {
 
     @GetMapping(path = "/check-eligiblity/{insuredPersonUuid}")
     // @PreAuthorize("hasRole('Check-Insured-Person-Eligibility')")
+    @Operation(summary = "Check insured person eligibility", description = "Checks the eligibility status of an insured person")
     public List<InsuredListResponse> getInsuredPersonEligiblity(@PathVariable String insuredPersonUuid) {
         return insuredService.getInsuredPersonEligiblity(insuredPersonUuid);
     }
 
     @DeleteMapping(path = "/{insuredUuid}")
     @PreAuthorize("hasRole('Delete-Insured-Person')")
+    @Operation(summary = "Delete insured person", description = "Deletes an insured person by UUID")
     public ResponseEntity<?> deleteInsuredPerson(@PathVariable String insuredUuid) {
         return insuredService.deleteInsuredPerson(insuredUuid);
     }
 
     @PostMapping(path = "/import-insured-and-dependant", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 //	@PreAuthorize("hasRole('Upload-Insured-Persons')")
+    @Operation(summary = "Import insured persons and dependants", description = "Imports insured persons and their dependants from a file")
     public ResponseEntity<?> importInsuredAndDependant(@RequestParam("file") MultipartFile file,
                                                        @RequestParam("institutionUuid") String institutionUuid) throws Exception {
         return insuredService.importInsuredPersonAndDependant(convert(file), institutionUuid);
@@ -213,12 +231,14 @@ public class InsuredController {
 
     @PutMapping(path = "/profile-picture/{insuredUuid}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     // @PreAuthorize("hasRole('Set-Insured-Profile-Picture')")
+    @Operation(summary = "Set profile picture", description = "Sets or updates the profile picture for an insured person")
     public ResponseEntity<?> setProfilePicture(@RequestParam("file") MultipartFile file,
                                                @PathVariable("insuredUuid") String insuredUuid) throws IOException {
         return insuredService.setProfilePicture(file, insuredUuid);
     }
 
     @GetMapping(path = "/active/search/{institutionUuid}")
+    @Operation(summary = "Search active insured persons", description = "Searches for active insured persons and their dependants for a specific institution")
     public List<InsuredAndDependantCashServiceResponse> getInsuredAndDependantCashServiceResponse(
             @PathVariable String institutionUuid,
             @RequestParam(required = false) String search,
@@ -229,11 +249,10 @@ public class InsuredController {
     }
 
     @GetMapping("/member/exist/{payerInstitutionContractUuid}")
-    public  boolean checkMemberExist(@PathVariable String payerInstitutionContractUuid) {
+    @Operation(summary = "Check if member exists", description = "Checks if any insured members exist for a specific payer institution contract")
+    public boolean checkMemberExist(@PathVariable String payerInstitutionContractUuid) {
         return insuredService.checkMemberExist(payerInstitutionContractUuid);
     }
-
-    //Filmon
 
     /**
      * Get all insured persons with their dependants for a specific institution with search capability
@@ -245,6 +264,8 @@ public class InsuredController {
      */
     @GetMapping("/institution/with-dependants/{institutionUuid}")
     //@PreAuthorize("hasRole('Read-Insured-Persons')")
+    @Operation(summary = "Get insured persons with dependants by institution",
+            description = "Retrieves all insured persons with their dependants for a specific institution with search capability")
     public List<InsuredDependantResponse> getAllInsuredPersonsWithDependantsByInstitution(
             @PathVariable String institutionUuid,
             @RequestParam(value = "search", required = false) String search,
@@ -252,5 +273,4 @@ public class InsuredController {
             @RequestParam(value = "limit", defaultValue = "25") int limit) {
         return insuredService.getAllInsuredPersonsWithDependantsByInstitution(institutionUuid, search, page, limit);
     }
-
 }

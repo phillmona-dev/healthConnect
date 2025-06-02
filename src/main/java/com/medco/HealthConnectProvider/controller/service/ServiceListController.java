@@ -8,6 +8,8 @@ import java.util.List;
 import com.medco.HealthConnectProvider.services.service.ServicelistService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.service.ServicelistRequest;
 import com.medco.HealthConnectProvider.ui.response.service.ServicelistResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -25,25 +27,29 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.web.multipart.MultipartFile;
 
-//@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
-@RequestMapping("/api/provider/healthConnectProvider/service")
+@RequestMapping("/api/v1/healthConnect/healthConnectProvider/service")
 @SecurityRequirement(name = "bearerAuth")
+@Tag(name = "Service Management", description = "APIs for managing healthcare services offered by providers")
 public class ServiceListController {
 
+    private final ServicelistService serviceService;
+
     @Autowired
-    ServicelistService serviceService;
+    public ServiceListController(ServicelistService serviceService) {
+        this.serviceService = serviceService;
+    }
 
     @PostMapping("/add/{providerUuid}")
-    public ResponseEntity<?> createService(
+    @Operation(summary = "Create service", description = "Creates a new healthcare service for a specific provider")
+    public ResponseEntity<ServicelistResponse> createService(
             @PathVariable String providerUuid,
-            @Valid @RequestBody ServicelistRequest serviceRequest){
-
+            @Valid @RequestBody ServicelistRequest serviceRequest) {
         return serviceService.createService(providerUuid, serviceRequest);
-
     }
 
     @PutMapping(path="/{serviceUuid}")
+    @Operation(summary = "Update service", description = "Updates an existing healthcare service by UUID")
     public ResponseEntity<?> updateService(
             @PathVariable String serviceUuid,
             @Valid @RequestBody ServicelistRequest serviceRequest) {
@@ -51,22 +57,24 @@ public class ServiceListController {
     }
 
     @GetMapping(path="/{serviceUuid}")
+    @Operation(summary = "Get service", description = "Retrieves a specific healthcare service by UUID")
     public ServicelistResponse getService(@PathVariable String serviceUuid) {
         return serviceService.getService(serviceUuid);
     }
 
     @GetMapping("/search/{providerUuid}")
+    @Operation(summary = "Search services", description = "Searches for healthcare services for a specific provider with pagination")
     public List<ServicelistResponse> searchServices(
             @PathVariable String providerUuid,
             @RequestParam(name="search", required=false) String searchKey,
             @RequestParam(value="page", defaultValue = "1") int page,
             @RequestParam(value="limit", defaultValue = "25") int limit){
-        return serviceService.searchServices(providerUuid ,searchKey, page, limit);
+        return serviceService.searchServices(providerUuid, searchKey, page, limit);
     }
 
     @GetMapping(path="/export/{providerUuid}")
+    @Operation(summary = "Export service list", description = "Exports the list of services for a specific provider as an Excel file")
     public ResponseEntity<?> downloadServiceList(HttpServletResponse response, @PathVariable String providerUuid) throws IOException {
-
         String fileType = "attachment; filename=service_details_" + ".xls";
         response.setHeader("Content-Disposition", fileType);
         response.setContentType(MediaType.APPLICATION_OCTET_STREAM.getType());
@@ -75,11 +83,13 @@ public class ServiceListController {
     }
 
     @DeleteMapping(path="/{serviceUuid}")
+    @Operation(summary = "Delete service", description = "Deletes a healthcare service by UUID")
     public ResponseEntity<?> deleteService(@PathVariable String serviceUuid) {
         return serviceService.deleteService(serviceUuid);
     }
 
-    @PostMapping(path="/import",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(path="/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Import services", description = "Imports healthcare services from an Excel file for a specific provider")
     public ResponseEntity<?> importData(
             @RequestParam("file") MultipartFile file,
             @RequestParam("providerUuid") String providerUuid) throws IOException {
@@ -94,5 +104,4 @@ public class ServiceListController {
         fos.close();
         return convFile;
     }
-
 }

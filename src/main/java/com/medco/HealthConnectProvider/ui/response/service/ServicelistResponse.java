@@ -6,6 +6,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -13,11 +15,14 @@ import java.io.Serializable;
 @NoArgsConstructor
 public class ServicelistResponse implements Serializable {
     private String serviceUuid;
-    private String itemCode;
-    private String item;
-    private String subCategory;
-    private String category;
-    double price;
+    private String serviceCode;
+    private String serviceName;
+    private String serviceSubCategory;
+    private String serviceCategory;
+    private BigDecimal price;
     private String status;
     private int totalPages;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private String providerName;
 }
