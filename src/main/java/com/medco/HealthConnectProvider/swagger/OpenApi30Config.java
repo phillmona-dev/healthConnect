@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 
 
 @Configuration
-@OpenAPIDefinition(info = @Info(title = "HealthConnect-Provider", version = "2.0"))
+@OpenAPIDefinition(info = @Info(title = "Health Connect", version = "2.0"))
 @SecurityScheme(
         name = "bearerAuth",
         type = SecuritySchemeType.HTTP,

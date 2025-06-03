@@ -28,4 +28,8 @@ public class PayerResponse {
 
     private Status status;
     private long totalPages;
+
+    private String logoPath;
+
+    private Long totalContracts;
 }

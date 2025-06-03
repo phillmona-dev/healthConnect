@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -33,4 +34,23 @@ public interface PayerRepository extends JpaRepository<Payer, Long> {
 
     @Query(value = "  SELECT  MAX(payers.counter) as counter from payers", nativeQuery = true)
     Integer findMaxCounter();
+
+
+    @Query("SELECT p FROM Payer p WHERE p.isDeleted = false " +
+            "AND (:search IS NULL OR :search = '' OR " +
+            "    p.payerName LIKE %:search% OR " +
+            "    p.email LIKE %:search% OR " +
+            "    p.telephone LIKE %:search% OR " +
+            "    p.payerInsuranceNumber LIKE %:search%) " +
+            "AND (:status IS NULL OR p.status = :status) " +
+            "AND (:category IS NULL OR :category = '' OR p.category = :category) " +
+            "AND (:payerName IS NULL OR :payerName = '' OR p.payerName = :payerName) " +
+            "AND (:tinNumber IS NULL OR p.tinNumber = :tinNumber)")
+    Page<Payer> findPayersWithFilters(
+            @Param("search") String search,
+            @Param("status") Status status,
+            @Param("category") String category,
+            @Param("payerName") String payerName,
+            @Param("tinNumber") Long tinNumber,
+            Pageable pageable);
 }

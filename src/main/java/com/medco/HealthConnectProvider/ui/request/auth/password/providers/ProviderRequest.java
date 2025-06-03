@@ -40,14 +40,6 @@ public class ProviderRequest {
     private String address1;
 
     @NotBlank
-    @Size(min = 1, max = 50)
-    private String address2;
-
-    @NotBlank
-    @Size(min = 1, max = 50)
-    private String address3;
-
-    @NotBlank
     @Size(min = 2, max = 50)
     private String state;
 

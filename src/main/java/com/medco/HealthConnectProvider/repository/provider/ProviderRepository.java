@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.repository.provider;
 
 import com.medco.HealthConnectProvider.entity.providers.Provider;
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -65,5 +66,28 @@ public interface ProviderRepository extends JpaRepository<Provider, Long> {
             @Param("payerUuid") String payerUuid,
             @Param("search") String search,
             @Param("status") String status,
+            Pageable pageable);
+
+
+    /**
+     * Find providers with multiple filter criteria
+     */
+    @Query("SELECT p FROM Provider p WHERE p.isDeleted = false " +
+            "AND (:searchKey IS NULL OR :searchKey = '' OR " +
+            "    p.providerName LIKE %:searchKey% OR " +
+            "    p.email LIKE %:searchKey% OR " +
+            "    p.telephone LIKE %:searchKey%) " +
+            "AND (:status IS NULL OR p.status = :status) " +
+            "AND (:category IS NULL OR :category = '' OR p.category = :category) " +
+            "AND (:providerName IS NULL OR :providerName = '' OR p.providerName = :providerName) " +
+            "AND (:tinNumber IS NULL OR p.tinNumber = :tinNumber) " +
+            "AND (:level IS NULL OR :level = '' OR p.level = :level)")
+    Page<Provider> findProvidersWithFilters(
+            @Param("searchKey") String searchKey,
+            @Param("status") Status status,
+            @Param("category") String category,
+            @Param("providerName") String providerName,
+            @Param("tinNumber") String tinNumber,  // Changed from Long to String
+            @Param("level") String level,
             Pageable pageable);
 }

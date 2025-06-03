@@ -7,6 +7,7 @@ import com.medco.HealthConnectProvider.ui.response.persons.InsuredDependantRespo
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredListResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredResponse;
 import jakarta.validation.Valid;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,7 +17,7 @@ import java.io.IOException;
 import java.util.List;
 
 public interface InsuredService {
-    ResponseEntity<?> createInsuredPerson(InsuredRequest insuredRequest);
+    ResponseEntity<?> createInsuredPerson(InsuredRequest insuredRequest, MultipartFile photo);
     ResponseEntity<?> deleteInsuredPerson(String insuredUuid);
 
 
@@ -61,5 +62,7 @@ public interface InsuredService {
      * @param insuredRequest The request containing insured person and dependant data
      * @return ResponseEntity with success message
      */
-    ResponseEntity<?> updateInsuredPersonWithDependants(String insuredUuid, InsuredWithDependantsRequest insuredRequest);
+    ResponseEntity<?> updateInsuredPersonWithDependants(String insuredUuid, InsuredWithDependantsRequest insuredRequest, MultipartFile photo);
+
+    ResponseEntity<ByteArrayResource> getInsuredPhoto(String insuredUuid);
 }

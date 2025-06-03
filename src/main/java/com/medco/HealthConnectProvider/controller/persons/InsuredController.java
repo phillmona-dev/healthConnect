@@ -19,6 +19,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -45,37 +46,33 @@ public class InsuredController {
         this.insuredService = insuredService;
     }
 
-    @PostMapping
-//	@PreAuthorize("hasRole('Create-Insured-Person')")
-    @Operation(summary = "Create insured person", description = "Creates a new insured person")
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+//@PreAuthorize("hasRole('Create-Insured-Person')")
+    @Operation(summary = "Create insured person", description = "Creates a new insured person with profile photo")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Insured person created successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid input"),
             @ApiResponse(responseCode = "422", description = "Email or phone already in use"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<?> createInsuredPerson(@Valid @RequestBody InsuredRequest insuredRequest) {
-        return insuredService.createInsuredPerson(insuredRequest);
+    public ResponseEntity<?> createInsuredPerson(
+            @RequestPart("insured") @Valid InsuredRequest insuredRequest,
+            @RequestPart(value = "photo", required = false) MultipartFile photo) {
+        return insuredService.createInsuredPerson(insuredRequest, photo);
     }
 
-    @PutMapping(path = "/{insuredUuid}")
-    @Operation(
-            summary = "Update an insured person",
-            description = "Updates an existing insured person and their dependants based on the provided UUID"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Insured person updated successfully",
-                    content = @Content(schema = @Schema(implementation = MessageResponse.class))
-            ),
-            @ApiResponse(responseCode = "400", description = "Invalid input"),
-            @ApiResponse(responseCode = "404", description = "Insured person not found"),
-            @ApiResponse(responseCode = "500", description = "Internal server error")
-    })
+    @GetMapping("/photo/{insuredUuid}")
+    @Operation(summary = "Get insured person photo", description = "Retrieves the profile photo of an insured person")
+    public ResponseEntity<ByteArrayResource> getInsuredPhoto(@PathVariable String insuredUuid) {
+        return insuredService.getInsuredPhoto(insuredUuid);
+    }
+
+    @PutMapping(path = "/{insuredUuid}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Update insured person", description = "Updates an existing insured person and their dependants")
     public ResponseEntity<?> updateInsuredPerson(
             @PathVariable String insuredUuid,
-            @RequestBody InsuredWithDependantsRequest insuredRequest) {
+            @RequestPart("insured") InsuredWithDependantsRequest insuredRequest,
+            @RequestPart(value = "photo", required = false) MultipartFile photo) {
         // If dependants list is null, initialize it to avoid NPE
         if (insuredRequest.getDependants() == null) {
             insuredRequest.setDependants(new ArrayList<>());
@@ -89,7 +86,7 @@ public class InsuredController {
             validateDependantRequest(dependant);
         }
 
-        return insuredService.updateInsuredPersonWithDependants(insuredUuid, insuredRequest);
+        return insuredService.updateInsuredPersonWithDependants(insuredUuid, insuredRequest, photo);
     }
 
     /**

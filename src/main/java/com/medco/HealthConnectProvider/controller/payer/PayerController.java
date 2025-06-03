@@ -1,20 +1,37 @@
 package com.medco.HealthConnectProvider.controller.payer;
 
+import com.medco.HealthConnectProvider.entity.payers.Payer;
+import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.services.payer.PayerService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerRequest;
+import com.medco.HealthConnectProvider.ui.request.search.PayerSearchRequest;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
+import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
+
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 
 @RestController
 @RequestMapping("/api/v1/healthConnect/payer")
@@ -25,14 +42,22 @@ public class PayerController {
     AuthenticationManager authenticationManager;
 
     @Autowired
+    PayerRepository payerRepository;
+
+    @Autowired
     PayerService payerService;
 
-    @PostMapping
-    //@PreAuthorize("hasRole('Create-Institution')")
-    @Operation(summary = "Create payer", description = "Creates a new payer/insurance company")
-    public PayerResponse createInstitution(@Valid @RequestBody PayerRequest institutionRequest) {
-        return payerService.createPayer(institutionRequest);
+    @Value("${file.upload-dir}")
+    private String uploadDirectory;
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Create payer", description = "Creates a new payer/insurance company with logo")
+    public PayerResponse createInstitution(
+            @RequestPart("payerRequest") @Valid PayerRequest payerRequest,
+            @RequestPart(value = "logo", required = false) MultipartFile logo) {
+        return payerService.createPayer(payerRequest, logo);
     }
+
 
     @PutMapping(path="/{institutionUuid}")
     //@PreAuthorize("hasRole('Update-Institution')")
@@ -61,14 +86,25 @@ public class PayerController {
     }
 
     @GetMapping("/list")
-    // @PreAuthorize("hasRole('Read-Payers')")
-    @Operation(summary = "List payers", description = "Retrieves a list of payers with pagination, search, and status filtering")
+//@PreAuthorize("hasRole('Read-Providers')")
+    @Operation(
+            summary = "List payers",
+            description = "Retrieves a list of Payers with pagination, search, and advanced filtering options"
+    )
     public List<PayerResponse> getPayers(
-            @RequestParam(value="search", defaultValue="", required=false) String search,
-            @RequestParam(value="page", defaultValue = "1") int page,
-            @RequestParam(value="limit", defaultValue = "25") int limit,
-            @RequestParam Status status) {
-        return payerService.getPayers(search, page, limit, status);
+            @RequestParam(value = "search", required = false) String searchKey,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "limit", defaultValue = "25") int limit,
+            @RequestParam(value = "status", required = false) Status status,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "payerName", required = false) String payerName,
+            @RequestParam(value = "tinNumber", required = false) Long tinNumber,
+            @RequestParam(value = "level", required = false) String level,
+            @RequestParam(value = "sortBy", defaultValue = "id", required = false) String sortBy,
+            @RequestParam(value = "sortDir", defaultValue = "desc", required = false) String sortDir) {
+
+        return payerService.getPayersWithFilters(searchKey, page, limit, status, category,
+                payerName, tinNumber, level, sortBy, sortDir);
     }
 
     @GetMapping("/policy-holders/list")
@@ -96,4 +132,11 @@ public class PayerController {
     public ResponseEntity<?> deletePayer(@PathVariable String payerUuid) {
         return payerService.deletePayer(payerUuid);
     }
+
+    @GetMapping("/logo/{payerUuid}")
+    @Operation(summary = "Get payer logo", description = "Retrieves the logo image for a payer")
+    public ResponseEntity<ByteArrayResource> getPayerLogo(@PathVariable String payerUuid) {
+        return payerService.getPayerLogo(payerUuid);
+    }
+
 }

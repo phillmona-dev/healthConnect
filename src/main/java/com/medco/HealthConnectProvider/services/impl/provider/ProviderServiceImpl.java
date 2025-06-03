@@ -16,24 +16,30 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.user.SignUpReque
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PayersNameForProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
+import com.medco.HealthConnectProvider.utils.SortUtils;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -60,8 +66,11 @@ public class ProviderServiceImpl implements ProviderService {
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
+    @Value("${file.upload-dir}")
+    private String uploadDirectory;
+
     @Override
-    public ResponseEntity<ProviderResponse> createProvider(ProviderRequest providerRequest) {
+    public ResponseEntity<ProviderResponse> createProvider(ProviderRequest providerRequest, MultipartFile logo) {
         if (providerRepository.existsByEmail(providerRequest.getEmail())){
             ProviderResponse response = new ProviderResponse();
             response.setStatus("Error: Email is already in use!");
@@ -82,11 +91,36 @@ public class ProviderServiceImpl implements ProviderService {
 
         Provider provider = new Provider();
         BeanUtils.copyProperties(providerRequest, provider);
+
+        // Save logo if provided
+        if (logo != null && !logo.isEmpty()) {
+            try {
+                String uploadDir = uploadDirectory;
+                File directory = new File(uploadDir);
+                if (!directory.exists()) {
+                    directory.mkdirs();
+                }
+
+                String fileName = logo.getOriginalFilename();
+                String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+                String newFileName = "logo_" + UUID.randomUUID().toString() + "." + extension;
+
+                Path path = Paths.get(uploadDir + newFileName);
+                Files.write(path, logo.getBytes());
+
+                provider.setLogoPath(newFileName);
+            } catch (IOException e) {
+                ProviderResponse response = new ProviderResponse();
+                response.setStatus("Error uploading logo: " + e.getMessage());
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            }
+        }
+
         Provider savedProvider = providerRepository.save(provider);
 
         // Create a role for the provider manager
         Role role = new Role();
-// Truncate the provider name if it's too long to fit in role name
+        // Truncate the provider name if it's too long to fit in role name
         String providerNameForRole = providerRequest.getProviderName();
         if (providerNameForRole.length() > 40) {
             providerNameForRole = providerNameForRole.substring(0, 40);
@@ -105,6 +139,92 @@ public class ProviderServiceImpl implements ProviderService {
         providerResponse.setProviderUuid(savedProvider.getProviderUuid());
 
         return ResponseEntity.ok(providerResponse);
+    }
+
+    @Override
+    public ResponseEntity<ByteArrayResource> getProviderLogo(String providerUuid) {
+        try {
+            Optional<Provider> providerOpt = providerRepository.findByProviderUuid(providerUuid);
+            if (providerOpt.isEmpty() || providerOpt.get().getLogoPath() == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Provider provider = providerOpt.get();
+            String logoPath = uploadDirectory + "/providers/logos/" + provider.getLogoPath();
+            Path path = Paths.get(logoPath);
+            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(getContentType(logoPath)))
+                    .body(resource);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @Override
+    public List<ProviderResponse> getProvidersWithFilters(String searchKey, int page, int limit,
+                                                          Status status, String category,
+                                                          String providerName, String tinNumber, String level,
+                                                          String sortBy, String sortDir) {
+        // Adjust page for zero-based indexing
+        if (page > 0) {
+            page = page - 1;
+        }
+
+        // Validate and sanitize sort parameters
+        String validatedSortBy = SortUtils.validateProviderSortField(sortBy);
+        String validatedSortDir = SortUtils.validateSortDirection(sortDir);
+
+        // Create sort object
+        Sort sort = validatedSortDir.equalsIgnoreCase("asc") ?
+                Sort.by(validatedSortBy).ascending() :
+                Sort.by(validatedSortBy).descending();
+
+        // Create pageable request
+        Pageable pageRequest = PageRequest.of(page, limit, sort);
+
+        // Query with filters
+        Page<Provider> providerPage = providerRepository.findProvidersWithFilters(
+                searchKey, status, category, providerName, tinNumber, level, pageRequest);
+
+        long totalPages = providerPage.getTotalPages();
+        List<Provider> providerList = providerPage.getContent();
+
+        // Map to response objects
+        List<ProviderResponse> providerResponses = new ArrayList<>();
+        for (Provider provider : providerList) {
+            ProviderResponse response = new ProviderResponse();
+            if (providerResponses.isEmpty()) {
+                response.setTotalPages(totalPages);
+            }
+
+            BeanUtils.copyProperties(provider, response);
+
+            // Get total contracts for this provider
+            Long contractCount = contractRepository.countByProviderProviderUuidAndIsDeleted(
+                    provider.getProviderUuid(), false);
+            response.setTotalContracts(contractCount);
+
+            providerResponses.add(response);
+        }
+
+        return providerResponses;
+    }
+
+    private String getContentType(String path) {
+        String extension = path.substring(path.lastIndexOf(".") + 1).toLowerCase();
+        switch (extension) {
+            case "jpg":
+            case "jpeg":
+                return "image/jpeg";
+            case "png":
+                return "image/png";
+            case "gif":
+                return "image/gif";
+            default:
+                return "application/octet-stream";
+        }
     }
 
     private void createProviderManager(ProviderRequest providerRequest, Role savedRole, Provider savedProvider) {

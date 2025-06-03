@@ -121,4 +121,7 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
             @Param("payerUuid") String payerUuid,
             @Param("status") Status status);
 
+    Long countByPayerPayerUuidAndIsDeleted(String payerUuid, boolean isDeleted);
+
+    Long countByProviderProviderUuidAndIsDeleted(String providerUuid, boolean isDeleted);
 }

@@ -14,21 +14,32 @@ import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
+import com.medco.HealthConnectProvider.utils.SortUtils;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 
 @Service
 public class PayerServiceImpl implements PayerService {
@@ -37,6 +48,9 @@ public class PayerServiceImpl implements PayerService {
     private final RoleRepository roleRepository;
     private final UserService userService;
     private final ContractRepository contractRepository;
+
+    @Value("${file.upload-dir}")
+    private String uploadDirectory;
 
     public PayerServiceImpl(PayerRepository payerRepository, RoleRepository roleRepository, UserService userService, ContractRepository contractRepository) {
         this.payerRepository = payerRepository;
@@ -48,42 +62,64 @@ public class PayerServiceImpl implements PayerService {
 
     @Transactional
     @Override
-    public PayerResponse createPayer(PayerRequest payerRequest) {
-
+    public PayerResponse createPayer(PayerRequest payerRequest, MultipartFile logo) {
+        // Validate unique constraints
         if (payerRepository.existsByEmail(payerRequest.getEmail())) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Error: Email is already in use!");
         }
         if (payerRepository.existsByTelephone(payerRequest.getTelephone())) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Error: Phone is already in use!");
         }
-
         if (payerRepository.existsByPayerName(payerRequest.getPayerName())) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Error: Payer name (group policy holder name) is already in use!");
-
         }
 
+        // Create and save payer
         Payer payer = new Payer();
         BeanUtils.copyProperties(payerRequest, payer);
         if (payerRequest.getStatus() != null)
             payer.setStatus(payerRequest.getStatus());
         else
             payer.setStatus(Status.PENDING);
-        Payer payer1=payerRepository.save(payer);
 
-        Role role=new Role();
-        role.setRoleName(payerRequest.getPayerName()+"_Admin");
+        // Save logo if provided
+        if (logo != null && !logo.isEmpty()) {
+            try {
+                String uploadDir = uploadDirectory + "/payers/logos/";
+                File directory = new File(uploadDir);
+                if (!directory.exists()) {
+                    directory.mkdirs();
+                }
+
+                String fileName = logo.getOriginalFilename();
+                String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+                String newFileName = "logo_" + UUID.randomUUID().toString() + "." + extension;
+
+                Path path = Paths.get(uploadDir + newFileName);
+                Files.write(path, logo.getBytes());
+
+                payer.setLogoPath(newFileName);
+            } catch (IOException e) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Error uploading logo: " + e.getMessage());
+            }
+        }
+
+        Payer payer1 = payerRepository.save(payer);
+
+        // Create admin role for the payer
+        Role role = new Role();
+        role.setRoleName(payerRequest.getPayerName() + "_Admin");
         role.setPayerUuid(payer1.getPayerUuid());
         role.setRoleDescription("manages the system for " + payerRequest.getPayerName());
-
         Role savedRole = roleRepository.save(role);
 
+        // Create admin user for the payer
         PayerAdminDto payerAdminDto = getPayerAdminDto(payerRequest, savedRole, payer1);
-
         userService.createUser(payerAdminDto);
 
-        return getPayerResponse(payer);
-
+        return getPayerResponse(payer1);
     }
 
     private static PayerAdminDto getPayerAdminDto(PayerRequest payerRequest, Role savedRole, Payer payer1) {
@@ -186,6 +222,11 @@ public class PayerServiceImpl implements PayerService {
             if (institutionResponse.isEmpty())
                 pr.setTotalPages(totalPages);
             BeanUtils.copyProperties(p, pr);
+
+            // Get total contracts for this payer
+            Long contractCount = contractRepository.countByPayerPayerUuidAndIsDeleted(p.getPayerUuid(), false);
+            pr.setTotalContracts(contractCount);
+
             institutionResponse.add(pr);
         }
         return institutionResponse;
@@ -211,6 +252,89 @@ public class PayerServiceImpl implements PayerService {
         institution.setDeleted(true);
         payerRepository.save(institution);
         return ResponseEntity.ok(new MessageResponse("Institution deleted successfully!"));
+    }
+
+    @Override
+    public ResponseEntity<ByteArrayResource> getPayerLogo(String payerUuid) {
+        try {
+            Payer payer = payerRepository.findByPayerUuid(payerUuid);
+            if (payer == null || payer.getLogoPath() == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            String logoPath = uploadDirectory + "/payers/logos/" + payer.getLogoPath();
+            Path path = Paths.get(logoPath);
+            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(getContentType(logoPath)))
+                    .body(resource);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+
+    @Override
+    public List<PayerResponse> getPayersWithFilters(String searchKey, int page, int limit, Status status, String category, String payerName, Long tinNumber, String level, String sortBy, String sortDir) {
+        // Adjust page for zero-based indexing
+        if (page > 0) {
+            page = page - 1;
+        }
+
+        // Validate and sanitize sort parameters
+        String validatedSortBy = SortUtils.validatePayerSortField(sortBy);
+        String validatedSortDir = SortUtils.validateSortDirection(sortDir);
+
+        // Create sort object
+        Sort sort = validatedSortDir.equalsIgnoreCase("asc") ?
+                Sort.by(validatedSortBy).ascending() :
+                Sort.by(validatedSortBy).descending();
+
+        // Create pageable request
+        Pageable pageRequest = PageRequest.of(page, limit, sort);
+
+        // Query with filters
+        Page<Payer> payerPage = payerRepository.findPayersWithFilters(
+                searchKey, status, category, payerName, tinNumber, pageRequest);
+
+        long totalPages = payerPage.getTotalPages();
+        List<Payer> payerList = payerPage.getContent();
+
+        // Map to response objects
+        List<PayerResponse> payerResponses = new ArrayList<>();
+        for (Payer payer : payerList) {
+            PayerResponse response = new PayerResponse();
+            if (payerResponses.isEmpty()) {
+                response.setTotalPages(totalPages);
+            }
+
+            BeanUtils.copyProperties(payer, response);
+
+            // Get total contracts for this payer
+            Long contractCount = contractRepository.countByPayerPayerUuidAndIsDeleted(
+                    payer.getPayerUuid(), false);
+            response.setTotalContracts(contractCount);
+
+            payerResponses.add(response);
+        }
+
+        return payerResponses;
+    }
+
+    private String getContentType(String path) {
+        String extension = path.substring(path.lastIndexOf(".") + 1).toLowerCase();
+        switch (extension) {
+            case "jpg":
+            case "jpeg":
+                return "image/jpeg";
+            case "png":
+                return "image/png";
+            case "gif":
+                return "image/gif";
+            default:
+                return "application/octet-stream";
+        }
     }
 
     private PayerResponse getPayerResponse(Payer payer) {

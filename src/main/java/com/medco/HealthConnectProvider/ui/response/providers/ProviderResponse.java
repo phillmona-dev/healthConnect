@@ -27,5 +27,8 @@ public class ProviderResponse  implements Serializable {
     private double longitude;
     private String status;
     private long totalPages;
+
+    private String logoPath;
+    private Long totalContracts;
 }
 

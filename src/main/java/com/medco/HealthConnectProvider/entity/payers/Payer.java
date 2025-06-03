@@ -91,6 +91,9 @@ public class Payer extends Audit {
     @Size(max = 500)
     private String description;
 
+    @Size(max = 255)
+    private String logoPath;
+
     @Builder.Default
     private boolean isDeleted = false;
 

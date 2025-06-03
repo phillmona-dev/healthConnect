@@ -3,6 +3,7 @@ package com.medco.HealthConnectProvider.entity.providers;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.services.Servicelist;
 import com.medco.HealthConnectProvider.shared.Audit;
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -98,9 +99,8 @@ public class Provider extends Audit implements Serializable {
     @Size(min = 3, max = 25)
     private String tinNumber;
 
-    @NotBlank
-    @Size(min = 3, max = 25)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private Status status;
 
     @Column(columnDefinition = "boolean default false")
     private boolean isDeleted;
@@ -116,5 +116,8 @@ public class Provider extends Audit implements Serializable {
     private Date lastModifiedDate;
     private String createdBy;
     private String lastModifiedBy;
+
+    @Size(max = 255)
+    private String logoPath;
 
 }

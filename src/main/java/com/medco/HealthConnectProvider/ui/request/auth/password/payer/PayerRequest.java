@@ -39,14 +39,6 @@ public class PayerRequest {
 
     @NotBlank
     @Size(max = 50)
-    private String address2;
-
-    @NotBlank
-    @Size(max = 50)
-    private String address3;
-
-    @NotBlank
-    @Size(max = 50)
     private String state;
 
     @NotBlank

@@ -4,11 +4,15 @@ import com.medco.HealthConnectProvider.services.providers.ProviderService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.providers.ProviderRequest;
 import com.medco.HealthConnectProvider.ui.response.provider.PayersNameForProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -23,10 +27,18 @@ public class ProviderController {
         this.providerService = providerService;
     }
 
-    @PostMapping("/createProvider")
-    @Operation(summary = "Create provider", description = "Creates a new healthcare provider")
-    public ResponseEntity<ProviderResponse> createProvider(@Valid @RequestBody ProviderRequest providerRequest) {
-        return providerService.createProvider(providerRequest);
+    @PostMapping(value = "/createProvider", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Create provider", description = "Creates a new healthcare provider with logo")
+    public ResponseEntity<ProviderResponse> createProvider(
+            @RequestPart("provider") @Valid ProviderRequest providerRequest,
+            @RequestPart(value = "logo", required = false) MultipartFile logo) {
+        return providerService.createProvider(providerRequest, logo);
+    }
+
+    @GetMapping("/logo/{providerUuid}")
+    @Operation(summary = "Get provider logo", description = "Retrieves the logo image for a provider")
+    public ResponseEntity<ByteArrayResource> getProviderLogo(@PathVariable String providerUuid) {
+        return providerService.getProviderLogo(providerUuid);
     }
 
     @PutMapping(path = "/{providerUuid}")
@@ -43,12 +55,25 @@ public class ProviderController {
     }
 
     @GetMapping("/list")
-    //@PreAuthorize("hasRole('Read-Providers')")
-    @Operation(summary = "List providers", description = "Retrieves a list of healthcare providers with pagination and search")
-    public List<ProviderResponse> getProviders(@RequestParam(value = "search", required = false) String searchKey,
-                                               @RequestParam(value = "page", defaultValue = "1") int page,
-                                               @RequestParam(value = "limit", defaultValue = "25") int limit) {
-        return providerService.getProviders(searchKey, page, limit);
+//@PreAuthorize("hasRole('Read-Providers')")
+    @Operation(
+            summary = "List providers",
+            description = "Retrieves a list of healthcare providers with pagination, search, and advanced filtering options"
+    )
+    public List<ProviderResponse> getProviders(
+            @RequestParam(value = "search", required = false) String searchKey,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "limit", defaultValue = "25") int limit,
+            @RequestParam(value = "status", required = false) Status status,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "providerName", required = false) String providerName,
+            @RequestParam(value = "tinNumber", required = false) String tinNumber,
+            @RequestParam(value = "level", required = false) String level,
+            @RequestParam(value = "sortBy", defaultValue = "id", required = false) String sortBy,
+            @RequestParam(value = "sortDir", defaultValue = "desc", required = false) String sortDir) {
+
+        return providerService.getProvidersWithFilters(searchKey, page, limit, status, category,
+                providerName, tinNumber, level, sortBy, sortDir);
     }
 
     @DeleteMapping(path = "/{providerUuid}")
@@ -74,4 +99,5 @@ public class ProviderController {
             @RequestParam(value = "limit", defaultValue = "25") int limit) {
         return providerService.getAvailableProvidersForPayerNotInContract(payerUuid, searchKey, page, limit);
     }
+
 }

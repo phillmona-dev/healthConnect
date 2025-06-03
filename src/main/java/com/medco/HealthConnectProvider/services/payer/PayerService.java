@@ -1,17 +1,21 @@
 package com.medco.HealthConnectProvider.services.payer;
 
 import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerRequest;
+import com.medco.HealthConnectProvider.ui.request.search.PayerSearchRequest;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
+import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.Valid;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 public interface PayerService {
-    PayerResponse createPayer(@Valid PayerRequest institutionRequest);
+    PayerResponse createPayer(@Valid PayerRequest payerRequest, MultipartFile logo);
 
     PayerResponse updatePayer(String institutionUuid, @Valid PayerRequest institutionRequest);
 
@@ -29,4 +33,10 @@ public interface PayerService {
 
 
     ResponseEntity<?> deletePayer(String payerUuid);
+
+    ResponseEntity<ByteArrayResource> getPayerLogo(String payerUuid);
+
+    List<PayerResponse> getPayersWithFilters(String searchKey, int page, int limit, Status status, String category, String payerName, Long tinNumber, String level, String sortBy, String sortDir);
+
+
 }
