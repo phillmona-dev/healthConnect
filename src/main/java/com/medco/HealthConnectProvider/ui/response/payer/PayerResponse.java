@@ -30,6 +30,6 @@ public class PayerResponse {
     private long totalPages;
 
     private String logoPath;
-
+    private String logoBase64;
     private Long totalContracts;
 }

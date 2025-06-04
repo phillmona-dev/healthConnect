@@ -17,9 +17,15 @@ import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListRespons
 import com.medco.HealthConnectProvider.utils.SortUtils;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.transaction.Transactional;
+import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +34,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.FileCopyUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -36,21 +43,25 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
+
+import java.util.Base64;
+import org.springframework.data.jpa.domain.Specification;
+import com.medco.HealthConnectProvider.specifications.PayerSpecifications;
 
 @Service
+@Slf4j
 public class PayerServiceImpl implements PayerService {
+
+    private final Logger logger = LoggerFactory.getLogger(PayerService.class);
 
     private final PayerRepository payerRepository;
     private final RoleRepository roleRepository;
     private final UserService userService;
     private final ContractRepository contractRepository;
 
-    @Value("${file.upload-dir}")
-    private String uploadDirectory;
+    @Value("${file.upload-dir-payer-logos:C:/Users/Administrator/OneDrive/Desktop/MedcoProjects/logos/payers}")
+    private String payerLogosDirectory;
 
     public PayerServiceImpl(PayerRepository payerRepository, RoleRepository roleRepository, UserService userService, ContractRepository contractRepository) {
         this.payerRepository = payerRepository;
@@ -62,22 +73,29 @@ public class PayerServiceImpl implements PayerService {
 
     @Transactional
     @Override
-    public PayerResponse createPayer(PayerRequest payerRequest, MultipartFile logo) {
-        // Validate unique constraints
+    public PayerResponse createPayer(@Valid PayerRequest payerRequest, MultipartFile logo) {
+        // Check for duplicate email
         if (payerRepository.existsByEmail(payerRequest.getEmail())) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Error: Email is already in use!");
-        }
-        if (payerRepository.existsByTelephone(payerRequest.getTelephone())) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Error: Phone is already in use!");
-        }
-        if (payerRepository.existsByPayerName(payerRequest.getPayerName())) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Error: Payer name (group policy holder name) is already in use!");
+                    "Error: Duplicated Payer Email is not allowed.");
         }
 
-        // Create and save payer
+        // Check for duplicate telephone
+        if (payerRepository.existsByTelephone(payerRequest.getTelephone())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Error: Duplicated Payer Telephone is not allowed.");
+        }
+
+        // Check for duplicate name
+        if (payerRepository.existsByPayerName(payerRequest.getPayerName())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Error: Duplicated Payer Name is not allowed.");
+        }
+
         Payer payer = new Payer();
         BeanUtils.copyProperties(payerRequest, payer);
+        payer.setPayerUuid(UUID.randomUUID().toString());
+        payer.setRegistrationDate(new Date());
         if (payerRequest.getStatus() != null)
             payer.setStatus(payerRequest.getStatus());
         else
@@ -86,18 +104,20 @@ public class PayerServiceImpl implements PayerService {
         // Save logo if provided
         if (logo != null && !logo.isEmpty()) {
             try {
-                String uploadDir = uploadDirectory + "/payers/logos/";
-                File directory = new File(uploadDir);
+                // Ensure directory exists
+                File directory = new File(payerLogosDirectory);
                 if (!directory.exists()) {
                     directory.mkdirs();
+                    logger.info("Created directory: {}", payerLogosDirectory);
                 }
 
                 String fileName = logo.getOriginalFilename();
                 String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
                 String newFileName = "logo_" + UUID.randomUUID().toString() + "." + extension;
 
-                Path path = Paths.get(uploadDir + newFileName);
+                Path path = Paths.get(payerLogosDirectory + "/" + newFileName);
                 Files.write(path, logo.getBytes());
+                logger.info("Saved logo to: {}", path);
 
                 payer.setLogoPath(newFileName);
             } catch (IOException e) {
@@ -106,20 +126,8 @@ public class PayerServiceImpl implements PayerService {
             }
         }
 
-        Payer payer1 = payerRepository.save(payer);
-
-        // Create admin role for the payer
-        Role role = new Role();
-        role.setRoleName(payerRequest.getPayerName() + "_Admin");
-        role.setPayerUuid(payer1.getPayerUuid());
-        role.setRoleDescription("manages the system for " + payerRequest.getPayerName());
-        Role savedRole = roleRepository.save(role);
-
-        // Create admin user for the payer
-        PayerAdminDto payerAdminDto = getPayerAdminDto(payerRequest, savedRole, payer1);
-        userService.createUser(payerAdminDto);
-
-        return getPayerResponse(payer1);
+        payerRepository.save(payer);
+        return getPayerResponse(payer);
     }
 
     private static PayerAdminDto getPayerAdminDto(PayerRequest payerRequest, Role savedRole, Payer payer1) {
@@ -154,25 +162,67 @@ public class PayerServiceImpl implements PayerService {
     }
 
     @Override
-    public PayerResponse updatePayer(String payerUuid, PayerRequest payerRequest) {
+    @Transactional
+    public PayerResponse updatePayer(String payerUuid, PayerRequest payerRequest, MultipartFile logo) {
         Payer payer = payerRepository.findByPayerUuid(payerUuid);
-        List<Payer> institutionName = payerRepository
+        List<Payer> payerName = payerRepository
                 .findAllByPayerName(payerRequest.getPayerName());
 
         if (payer == null)
-            throw new ResourceNotFoundException("Institution", "institutionUuid", payerUuid);
+            throw new ResourceNotFoundException("Payer", "PayerUuid", payerUuid);
 
-        if (institutionName.size() >= 2)
+        // Check for duplicate name, but exclude current payer from the check
+        if (!payer.getPayerName().equals(payerRequest.getPayerName()) &&
+                payerName.stream().anyMatch(p -> !p.getPayerUuid().equals(payerUuid))) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Error: Duplicated Institution Name is not allowed.");
+                    "Error: Duplicated Payer Name is not allowed.");
+        }
 
         BeanUtils.copyProperties(payerRequest, payer);
         if (payerRequest.getStatus() != null)
             payer.setStatus(payerRequest.getStatus());
         else
             payer.setStatus(Status.PENDING);
+
+        // Update logo if provided
+        if (logo != null && !logo.isEmpty()) {
+            try {
+                // Ensure directory exists
+                File directory = new File(payerLogosDirectory);
+                if (!directory.exists()) {
+                    directory.mkdirs();
+                    logger.info("Created directory: {}", payerLogosDirectory);
+                }
+
+                // Delete old logo if exists
+                if (payer.getLogoPath() != null && !payer.getLogoPath().isEmpty()) {
+                    Path oldLogoPath = Paths.get(payerLogosDirectory + "/" + payer.getLogoPath());
+                    try {
+                        Files.deleteIfExists(oldLogoPath);
+                        logger.info("Deleted old logo: {}", oldLogoPath);
+                    } catch (IOException e) {
+                        // Log error but continue with update
+                        logger.warn("Failed to delete old logo: {}", e.getMessage());
+                    }
+                }
+
+                String fileName = logo.getOriginalFilename();
+                String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+                String newFileName = "logo_" + UUID.randomUUID().toString() + "." + extension;
+
+                Path path = Paths.get(payerLogosDirectory + "/" + newFileName);
+                Files.write(path, logo.getBytes());
+                logger.info("Saved updated logo to: {}", path);
+
+                payer.setLogoPath(newFileName);
+            } catch (IOException e) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Error uploading logo: " + e.getMessage());
+            }
+        }
+
         payerRepository.save(payer);
-        return getPayerResponse( payer);
+        return getPayerResponse(payer);
     }
 
     @Override
@@ -201,8 +251,35 @@ public class PayerServiceImpl implements PayerService {
         Payer payer = payerRepository.findByPayerUuid(payerUuid);
 
         if (payer == null)
-            throw new ResourceNotFoundException("Institution", "payerUuid", payerUuid);
-        return getPayerResponse(payer);
+            throw new ResourceNotFoundException("Payer", "payerUuid", payerUuid);
+
+        PayerResponse response = getPayerResponse(payer);
+
+        // Add logo as base64 if available
+        if (payer.getLogoPath() != null && !payer.getLogoPath().isEmpty()) {
+            try {
+                String logoPath = payerLogosDirectory + "/" + payer.getLogoPath();
+                File logoFile = new File(logoPath);
+
+                if (logoFile.exists() && logoFile.isFile()) {
+                    byte[] fileContent = Files.readAllBytes(logoFile.toPath());
+                    String base64Logo = Base64.getEncoder().encodeToString(fileContent);
+                    response.setLogoBase64("data:" + determineContentType(logoPath) + ";base64," + base64Logo);
+                } else {
+                    // Set default logo if payer logo doesn't exist
+                    setDefaultLogoBase64(response);
+                }
+            } catch (IOException e) {
+                logger.warn("Could not read logo for payer {}: {}", payer.getPayerUuid(), e.getMessage());
+                // Set default logo on error
+                setDefaultLogoBase64(response);
+            }
+        } else {
+            // Set default logo if payer has no logo path
+            setDefaultLogoBase64(response);
+        }
+
+        return response;
     }
 
     @Override
@@ -258,22 +335,54 @@ public class PayerServiceImpl implements PayerService {
     public ResponseEntity<ByteArrayResource> getPayerLogo(String payerUuid) {
         try {
             Payer payer = payerRepository.findByPayerUuid(payerUuid);
-            if (payer == null || payer.getLogoPath() == null) {
-                return ResponseEntity.notFound().build();
+            if (payer == null || payer.getLogoPath() == null || payer.getLogoPath().isEmpty()) {
+                logger.warn("Payer logo not found for UUID: {}", payerUuid);
+                return serveDefaultLogo();
             }
 
-            String logoPath = uploadDirectory + "/payers/logos/" + payer.getLogoPath();
-            Path path = Paths.get(logoPath);
+            String logoPath = payerLogosDirectory + "/" + payer.getLogoPath();
+            logger.debug("Attempting to load logo from path: {}", logoPath);
+
+            File logoFile = new File(logoPath);
+            if (!logoFile.exists() || !logoFile.isFile()) {
+                logger.warn("Logo file does not exist at path: {}", logoPath);
+                return serveDefaultLogo();
+            }
+
+            Path path = logoFile.toPath();
             ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
 
             return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(getContentType(logoPath)))
+                    .contentType(MediaType.parseMediaType(determineContentType(logoPath)))
+                    .contentLength(logoFile.length())
                     .body(resource);
         } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            logger.error("Error retrieving payer logo: {}", e.getMessage(), e);
+            return serveDefaultLogo();
         }
     }
 
+    private ResponseEntity<ByteArrayResource> serveDefaultLogo() {
+        try {
+            // Path to a default logo in your resources folder
+            Resource resource = new ClassPathResource("static/images/default-payer-logo.png");
+            if (resource.exists()) {
+                ByteArrayResource byteResource = new ByteArrayResource(
+                        FileCopyUtils.copyToByteArray(resource.getInputStream()));
+
+                return ResponseEntity.ok()
+                        .contentType(MediaType.IMAGE_PNG)
+                        .contentLength(resource.contentLength())
+                        .body(byteResource);
+            }
+
+            // If default logo doesn't exist, return not found
+            return ResponseEntity.notFound().build();
+        } catch (IOException e) {
+            logger.error("Error serving default logo: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 
     @Override
     public List<PayerResponse> getPayersWithFilters(String searchKey, int page, int limit, Status status, String category, String payerName, Long tinNumber, String level, String sortBy, String sortDir) {
@@ -294,9 +403,35 @@ public class PayerServiceImpl implements PayerService {
         // Create pageable request
         Pageable pageRequest = PageRequest.of(page, limit, sort);
 
-        // Query with filters
-        Page<Payer> payerPage = payerRepository.findPayersWithFilters(
-                searchKey, status, category, payerName, tinNumber, pageRequest);
+        // Build specification for filtering
+        Specification<Payer> spec = Specification.where(PayerSpecifications.isNotDeleted());
+
+        if (searchKey != null && !searchKey.isEmpty()) {
+            spec = spec.and(PayerSpecifications.containsSearchKey(searchKey));
+        }
+
+        if (status != null) {
+            spec = spec.and(PayerSpecifications.hasStatus(status));
+        }
+
+        if (category != null && !category.isEmpty()) {
+            spec = spec.and(PayerSpecifications.hasCategory(category));
+        }
+
+        if (payerName != null && !payerName.isEmpty()) {
+            spec = spec.and(PayerSpecifications.hasPayerName(payerName));
+        }
+
+        if (tinNumber != null) {
+            spec = spec.and(PayerSpecifications.hasTinNumber(tinNumber));
+        }
+
+        if (level != null && !level.isEmpty()) {
+            spec = spec.and(PayerSpecifications.hasLevel(level));
+        }
+
+        // Query with specifications
+        Page<Payer> payerPage = payerRepository.findAll(spec, pageRequest);
 
         long totalPages = payerPage.getTotalPages();
         List<Payer> payerList = payerPage.getContent();
@@ -310,16 +445,66 @@ public class PayerServiceImpl implements PayerService {
             }
 
             BeanUtils.copyProperties(payer, response);
+            response.setStatus(payer.getStatus());
 
             // Get total contracts for this payer
             Long contractCount = contractRepository.countByPayerPayerUuidAndIsDeleted(
                     payer.getPayerUuid(), false);
             response.setTotalContracts(contractCount);
 
+            // Add logo as base64 if available
+            if (payer.getLogoPath() != null && !payer.getLogoPath().isEmpty()) {
+                try {
+                    String logoPath = payerLogosDirectory + "/" + payer.getLogoPath();
+                    File logoFile = new File(logoPath);
+
+                    if (logoFile.exists() && logoFile.isFile()) {
+                        byte[] fileContent = Files.readAllBytes(logoFile.toPath());
+                        String base64Logo = Base64.getEncoder().encodeToString(fileContent);
+                        response.setLogoBase64("data:" + determineContentType(logoPath) + ";base64," + base64Logo);
+                    } else {
+                        // Set default logo if payer logo doesn't exist
+                        setDefaultLogoBase64(response);
+                    }
+                } catch (IOException e) {
+                    logger.warn("Could not read logo for payer {}: {}", payer.getPayerUuid(), e.getMessage());
+                    // Set default logo on error
+                    setDefaultLogoBase64(response);
+                }
+            } else {
+                // Set default logo if payer has no logo path
+                setDefaultLogoBase64(response);
+            }
+
             payerResponses.add(response);
         }
 
         return payerResponses;
+    }
+
+    private void setDefaultLogoBase64(PayerResponse response) {
+        try {
+            Resource resource = new ClassPathResource("static/images/default-payer-logo.png");
+            if (resource.exists()) {
+                byte[] fileContent = FileCopyUtils.copyToByteArray(resource.getInputStream());
+                String base64Logo = Base64.getEncoder().encodeToString(fileContent);
+                response.setLogoBase64("data:image/png;base64," + base64Logo);
+            }
+        } catch (IOException e) {
+            logger.warn("Could not read default logo: {}", e.getMessage());
+        }
+    }
+
+    private String determineContentType(String filePath) {
+        String extension = filePath.substring(filePath.lastIndexOf(".") + 1).toLowerCase();
+        return switch (extension) {
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "gif" -> "image/gif";
+            case "svg" -> "image/svg+xml";
+            case "webp" -> "image/webp";
+            default -> "application/octet-stream";
+        };
     }
 
     private String getContentType(String path) {
@@ -338,9 +523,35 @@ public class PayerServiceImpl implements PayerService {
     }
 
     private PayerResponse getPayerResponse(Payer payer) {
-        PayerResponse payerResponse = new PayerResponse();
-        BeanUtils.copyProperties(payer, payerResponse);
-        return payerResponse;
+        PayerResponse response = new PayerResponse();
+        BeanUtils.copyProperties(payer, response);
+        response.setStatus(payer.getStatus());
+
+        // Add logo as base64 if available
+        if (payer.getLogoPath() != null && !payer.getLogoPath().isEmpty()) {
+            try {
+                String logoPath = payerLogosDirectory + "/" + payer.getLogoPath();
+                File logoFile = new File(logoPath);
+
+                if (logoFile.exists() && logoFile.isFile()) {
+                    byte[] fileContent = Files.readAllBytes(logoFile.toPath());
+                    String base64Logo = Base64.getEncoder().encodeToString(fileContent);
+                    response.setLogoBase64("data:" + determineContentType(logoPath) + ";base64," + base64Logo);
+                } else {
+                    // Set default logo if payer logo doesn't exist
+                    setDefaultLogoBase64(response);
+                }
+            } catch (IOException e) {
+                logger.warn("Could not read logo for payer {}: {}", payer.getPayerUuid(), e.getMessage());
+                // Set default logo on error
+                setDefaultLogoBase64(response);
+            }
+        } else {
+            // Set default logo if payer has no logo path
+            setDefaultLogoBase64(response);
+        }
+
+        return response;
     }
 
 }

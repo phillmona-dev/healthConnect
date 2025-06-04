@@ -58,4 +58,25 @@ public interface EmployeeDependantGroupRepository extends JpaRepository<Employee
             @Param("payerUuid") String payerUuid,
             @Param("search") String search,
             Pageable pageable);
+
+
+    // Add these methods to your existing repository
+
+    /**
+     * Check if a group with the given name exists for a specific payer
+     * @param groupName The name of the group
+     * @param payerUuid The UUID of the payer
+     * @return True if exists, false otherwise
+     */
+    boolean existsByGroupNameAndPayerUuid(String groupName, String payerUuid);
+
+    /**
+     * Find groups by payer UUID and group name containing search term
+     * @param payerUuid The UUID of the payer
+     * @param search The search term
+     * @param pageable Pagination information
+     * @return Page of groups
+     */
+    Page<EmployeeDependantGroup> findByPayerUuidAndGroupNameContainingIgnoreCase(
+            String payerUuid, String search, Pageable pageable);
 }

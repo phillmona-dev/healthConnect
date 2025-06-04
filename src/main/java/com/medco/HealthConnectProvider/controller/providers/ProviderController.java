@@ -41,17 +41,28 @@ public class ProviderController {
         return providerService.getProviderLogo(providerUuid);
     }
 
-    @PutMapping(path = "/{providerUuid}")
+    @PutMapping(path = "/{providerUuid}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Update provider", description = "Updates an existing healthcare provider by UUID")
     public ResponseEntity<?> updateProvider(@PathVariable String providerUuid,
-                                            @Valid @RequestBody ProviderRequest providerRequest) {
-        return providerService.updateProvider(providerUuid, providerRequest);
+                                            @RequestPart("provider") @Valid ProviderRequest providerRequest,
+                                            @RequestPart(value = "logo", required = false) MultipartFile logo) {
+        return providerService.updateProvider(providerUuid, providerRequest, logo);
     }
 
     @GetMapping(path = "/{providerUuid}")
     @Operation(summary = "Get provider", description = "Retrieves a specific healthcare provider by UUID")
     public ProviderResponse getProvider(@PathVariable String providerUuid) {
         return providerService.getProvider(providerUuid);
+    }
+
+    @PutMapping("/{providerUuid}/status")
+    //@PreAuthorize("hasRole('Update-Provider')")
+    @Operation(summary = "Update provider status",
+            description = "Updates the status of a healthcare provider by UUID")
+    public ResponseEntity<?> updateProviderStatus(
+            @PathVariable String providerUuid,
+            @RequestParam Status status) {
+        return providerService.updateProviderStatus(providerUuid, status);
     }
 
     @GetMapping("/list")
@@ -97,7 +108,9 @@ public class ProviderController {
             @RequestParam(value = "search", required = false) String searchKey,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "limit", defaultValue = "25") int limit) {
+
         return providerService.getAvailableProvidersForPayerNotInContract(payerUuid, searchKey, page, limit);
+
     }
 
 }

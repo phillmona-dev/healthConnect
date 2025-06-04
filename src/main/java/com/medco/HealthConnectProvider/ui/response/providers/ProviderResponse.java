@@ -19,8 +19,6 @@ public class ProviderResponse  implements Serializable {
     private String category;
     private String level;
     private String address1;
-    private String address2;
-    private String address3;
     private String state;
     private String country;
     private double latitude;
@@ -29,6 +27,7 @@ public class ProviderResponse  implements Serializable {
     private long totalPages;
 
     private String logoPath;
+    private String logoBase64;
     private Long totalContracts;
 }
 

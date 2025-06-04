@@ -40,7 +40,6 @@ public class Provider extends Audit implements Serializable {
     @Size(min = 36, max = 40, message = "Provided Uuid Must be between 36 and 40")
     private String providerUuid = UUID.randomUUID().toString();
 
-    @NotBlank(message = "Provider Code Field Must not be Blank")
     private String providerCode;
 
     @NotBlank
@@ -76,19 +75,12 @@ public class Provider extends Audit implements Serializable {
     @Size(min = 1, max = 50)
     private String address1;
 
-    @NotBlank
-    @Size(min = 1, max = 50)
     private String address2;
 
-    @NotBlank
-    @Size(min = 1, max = 50)
     private String address3;
 
-    @NotBlank
-    @Size(min = 1, max = 50)
     private String state;
 
-    @NotBlank
     @Size(min = 1, max = 50)
     private String country;
 
@@ -119,5 +111,7 @@ public class Provider extends Audit implements Serializable {
 
     @Size(max = 255)
     private String logoPath;
+
+    private Long totalContract;
 
 }

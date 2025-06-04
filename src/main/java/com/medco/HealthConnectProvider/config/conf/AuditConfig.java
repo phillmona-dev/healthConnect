@@ -1,6 +1,5 @@
 package com.medco.HealthConnectProvider.config.conf;
 
-
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

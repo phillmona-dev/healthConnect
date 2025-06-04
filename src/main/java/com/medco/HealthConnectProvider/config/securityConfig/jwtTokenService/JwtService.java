@@ -20,7 +20,6 @@ public class JwtService {
     @Value("${medcoanalytics.app.jwtExpirationMs}")
     private Long jwtExpirationInMs;
 
-
     public String generateToken(String userName){
         Map<String,Object> claims = new HashMap<>();
         return createToken(claims,userName);

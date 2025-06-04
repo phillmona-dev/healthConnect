@@ -1,37 +1,26 @@
 package com.medco.HealthConnectProvider.controller.payer;
 
-import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.services.payer.PayerService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerRequest;
-import com.medco.HealthConnectProvider.ui.request.search.PayerSearchRequest;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
-import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 
 @RestController
 @RequestMapping("/api/v1/healthConnect/payer")
@@ -58,12 +47,13 @@ public class PayerController {
         return payerService.createPayer(payerRequest, logo);
     }
 
-
-    @PutMapping(path="/{institutionUuid}")
-    //@PreAuthorize("hasRole('Update-Institution')")
-    @Operation(summary = "Update payer", description = "Updates an existing payer/insurance company")
-    public PayerResponse updateInstitution(@PathVariable String institutionUuid, @Valid @RequestBody PayerRequest institutionRequest) {
-        return payerService.updatePayer(institutionUuid, institutionRequest);
+    @PutMapping(path="/{payerUuid}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Update payer", description = "Updates an existing payer/insurance company with optional logo update")
+    public PayerResponse updateInstitution(
+            @PathVariable String payerUuid,
+            @RequestPart("payerRequest") @Valid PayerRequest payerRequest,
+            @RequestPart(value = "logo", required = false) MultipartFile logo) {
+        return payerService.updatePayer(payerUuid, payerRequest, logo);
     }
 
     @PutMapping(path="/set-institution-insurance-number/{institutionUuid}")
@@ -72,7 +62,7 @@ public class PayerController {
         return payerService.setPayerInsuranceNumber(payerUuid, payerInsuranceNumber);
     }
 
-    @PutMapping(path="/updateInstitutionStatus/{institutionUuid}")
+    @PutMapping(path="/updateInstitutionStatus/{payerUuid}")
     @Operation(summary = "Update payer status", description = "Updates the status of a payer")
     public ResponseEntity<?> updateInstitutionStatus(@PathVariable String payerUuid, @RequestParam Status payerStatus) {
         return payerService.updatePayerStatus(payerUuid, payerStatus);

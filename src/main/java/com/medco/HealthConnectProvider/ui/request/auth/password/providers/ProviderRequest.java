@@ -13,8 +13,7 @@ public class ProviderRequest {
     @NotBlank
     @Size(min = 3, max = 50)
     private String providerName;
-    @NotBlank
-    private String providerCode;
+
     @NotBlank
     @Size(min = 3, max = 100)
     private String description;
@@ -53,6 +52,7 @@ public class ProviderRequest {
     @NotBlank
     @Size(min = 3, max = 15)
     private String tinNumber;
+
     @NotBlank
     @Size(min = 3, max = 15)
     private String status;

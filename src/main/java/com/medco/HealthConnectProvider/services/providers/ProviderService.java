@@ -14,9 +14,7 @@ import java.util.List;
 
 public interface ProviderService {
 
-    
-
-    ResponseEntity<?> updateProvider(String providerUuid, @Valid ProviderRequest providerRequest);
+    ResponseEntity<?> updateProvider(String providerUuid, @Valid ProviderRequest providerRequest, MultipartFile logo);
 
     ProviderResponse getProvider(String providerUuid);
 
@@ -33,5 +31,13 @@ public interface ProviderService {
     ResponseEntity<ByteArrayResource> getProviderLogo(String providerUuid);
 
     List<ProviderResponse> getProvidersWithFilters(String searchKey, int page, int limit, Status status, String category, String providerName, String tinNumber, String level, String sortBy, String sortDir);
+
+    /**
+     * Updates the status of a provider
+     * @param providerUuid The UUID of the provider to update
+     * @param status The new status to set
+     * @return ResponseEntity with success or error message
+     */
+    ResponseEntity<?> updateProviderStatus(String providerUuid, Status status);
 
 }

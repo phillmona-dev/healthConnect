@@ -17,7 +17,14 @@ import java.util.List;
 public interface PayerService {
     PayerResponse createPayer(@Valid PayerRequest payerRequest, MultipartFile logo);
 
-    PayerResponse updatePayer(String institutionUuid, @Valid PayerRequest institutionRequest);
+    /**
+     * Update an existing payer with optional logo update
+     * @param payerUuid The UUID of the payer to update
+     * @param payerRequest The update request data
+     * @param logo Optional logo file to update
+     * @return The updated payer response
+     */
+    PayerResponse updatePayer(String payerUuid, @Valid PayerRequest payerRequest, MultipartFile logo);
 
     ResponseEntity<?> setPayerInsuranceNumber(String payerUuid, @Valid String payerInsuranceNumber);
 
