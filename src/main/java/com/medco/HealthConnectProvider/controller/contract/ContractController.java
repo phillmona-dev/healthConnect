@@ -53,7 +53,7 @@ public class ContractController {
     @PutMapping(path="/approve/{payerProviderContractUuid}")
     @Operation(summary = "Approve contract", description = "Approves a contract by UUID")
     // @PreAuthorize("hasRole('Approve-Provider-Contract')")
-    @PreAuthorize("hasRole('Read-Provider-Contract')")
+    //@PreAuthorize("hasRole('Read-Provider-Contract')")
     public ResponseEntity<?> approveContract(@PathVariable String payerProviderContractUuid) {
         return contractService.approveContract(payerProviderContractUuid);
     }
@@ -61,7 +61,7 @@ public class ContractController {
     @PutMapping(path="/agreed/{payerProviderContractUuid}")
     @Operation(summary = "Provider agreement response", description = "Updates a contract with provider agreement status and remarks")
     // @PreAuthorize("hasRole('Approve-Provider-Contract')")
-    @PreAuthorize("hasRole('Read-Provider-Contract')")
+    //@PreAuthorize("hasRole('Read-Provider-Contract')")
     public ResponseEntity<?> providerAgreed(@PathVariable String payerProviderContractUuid,
                                             @RequestParam String status,
                                             @RequestParam String remark) {
@@ -81,7 +81,7 @@ public class ContractController {
     public List<ContractListPayerResponse> getPayerProvidersContractLists(@RequestParam(name = "search", required = false)  String searchKey,
                                                                           @RequestParam(value="page", defaultValue = "1") int page,
                                                                           @RequestParam(value="limit", defaultValue = "25") int limit,
-                                                                          @RequestParam String status) {
+                                                                          @RequestParam(required = false) String status) {
         Pageable pageable = PaginationUtils.paginateResource(page,limit,"id","desc");
         return contractService.getPayerProvidersContractLists(searchKey,pageable, status);
     }
@@ -97,7 +97,7 @@ public class ContractController {
 
     @GetMapping("/available-providers")
     @Operation(summary = "Get available providers", description = "Retrieves a list of providers available for contracting")
-    @PreAuthorize("hasRole('Read-Provider-Contract')")
+   // @PreAuthorize("hasRole('Read-Provider-Contract')")
     public ResponseEntity<?> getAvailableProviders(
             @RequestParam(name = "search", required = false) String searchKey,
             @RequestParam(value = "page", defaultValue = "1") int page,
@@ -109,7 +109,7 @@ public class ContractController {
 
     @GetMapping("/provider/{providerUuid}/services")
     @Operation(summary = "Get provider services", description = "Retrieves a list of services offered by a specific provider")
-    @PreAuthorize("hasRole('Read-Provider-Contract')")
+   // @PreAuthorize("hasRole('Read-Provider-Contract')")
     public ResponseEntity<?> getProviderServices(
             @PathVariable String providerUuid,
             @RequestParam(name = "search", required = false) String searchKey,
@@ -122,7 +122,7 @@ public class ContractController {
 
     @PostMapping("/{contractUuid}/employee-groups")
     @Operation(summary = "Add employee groups to contract", description = "Adds employee groups to an existing contract")
-    @PreAuthorize("hasRole('Create-Provider-Contract')")
+    //@PreAuthorize("hasRole('Create-Provider-Contract')")
     public ResponseEntity<?> addEmployeeGroups(
             @PathVariable String contractUuid,
             @Valid @RequestBody List<EmployeeGroupRequest> groups) {
@@ -132,7 +132,7 @@ public class ContractController {
 
     @PostMapping("/{contractUuid}/service-group-assignments")
     @Operation(summary = "Assign services to groups", description = "Assigns services to employee groups within a contract")
-    @PreAuthorize("hasRole('Create-Provider-Contract')")
+    //@PreAuthorize("hasRole('Create-Provider-Contract')")
     public ResponseEntity<?> assignServicesToGroups(
             @PathVariable String contractUuid,
             @Valid @RequestBody List<ContractServiceGroupAssignmentRequest> assignments) {

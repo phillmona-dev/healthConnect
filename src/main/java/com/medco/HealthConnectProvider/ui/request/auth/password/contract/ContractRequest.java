@@ -29,7 +29,7 @@ public class ContractRequest {
     private String description;
 
     @Size(min = 36, max = 40)
-    private String institutionUuid;
+    private String payerUuid;
 
     private Status status;
 

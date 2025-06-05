@@ -73,4 +73,5 @@ public class DependantGroupController {
     public Long getDependantCountByGroup(@PathVariable String groupUuid) {
         return dependantGroupService.getDependantCountByGroup(groupUuid);
     }
+
 }

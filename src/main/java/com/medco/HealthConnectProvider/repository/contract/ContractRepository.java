@@ -4,8 +4,6 @@ import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,8 +18,9 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
 
     /**
      * Find policy holders list
-     * @param search Search term for filtering
-     * @param status Status of the contracts
+     *
+     * @param search   Search term for filtering
+     * @param status   Status of the contracts
      * @param pageable Pagination information
      * @return List of PolicyHolderListResponse objects
      */
@@ -39,7 +38,7 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
      * Find payers associated with a specific provider
      *
      * @param providerUuid UUID of the provider
-     * @param payerUuid UUID of the payer (optional filter)
+     * @param payerUuid    UUID of the payer (optional filter)
      * @return List of PayerProviderResponse objects
      */
     @Query("SELECT new com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse(" + "p.payerUuid, " + "p.payerName, " + "p.payerInsuranceNumber) " +
@@ -105,9 +104,10 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
 
     /**
      * Find active contract between a provider and payer
+     *
      * @param providerUuid UUID of the provider
-     * @param payerUuid UUID of the payer
-     * @param status Status of the contract (should be ACTIVE)
+     * @param payerUuid    UUID of the payer
+     * @param status       Status of the contract (should be ACTIVE)
      * @return The active ContractHeader or null if none exists
      */
     @Query("SELECT ch FROM ContractHeader ch " +
@@ -124,4 +124,33 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
     Long countByPayerPayerUuidAndIsDeleted(String payerUuid, boolean isDeleted);
 
     Long countByProviderProviderUuidAndIsDeleted(String providerUuid, boolean isDeleted);
+
+    /**
+     * Find contracts by status and deletion status
+     *
+     * @param status    Status of the contracts
+     * @param isDeleted Deletion status
+     * @param pageable  Pagination information
+     * @return Page of ContractHeader objects
+     */
+    Page<ContractHeader> findByStatusAndIsDeleted(
+            Status status,
+            boolean isDeleted,
+            Pageable pageable);
+
+    /**
+     * Find contracts by status, deletion status, and contract name containing search term
+     *
+     * @param status       Status of the contracts
+     * @param isDeleted    Deletion status
+     * @param contractName Search term for contract name
+     * @param pageable     Pagination information
+     * @return Page of ContractHeader objects
+     */
+    Page<ContractHeader> findByStatusAndIsDeletedAndContractNameContaining(
+            Status status,
+            boolean isDeleted,
+            String contractName,
+            Pageable pageable);
+
 }

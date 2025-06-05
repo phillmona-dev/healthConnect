@@ -92,12 +92,12 @@ public class ContractServiceImpl implements ContractService {
     @Override
     public ResponseEntity<?> createContract(ContractRequest contractRequest) {
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        //UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
 
-        String preparedBy = userDetails.getUserUuid();
+        //String preparedBy = userDetails.getUserUuid();
         ContractHeader contract = new ContractHeader();
         BeanUtils.copyProperties(contractRequest, contract);
-        contract.setPreparedBy(preparedBy);
+        //contract.setPreparedBy(preparedBy);
         contract.setStatus(Status.PENDING);
         contractRepository.save(contract);
 
@@ -149,12 +149,26 @@ public class ContractServiceImpl implements ContractService {
 
     @Override
     public List<ContractListPayerResponse> getPayerProvidersContractLists(String searchKey, Pageable pageable, String status) {
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
-//		List <Contract> payerProviderContractList =contractRepository.findByInstitutionInstitutionUuidAndStatusAndIsDeleted(payerUuid,status,false,pageable);
-        List<ContractHeader> payerProviderContractList = (List<ContractHeader>) contractRepository.findByProviderProviderUuidAndStatusAndIsDeleted("c403bb86-a9f3-4429-abe7-d61dd1a07f66", status, false, pageable);
-//		return contractListRepository.findPayerProvidersContractAll(payerUuid, searchKey, page, limit, status);
-        return getContractListPayerResponse(payerProviderContractList);
+        // Get the page of contracts
+        Page<ContractHeader> contractPage;
+
+        // Default to ACTIVE status if status is null or empty
+        Status contractStatus = (status == null || status.isEmpty())
+                ? Status.ACTIVE
+                : Status.valueOf(status);
+
+        if (searchKey != null && !searchKey.isEmpty()) {
+            // Search with the provided key
+            contractPage = contractRepository.findByStatusAndIsDeletedAndContractNameContaining(
+                    contractStatus, false, searchKey, pageable);
+        } else {
+            // Get all contracts with the given status
+            contractPage = contractRepository.findByStatusAndIsDeleted(
+                    contractStatus, false, pageable);
+        }
+
+        // Convert the Page<ContractHeader> to List<ContractListPayerResponse>
+        return getContractListPayerResponse(contractPage.getContent());
     }
 
 

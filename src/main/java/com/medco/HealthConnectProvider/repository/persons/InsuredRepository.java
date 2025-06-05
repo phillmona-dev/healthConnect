@@ -187,4 +187,5 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
     @Query("SELECT i FROM Insured i WHERE i.nationalId = :nationalId AND i.payer.payerUuid = :payerUuid AND i.isDeleted = false")
     Insured findByNationalIdAndPayer(@Param("nationalId") String nationalId, @Param("payerUuid") String payerUuid);
 
+    Insured findByInsuranceId(String patientId);
 }

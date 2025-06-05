@@ -52,7 +52,8 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unAuthorizedHandler))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/provider/healthConnectProvider/users/**",
-                                "/api/provider/healthConnectProvider/claim/**")
+                                "/api/provider/healthConnectProvider/claim/**",
+                        "/api/v1/healthConnect/payer-provider-contract/**")
                         .permitAll()
                         .requestMatchers( "/v3/api-docs/**", "/swagger-ui/**").permitAll()
                         .anyRequest().permitAll()

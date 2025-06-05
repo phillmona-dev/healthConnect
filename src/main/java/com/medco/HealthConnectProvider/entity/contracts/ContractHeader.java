@@ -33,7 +33,6 @@ public class ContractHeader extends Audit implements Serializable {
     @Column(unique = true, nullable = false)
     private String contractHeaderUuid;
 
-    @Column(nullable = false)
     private String contractNumber;
 
     private String contractName;
