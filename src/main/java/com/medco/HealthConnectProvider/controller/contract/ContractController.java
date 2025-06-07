@@ -4,6 +4,7 @@ import com.medco.HealthConnectProvider.services.contract.ContractService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractServiceGroupAssignmentRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
+import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractListPayerResponse;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
@@ -13,11 +14,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -32,7 +37,7 @@ public class ContractController {
     @PostMapping
     @Operation(summary = "Create a new contract", description = "Creates a new contract between a payer and provider")
     //@PreAuthorize("hasRole('Create-Provider-Contract')")
-    public ResponseEntity<?> createContract(@Valid @RequestBody ContractRequest contractRequest) {
+    public ResponseEntity<ContractResponse> createContract(@Valid @RequestBody ContractRequest contractRequest) {
         return contractService.createContract(contractRequest);
     }
 
@@ -138,5 +143,60 @@ public class ContractController {
             @Valid @RequestBody List<ContractServiceGroupAssignmentRequest> assignments) {
 
         return contractService.assignServicesToEmployeeGroups(contractUuid, assignments);
+    }
+
+    @GetMapping
+    public ResponseEntity<?> getContracts(
+            @RequestParam(required = false) String contractNumber,
+            @RequestParam(required = false) String contractName,
+            @RequestParam(required = false) Status status,
+            @RequestParam(required = false) String payerUuid,
+            @RequestParam(required = false) String providerUuid,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDateTo,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDateTo,
+            @RequestParam(required = false) String preparedBy,
+            @RequestParam(required = false) Boolean isDeleted,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "startDate,desc") String[] sort) {
+
+        ContractFilterRequest filter = ContractFilterRequest.builder()
+                .contractNumber(contractNumber)
+                .contractName(contractName)
+                .status(status)
+                .payerUuid(payerUuid)
+                .providerUuid(providerUuid)
+                .startDateFrom(startDateFrom)
+                .startDateTo(startDateTo)
+                .endDateFrom(endDateFrom)
+                .endDateTo(endDateTo)
+                .preparedBy(preparedBy)
+                .isDeleted(isDeleted)
+                .build();
+
+        Pageable pageable = PageRequest.of(page, size, getSort(sort));
+
+        return contractService.getFilteredContracts(filter, pageable);
+    }
+
+    private Sort getSort(String[] sort) {
+        List<Sort.Order> orders = new ArrayList<>();
+
+        if (sort[0].contains(",")) {
+            for (String sortOrder : sort) {
+                String[] sortParams = sortOrder.split(",");
+                orders.add(new Sort.Order(getSortDirection(sortParams[1]), sortParams[0]));
+            }
+        } else {
+            orders.add(new Sort.Order(getSortDirection(sort[1]), sort[0]));
+        }
+
+        return Sort.by(orders);
+    }
+
+    private Sort.Direction getSortDirection(String direction) {
+        return direction.equals("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
     }
 }

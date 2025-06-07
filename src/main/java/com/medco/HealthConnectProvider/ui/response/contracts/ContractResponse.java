@@ -1,25 +1,49 @@
 package com.medco.HealthConnectProvider.ui.response.contracts;
 
 import java.io.Serializable;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Date;
-import lombok.Getter;
-import lombok.Setter;
+
+import com.medco.HealthConnectProvider.utils.enums.Status;
+import lombok.*;
 
 @Getter
 @Setter
-public class ContractResponse implements Serializable {
-
-    private String contractUuid;
-    private String payerUuid;
-    private String providerUuid;
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class ContractResponse {
+    private Long id;
+    private String contractHeaderUuid;
+    private String contractNumber;
     private String contractName;
-    private String contractCode;
-    private String description;
-    private Date beginDate;
-    private Date endDate;
-    private String preparedBy;
+    private String contractDescription;
     private String approvedBy;
-    private String status;
+    private Date approvalDate;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private Status status;
+    private String remark;
+    private String preparedBy;
+    private String description;
+    private String contractCode;
+    private Date terminationDate;
+    private String terminationReason;
+    private String terminationNotes;
+    private String terminatedBy;
+    private Date terminationRequestDate;
+    private Double coPaymentPercentage;
     private boolean isDeleted;
-    private long totalPages;
+
+    // Related entity information
+    private String payerUuid;
+    private String payerName;
+    private String payerCode;
+    private String providerUuid;
+    private String providerName;
+    private String providerCode;
+
+    private Instant createdAt;
+    private Instant updatedAt;
 }

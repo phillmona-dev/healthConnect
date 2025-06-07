@@ -100,13 +100,7 @@ public class Insured implements Serializable {
 
     @NotBlank(message = "address1 can't be empty")
     @Size(max = 50)
-    private String address1;
-
-    @Size(max = 50)
-    private String address2;
-
-    @Size(max = 50)
-    private String address3;
+    private String address;
 
     @NotBlank(message = "state can't be empty")
     @Size(min = 2, max = 50)
@@ -116,11 +110,9 @@ public class Insured implements Serializable {
     @Size(min = 2, max = 50)
     private String country;
 
-    private Date beginDate;
-
-    private Date endDate;
-
-    private String profilePicture;
+    @Lob
+    @Column(name = "profile_picture")
+    private byte[] profilePicture;
 
     @Enumerated(EnumType.STRING)
     private Status status;

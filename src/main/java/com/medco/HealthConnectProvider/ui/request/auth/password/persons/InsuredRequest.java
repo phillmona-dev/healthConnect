@@ -75,18 +75,7 @@ public class InsuredRequest {
 
     @NotBlank(message = " address1 must be null ")
     @Size( max = 50)
-    private String address1;
-
-
-    @NotBlank(message = " address2 must be null ")
-    @Size( max = 50)
-    private String address2;
-
-
-    @NotBlank(message = " address3 must be null ")
-    @Size( max = 50)
-    private String address3;
-
+    private String address;
 
     @NotBlank(message = " state must be null ")
     @Size(min = 1, max = 50)

@@ -18,7 +18,14 @@ public class JwtResponse {
     private String token;
     private String refreshToken;
     private String userUuid;
+    private String email;
+    private String firstName;
+    private String fatherName;
+    private String grandFatherName;
+    private String mobilePhone;
+    private String payerUuid;
     private String providerUuid;
-    private Collection<? extends GrantedAuthority> authorities;;
+    private Collection<? extends GrantedAuthority> authorities;
+
 
 }

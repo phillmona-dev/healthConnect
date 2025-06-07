@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.repository.user;
 
 import com.medco.HealthConnectProvider.entity.user.User;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -16,5 +17,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByUserUuid(String userUuid);
 
-    List<User> findAllByIsDeletedAndFirstNameContainingOrMobilePhoneContaining(boolean b, String search, String search1, Pageable pageable);
+    Page<User> findAllByIsDeletedAndFirstNameContainingOrMobilePhoneContaining(boolean b, String search, String search1, Pageable pageable);
+
+    Page<User> findAllByIsDeleted(boolean b, Pageable pageable);
 }

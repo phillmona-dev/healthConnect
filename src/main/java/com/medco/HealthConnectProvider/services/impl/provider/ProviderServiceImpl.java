@@ -15,6 +15,7 @@ import com.medco.HealthConnectProvider.services.providers.ProviderService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.providers.ProviderRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.user.SignUpRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
+import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PayersNameForProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.utils.SortUtils;
@@ -91,7 +92,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
 
     @Override
     public ResponseEntity<ProviderResponse> createProvider(ProviderRequest providerRequest, MultipartFile logo) {
-        // Validate unique constraints
+
         if (providerRepository.existsByEmail(providerRequest.getEmail())){
             ProviderResponse response = new ProviderResponse();
             response.setStatus("Error: Email is already in use!");
@@ -114,10 +115,9 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         BeanUtils.copyProperties(providerRequest, provider);
         provider.setStatus(Status.valueOf(providerRequest.getStatus()));
 
-        // Save logo if provided
         if (logo != null && !logo.isEmpty()) {
             try {
-                // Ensure directory exists
+
                 File directory = new File(providerLogosDirectory);
                 if (!directory.exists()) {
                     directory.mkdirs();
@@ -125,10 +125,10 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
                 }
 
                 String fileName = logo.getOriginalFilename();
+                assert fileName != null;
                 String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
                 String newFileName = "logo_" + UUID.randomUUID().toString() + "." + extension;
 
-                // Save the logo
                 Path logoPath = Paths.get(providerLogosDirectory + "/" + newFileName);
                 log.info("Saving new logo to: {}", logoPath);
                 Files.write(logoPath, logo.getBytes());
@@ -146,13 +146,13 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         Provider savedProvider = providerRepository.save(provider);
         log.info("Provider created with UUID: {}, status: {}", savedProvider.getProviderUuid(), savedProvider.getStatus());
 
-        // Create a role for the provider manager
         Role role = new Role();
         // Truncate the provider name if it's too long to fit in role name
         String providerNameForRole = providerRequest.getProviderName();
         if (providerNameForRole.length() > 40) {
             providerNameForRole = providerNameForRole.substring(0, 40);
         }
+
         role.setRoleName(providerNameForRole + "_Manager");
         role.setProviderUuid(savedProvider.getProviderUuid());
         role.setRoleDescription("Manages the system for " + providerRequest.getProviderName());
@@ -252,10 +252,10 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
     }
 
     @Override
-    public List<ProviderResponse> getProvidersWithFilters(String searchKey, int page, int limit,
-                                                          Status status, String category,
-                                                          String providerName, String tinNumber, String level,
-                                                          String sortBy, String sortDir) {
+    public PagedResponse<ProviderResponse> getProvidersWithFilters(String searchKey, int page, int limit,
+                                                                   Status status, String category,
+                                                                   String providerName, String tinNumber, String level,
+                                                                   String sortBy, String sortDir) {
 
         if (page > 0) {
             page = page - 1;
@@ -300,17 +300,12 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         }
 
         Page<Provider> providerPage = providerRepository.findAll(spec, pageable);
-
-        long totalPages = providerPage.getTotalPages();
         List<Provider> providerList = providerPage.getContent();
 
         // Map to response objects
         List<ProviderResponse> providerResponses = new ArrayList<>();
         for (Provider provider : providerList) {
             ProviderResponse response = new ProviderResponse();
-            if (providerResponses.isEmpty()) {
-                response.setTotalPages(totalPages);
-            }
 
             BeanUtils.copyProperties(provider, response);
             response.setStatus(String.valueOf(provider.getStatus()));
@@ -347,7 +342,16 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
             providerResponses.add(response);
         }
 
-        return providerResponses;
+        PagedResponse<ProviderResponse> pagedResponse = new PagedResponse<>();
+        pagedResponse.setContent(providerResponses);
+        pagedResponse.setCurrentPage(providerPage.getNumber() + 1);
+        pagedResponse.setPageSize(providerPage.getSize());
+        pagedResponse.setTotalElements(providerPage.getTotalElements());
+        pagedResponse.setTotalPages(providerPage.getTotalPages());
+        pagedResponse.setHasNext(providerPage.hasNext());
+        pagedResponse.setHasPrevious(providerPage.hasPrevious());
+
+        return pagedResponse;
     }
 
     private void setDefaultLogoBase64(ProviderResponse response) {
@@ -383,7 +387,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
 
         // Create the user
         try {
-            User savedUser = createProviderManagerUser(managerDto);
+            User savedUser = createProviderManagerUser(managerDto, savedProvider);
 
             // Send welcome email
             String loginUrl = frontendUrl + "/login?newUser=true&email=" + savedUser.getEmail();
@@ -399,7 +403,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         }
     }
 
-    private User createProviderManagerUser(SignUpRequest managerDto) {
+    private User createProviderManagerUser(SignUpRequest managerDto, Provider savedProvide) {
         if (userRepository.existsByEmail(managerDto.getEmail())) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Error: Email is already in use!");
         }
@@ -413,6 +417,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
             throw new BadRequestException("Role not found");
         }
         user.setRole(role);
+        user.setProviderUuid(savedProvide.getProviderUuid());
 
         return userRepository.save(user);
     }

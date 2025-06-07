@@ -8,6 +8,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.user.SignUpReque
 import com.medco.HealthConnectProvider.ui.response.auth.RefreshTokenResponse;
 import com.medco.HealthConnectProvider.ui.response.user.UserResponse;
 import org.springframework.http.ResponseEntity;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 
 import java.util.List;
 
@@ -22,11 +23,13 @@ public interface UserService {
 
     ResponseEntity<?> deleteUser(String userUuid);
 
-    List<UserResponse> getAllSystemUsers(String search,String roleUuid,String providerUuid, int page, int limit);
 
     ResponseEntity<?> changePassword(ChangePasswordRequest resetPasswordDetail, String userUuid);
 
     RefreshTokenResponse getNewToken(RefreshTokenRequest tokenRequest);
 
     UserResponse createUser(PayerAdminDto payerAdminDto);
+
+    PagedResponse<UserResponse> getAllSystemUsers(String search, String roleUuid, String providerUuid, int page, int limit);
+
 }

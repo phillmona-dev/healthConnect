@@ -3,6 +3,7 @@ package com.medco.HealthConnectProvider.entity.user;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.medco.HealthConnectProvider.config.Auditing.UserDateAudit;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
+import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
@@ -89,5 +90,9 @@ public class User extends UserDateAudit {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payer_id")
     private Payer payer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "provider_id")
+    private Provider provider;
 
 }

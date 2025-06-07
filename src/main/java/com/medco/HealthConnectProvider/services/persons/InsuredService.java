@@ -25,7 +25,7 @@ public interface InsuredService {
     ResponseEntity<?> importInsuredPersonData(File convert, String institutionUuid, String payerInstitutionContractUuid) throws IOException;
     // List<InsuredResponse> getInsuredPersonsForProvider(int page, int limit);
     ResponseEntity<?> setProfilePicture(MultipartFile file, String insuredUuid) throws IOException;
-    List<InsuredListResponse> getInsuredPersonEligiblity(String insuredUuid);
+//    List<InsuredListResponse> getInsuredPersonEligiblity(String insuredUuid);
 
     List<InsuredResponse> getInsuredPersons(String payerInstitutionContractId, String search, int page, int limit);
     ResponseEntity<?> importInsuredPersonAndDependant(File convert, String institutionUuid) throws Exception, IOException;
@@ -65,4 +65,18 @@ public interface InsuredService {
     ResponseEntity<?> updateInsuredPersonWithDependants(String insuredUuid, InsuredWithDependantsRequest insuredRequest, MultipartFile photo);
 
     ResponseEntity<ByteArrayResource> getInsuredPhoto(String insuredUuid);
+
+    /**
+     * Get an insured person's photo as base64
+     * @param insuredUuid The UUID of the insured person
+     * @return The photo as base64 string or null if not found
+     */
+    String getInsuredPhotoBase64(String insuredUuid);
+
+    /**
+     * Get an insured person by UUID with their dependants and photo in base64
+     * @param insuredUuid The UUID of the insured person
+     * @return ResponseEntity containing the insured person with their dependants and photo in base64
+     */
+    ResponseEntity<?> getInsuredPersonWithPhotoBase64(String insuredUuid);
 }

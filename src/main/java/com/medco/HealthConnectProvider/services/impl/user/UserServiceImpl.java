@@ -19,6 +19,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.ChangePasswordRe
 import com.medco.HealthConnectProvider.ui.request.auth.password.LoginRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.token.RefreshTokenRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.user.SignUpRequest;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.JwtResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.RefreshTokenResponse;
 import com.medco.HealthConnectProvider.ui.response.user.UserResponse;
@@ -28,6 +29,7 @@ import com.medco.HealthConnectProvider.utils.paginationUtils.Pagination;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -40,7 +42,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -95,7 +96,9 @@ public class UserServiceImpl implements UserService {
                 String jwt = JwtServiceImpl.generateToken(userDetails.getEmail());
 
 
-                return ResponseEntity.ok(new JwtResponse(jwt,refreshToken ,userDetails.getUserUuid(),userDetails.getProviderUuid(),userDetails.getAuthorities()));
+                return ResponseEntity.ok(new JwtResponse(jwt,refreshToken ,userDetails.getUserUuid(), userDetails.getEmail(),
+                        userDetails.getFirstName(),userDetails.getFatherName(),userDetails.getGrandFatherName(),
+                        userDetails.getMobilePhone(),userDetails.getPayerUuid(),userDetails.getProviderUuid(),userDetails.getAuthorities()));
             }else{
                 throw new BadRequestException("Your Token is Expired try to login Again");
             }
@@ -164,9 +167,11 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public List<UserResponse> getAllSystemUsers(String search,String roleUuid,String providerUuid ,int page, int limit) {
-        Pageable pageable = Pagination.paginateResource(page,limit,"id","desc");
-        return search != null ? getAllUsersWithSearch(search,roleUuid,providerUuid,pageable) : getAllUsers(roleUuid,providerUuid,pageable);
+    public PagedResponse<UserResponse> getAllSystemUsers(String search, String roleUuid, String providerUuid, int page, int limit) {
+        Pageable pageable = Pagination.paginateResource(page, limit, "id", "desc");
+        return (search != null)
+                ? getAllUsersWithSearch(search, roleUuid, providerUuid, pageable)
+                : getAllUsers(roleUuid, providerUuid, pageable);
     }
 
     @Override
@@ -201,21 +206,47 @@ public class UserServiceImpl implements UserService {
     }
 
 
-    private List<UserResponse> getAllUsers(String roleUuid, String providerUuid,Pageable pageable) {
-        return userRepository.findAll(pageable)
-                .stream()
+    private PagedResponse<UserResponse> getAllUsers(String roleUuid, String providerUuid, Pageable pageable) {
+        Page<User> userPage = userRepository.findAllByIsDeleted(false, pageable);
+
+        List<UserResponse> content = userPage.stream()
                 .filter(user -> (roleUuid == null || roleUuid.equals(user.getRole().getRoleUuid().toString())))
                 .filter(user -> (providerUuid == null || providerUuid.equals(user.getProviderUuid().toString())))
-                .map(MapperClass::mapToUserResponse).collect(Collectors.toList());
+                .map(MapperClass::mapToUserResponse)
+                .collect(Collectors.toList());
+
+        return new PagedResponse<>(
+                content,
+                userPage.getNumber(),
+                userPage.getSize(),
+                userPage.getTotalElements(),
+                userPage.getTotalPages(),
+                userPage.hasNext(),
+                userPage.hasPrevious()
+        );
     }
 
-    private List<UserResponse> getAllUsersWithSearch(String search,String roleUuid,String providerUuid ,Pageable pageable) {
-        return userRepository.findAllByIsDeletedAndFirstNameContainingOrMobilePhoneContaining(false,search,search,pageable)
-                .stream()
+
+    private PagedResponse<UserResponse> getAllUsersWithSearch(String search, String roleUuid, String providerUuid, Pageable pageable) {
+        Page<User> userPage = userRepository.findAllByIsDeletedAndFirstNameContainingOrMobilePhoneContaining(false, search, search, pageable);
+
+        List<UserResponse> content = userPage.stream()
                 .filter(user -> (roleUuid == null || roleUuid.equals(user.getRole().getRoleUuid().toString())))
                 .filter(user -> (providerUuid == null || providerUuid.equals(user.getProviderUuid().toString())))
-                .map(MapperClass::mapToUserResponse).collect(Collectors.toList());
+                .map(MapperClass::mapToUserResponse)
+                .collect(Collectors.toList());
+
+        return new PagedResponse<>(
+                content,
+                userPage.getNumber(),
+                userPage.getSize(),
+                userPage.getTotalElements(),
+                userPage.getTotalPages(),
+                userPage.hasNext(),
+                userPage.hasPrevious()
+        );
     }
+
 
 
     //Filmon

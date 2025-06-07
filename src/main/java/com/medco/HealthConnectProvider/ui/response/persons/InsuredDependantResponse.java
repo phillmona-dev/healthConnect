@@ -31,4 +31,6 @@ public class InsuredDependantResponse {
     // Pagination metadata
     private long totalPages;
     private long totalElements;
+
+    private String profilePictureBase64;
 }

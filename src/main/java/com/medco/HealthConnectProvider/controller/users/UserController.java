@@ -9,6 +9,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.ResetPasswordReq
 import com.medco.HealthConnectProvider.ui.request.auth.password.token.RefreshTokenRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.user.SignUpRequest;
 import com.medco.HealthConnectProvider.ui.response.auth.RefreshTokenResponse;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.user.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -67,7 +68,7 @@ public class UserController {
 
     @GetMapping("/all")
     @Operation(summary = "List all users", description = "Retrieves a list of all system users with filtering, pagination and search capabilities")
-    public List<UserResponse> getAllSystemUsers(
+    public PagedResponse<UserResponse> getAllSystemUsers(
             @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "filterByRole", required = false) String roleUuid,
             @RequestParam(value = "filterByProvider", required = false) String providerUuid,

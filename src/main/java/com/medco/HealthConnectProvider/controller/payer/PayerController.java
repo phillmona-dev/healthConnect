@@ -6,6 +6,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerReque
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
+import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -81,7 +82,7 @@ public class PayerController {
             summary = "List payers",
             description = "Retrieves a list of Payers with pagination, search, and advanced filtering options"
     )
-    public List<PayerResponse> getPayers(
+    public PagedResponse<PayerResponse> getPayers(
             @RequestParam(value = "search", required = false) String searchKey,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "limit", defaultValue = "25") int limit,

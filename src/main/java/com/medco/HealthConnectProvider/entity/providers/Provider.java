@@ -2,21 +2,20 @@ package com.medco.HealthConnectProvider.entity.providers;
 
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.services.Servicelist;
+import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.shared.Audit;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.*;
 
+@Builder
 @Getter
 @Setter
 @NoArgsConstructor
@@ -66,6 +65,10 @@ public class Provider extends Audit implements Serializable {
 
     @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Servicelist> servicelistLists = new ArrayList<>();
+
+    @OneToMany(mappedBy = "provider", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<User> users = new ArrayList<>();
 
     @NotBlank
     @Size(min = 3, max = 50)

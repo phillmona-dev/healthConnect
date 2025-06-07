@@ -2,18 +2,27 @@ package com.medco.HealthConnectProvider.services.impl.payer;
 
 import com.medco.HealthConnectProvider.dto.PayerAdminDto;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
+import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.entity.user.Role;
+import com.medco.HealthConnectProvider.entity.user.User;
+import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.user.RoleRepository;
+import com.medco.HealthConnectProvider.repository.user.UserRepository;
+import com.medco.HealthConnectProvider.services.mail.EmailService;
 import com.medco.HealthConnectProvider.services.payer.PayerService;
 import com.medco.HealthConnectProvider.services.user.UserService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerRequest;
+import com.medco.HealthConnectProvider.ui.request.auth.password.providers.ProviderRequest;
+import com.medco.HealthConnectProvider.ui.request.auth.password.user.SignUpRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
+import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
+import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.utils.SortUtils;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.transaction.Transactional;
@@ -22,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
@@ -33,6 +43,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -60,8 +71,21 @@ public class PayerServiceImpl implements PayerService {
     private final UserService userService;
     private final ContractRepository contractRepository;
 
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private EmailService emailService;
+
     @Value("${file.upload-dir-payer-logos:C:/Users/Administrator/OneDrive/Desktop/MedcoProjects/logos/payers}")
     private String payerLogosDirectory;
+
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
 
     public PayerServiceImpl(PayerRepository payerRepository, RoleRepository roleRepository, UserService userService, ContractRepository contractRepository) {
         this.payerRepository = payerRepository;
@@ -126,8 +150,85 @@ public class PayerServiceImpl implements PayerService {
             }
         }
 
-        payerRepository.save(payer);
+        Payer savedPayer = payerRepository.save(payer);
+        log.info("Payer created with UUID: {}, status: {}", savedPayer.getPayerUuid(), savedPayer.getStatus());
+
+        // Create a role for the provider manager
+        Role role = new Role();
+        // Truncate the provider name if it's too long to fit in role name
+        String payerNameForRole = payerRequest.getPayerName();
+        if (payerNameForRole.length() > 40) {
+            payerNameForRole = payerNameForRole.substring(0, 40);
+        }
+        role.setRoleName(payerNameForRole + "_Manager");
+        role.setProviderUuid(savedPayer.getPayerUuid());
+        role.setRoleDescription("Manages the system for " + payerRequest.getPayerName());
+        Role savedRole = roleRepository.save(role);
+
+        createPayerManager(payerRequest, savedRole, savedPayer);
+
+        PayerResponse payerResponse = new PayerResponse();
+        BeanUtils.copyProperties(savedPayer, payerResponse);
+        payerResponse.setStatus(savedPayer.getStatus());
+        payerResponse.setPayerUuid(savedPayer.getPayerUuid());
+
+
         return getPayerResponse(payer);
+    }
+
+    private void createPayerManager(PayerRequest payerRequest, Role savedRole, Payer savedPayer) {
+
+        SignUpRequest managerDto = new SignUpRequest();
+        managerDto.setEmail(payerRequest.getEmail());
+        managerDto.setGender("Male");
+        managerDto.setTitle("Mr");
+        managerDto.setFirstName("Payer");
+        managerDto.setFatherName("Manager");
+        managerDto.setGrandFatherName("Default");
+        managerDto.setMobilePhone(payerRequest.getTelephone());
+
+        String randomPassword = generateRandomPassword();
+        managerDto.setPassword(randomPassword);
+
+        managerDto.setRoleUuid(savedRole.getRoleUuid());
+        //managerDto.setProviderUuid(savedProvider.getProviderUuid());
+        managerDto.setUserStatus(Status.ACTIVE);
+
+        // Create the user
+        try {
+            User savedUser = createPayerManagerUser(managerDto, savedPayer);
+
+            // Send welcome email
+            String loginUrl = frontendUrl + "/login?newUser=true&email=" + savedUser.getEmail();
+            emailService.sendWelcomeEmail(
+                    savedUser.getEmail(),
+                    savedUser.getFirstName(),
+                    randomPassword,
+                    savedPayer.getPayerName(),
+                    loginUrl
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to create provider manager: " + e.getMessage());
+        }
+    }
+
+    private User createPayerManagerUser(SignUpRequest managerDto, Payer savedPayer) {
+        if (userRepository.existsByEmail(managerDto.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Error: Email is already in use!");
+        }
+
+        User user = new User();
+        BeanUtils.copyProperties(managerDto, user);
+        user.setPassword(passwordEncoder.encode(managerDto.getPassword()));
+
+        Role role = roleRepository.findByRoleUuid(managerDto.getRoleUuid());
+        if (role == null) {
+            throw new BadRequestException("Role not found");
+        }
+        user.setRole(role);
+        user.setPayerUuid(savedPayer.getPayerUuid());
+
+        return userRepository.save(user);
     }
 
     private static PayerAdminDto getPayerAdminDto(PayerRequest payerRequest, Role savedRole, Payer payer1) {
@@ -140,7 +241,6 @@ public class PayerServiceImpl implements PayerService {
         payerAdminDto.setGrandFatherName("Default");
         payerAdminDto.setMobilePhone(payerRequest.getTelephone());
 
-        // Generate a random password
         String randomPassword = generateRandomPassword();
         payerAdminDto.setPassword(randomPassword);
 
@@ -150,7 +250,7 @@ public class PayerServiceImpl implements PayerService {
     }
 
     private static String generateRandomPassword() {
-        // Generate a random password with 10 characters
+        // Generate a random password with 6 characters
         String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
         StringBuilder sb = new StringBuilder();
         Random random = new Random();
@@ -158,7 +258,10 @@ public class PayerServiceImpl implements PayerService {
             int index = random.nextInt(chars.length());
             sb.append(chars.charAt(index));
         }
-        return sb.toString();
+
+        String password = sb.toString();
+        System.out.println("Generated Password: " + password);
+        return password;
     }
 
     @Override
@@ -385,7 +488,7 @@ public class PayerServiceImpl implements PayerService {
     }
 
     @Override
-    public List<PayerResponse> getPayersWithFilters(String searchKey, int page, int limit, Status status, String category, String payerName, Long tinNumber, String level, String sortBy, String sortDir) {
+    public PagedResponse<PayerResponse> getPayersWithFilters(String searchKey, int page, int limit, Status status, String category, String payerName, Long tinNumber, String level, String sortBy, String sortDir) {
         // Adjust page for zero-based indexing
         if (page > 0) {
             page = page - 1;
@@ -432,17 +535,12 @@ public class PayerServiceImpl implements PayerService {
 
         // Query with specifications
         Page<Payer> payerPage = payerRepository.findAll(spec, pageRequest);
-
-        long totalPages = payerPage.getTotalPages();
         List<Payer> payerList = payerPage.getContent();
 
         // Map to response objects
         List<PayerResponse> payerResponses = new ArrayList<>();
         for (Payer payer : payerList) {
             PayerResponse response = new PayerResponse();
-            if (payerResponses.isEmpty()) {
-                response.setTotalPages(totalPages);
-            }
 
             BeanUtils.copyProperties(payer, response);
             response.setStatus(payer.getStatus());
@@ -479,7 +577,16 @@ public class PayerServiceImpl implements PayerService {
             payerResponses.add(response);
         }
 
-        return payerResponses;
+        PagedResponse<PayerResponse> pagedResponse = new PagedResponse<>();
+        pagedResponse.setContent(payerResponses);
+        pagedResponse.setCurrentPage(payerPage.getNumber() + 1);
+        pagedResponse.setPageSize(payerPage.getSize());
+        pagedResponse.setTotalElements(payerPage.getTotalElements());
+        pagedResponse.setTotalPages(payerPage.getTotalPages());
+        pagedResponse.setHasNext(payerPage.hasNext());
+        pagedResponse.setHasPrevious(payerPage.hasPrevious());
+
+        return pagedResponse;
     }
 
     private void setDefaultLogoBase64(PayerResponse response) {

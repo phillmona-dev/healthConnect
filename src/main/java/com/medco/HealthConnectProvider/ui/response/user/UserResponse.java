@@ -1,12 +1,16 @@
 package com.medco.HealthConnectProvider.ui.response.user;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.io.Serializable;
 
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class UserResponse implements Serializable {
 
     private String userUuid;
@@ -19,6 +23,7 @@ public class UserResponse implements Serializable {
 
     private String mobilePhone;
     private String userStatus;
+    private String payerUuid;
     private String providerUuid;
     private String profilePicture;
     private boolean isDeleted;

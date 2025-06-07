@@ -44,22 +44,16 @@ public class InsuredResponse {
 
     double premium;
 
-    private String address1;
-
-    private String address2;
-
-    private String address3;
+    private String address;
 
     private String state;
 
     private String country;
 
-    private Date beginDate;
-
-    private Date endDate;
-
     private Status status;
 
     private long totalPages;
+
+    private String photoBase64;
 
 }

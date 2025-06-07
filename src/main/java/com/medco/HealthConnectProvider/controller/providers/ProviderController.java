@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.controller.providers;
 
 import com.medco.HealthConnectProvider.services.providers.ProviderService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.providers.ProviderRequest;
+import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PayersNameForProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
@@ -71,7 +72,7 @@ public class ProviderController {
             summary = "List providers",
             description = "Retrieves a list of healthcare providers with pagination, search, and advanced filtering options"
     )
-    public List<ProviderResponse> getProviders(
+    public PagedResponse<ProviderResponse> getProviders(
             @RequestParam(value = "search", required = false) String searchKey,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "limit", defaultValue = "25") int limit,

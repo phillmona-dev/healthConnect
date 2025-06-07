@@ -5,15 +5,12 @@ import com.medco.HealthConnectProvider.services.persons.InsuredService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.persons.DependantRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.persons.InsuredRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.persons.InsuredWithDependantsRequest;
-import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredAndDependantCashServiceResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredDependantResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredListResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredResponse;
 import com.medco.HealthConnectProvider.utils.paginationUtils.PaginationUtils;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -23,7 +20,6 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -32,7 +28,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
 
 @RestController
 @RequestMapping("/api/v1/healthConnect/insuredperson")
@@ -47,7 +42,7 @@ public class InsuredController {
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-//@PreAuthorize("hasRole('Create-Insured-Person')")
+    //@PreAuthorize("hasRole('Create-Insured-Person')")
     @Operation(summary = "Create insured person", description = "Creates a new insured person with profile photo")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Insured person created successfully"),
@@ -73,15 +68,12 @@ public class InsuredController {
             @PathVariable String insuredUuid,
             @RequestPart("insured") InsuredWithDependantsRequest insuredRequest,
             @RequestPart(value = "photo", required = false) MultipartFile photo) {
-        // If dependants list is null, initialize it to avoid NPE
         if (insuredRequest.getDependants() == null) {
             insuredRequest.setDependants(new ArrayList<>());
         }
 
-        // Validate the insured person fields manually
         validateInsuredRequest(insuredRequest);
 
-        // Validate each dependant
         for (DependantRequest dependant : insuredRequest.getDependants()) {
             validateDependantRequest(dependant);
         }
@@ -163,13 +155,18 @@ public class InsuredController {
     }
 
     @GetMapping(path = "/list/{payerInstitutionContractId}")
-//	@PreAuthorize("hasRole('Read-Insured-Persons')")
     @Operation(summary = "List insured persons", description = "Retrieves a list of insured persons for a specific payer institution contract with pagination and search")
     public List<InsuredResponse> getInsuredPersons(@PathVariable String payerInstitutionContractId,
                                                    @RequestParam(name = "search", required = false) String search,
                                                    @RequestParam(value = "page", defaultValue = "1") int page,
                                                    @RequestParam(value = "limit", defaultValue = "25") int limit) {
-        return insuredService.getInsuredPersons(payerInstitutionContractId, search, page, limit);
+        List<InsuredResponse> insuredList = insuredService.getInsuredPersons(payerInstitutionContractId, search, page, limit);
+
+        for (InsuredResponse insured : insuredList) {
+            insured.setPhotoBase64(insuredService.getInsuredPhotoBase64(insured.getInsuredUuid()));
+        }
+
+        return insuredList;
     }
 
     @GetMapping(path = "/list/withdependant/{payerInstitutionContractUuid}")
@@ -182,15 +179,15 @@ public class InsuredController {
         return insuredService.getInsuredPersonsAndDependants(payerInstitutionContractUuid, search, page, limit);
     }
 
-    @GetMapping(path = "/check-eligiblity/{insuredPersonUuid}")
-    // @PreAuthorize("hasRole('Check-Insured-Person-Eligibility')")
-    @Operation(summary = "Check insured person eligibility", description = "Checks the eligibility status of an insured person")
-    public List<InsuredListResponse> getInsuredPersonEligiblity(@PathVariable String insuredPersonUuid) {
-        return insuredService.getInsuredPersonEligiblity(insuredPersonUuid);
-    }
+//    @GetMapping(path = "/check-eligiblity/{insuredPersonUuid}")
+//    // @PreAuthorize("hasRole('Check-Insured-Person-Eligibility')")
+//    @Operation(summary = "Check insured person eligibility", description = "Checks the eligibility status of an insured person")
+//    public List<InsuredListResponse> getInsuredPersonEligiblity(@PathVariable String insuredPersonUuid) {
+//        return insuredService.getInsuredPersonEligiblity(insuredPersonUuid);
+//    }
 
     @DeleteMapping(path = "/{insuredUuid}")
-    @PreAuthorize("hasRole('Delete-Insured-Person')")
+   // @PreAuthorize("hasRole('Delete-Insured-Person')")
     @Operation(summary = "Delete insured person", description = "Deletes an insured person by UUID")
     public ResponseEntity<?> deleteInsuredPerson(@PathVariable String insuredUuid) {
         return insuredService.deleteInsuredPerson(insuredUuid);
@@ -203,19 +200,6 @@ public class InsuredController {
                                                        @RequestParam("institutionUuid") String institutionUuid) throws Exception {
         return insuredService.importInsuredPersonAndDependant(convert(file), institutionUuid);
     }
-
-    /*
-     * @PostMapping(path="/import",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-     *
-     * @PreAuthorize("hasRole('Upload-Insured-Persons')") public ResponseEntity<?>
-     * importData(@RequestParam("file") MultipartFile
-     * file, @RequestParam("institutionUuid") String institutionUuid,
-     *
-     * @RequestParam("payerInstitutionContractUuid") String
-     * payerInstitutionContractUuid ) throws IOException { return
-     * insuredService.importInsuredPersonData(convert(file),institutionUuid,
-     * payerInstitutionContractUuid); }
-     */
 
     private File convert(MultipartFile file) throws IOException {
         File convFile = new File(file.getOriginalFilename());
@@ -253,21 +237,28 @@ public class InsuredController {
 
     /**
      * Get all insured persons with their dependants for a specific institution with search capability
-     * @param institutionUuid The UUID of the institution
+     * @param payerUuid The UUID of the institution
      * @param search Optional search key to filter results (name, phone, insurance ID)
      * @param page Page number (1-based)
      * @param limit Number of records per page
      * @return List of insured persons with their dependants
      */
-    @GetMapping("/institution/with-dependants/{institutionUuid}")
+    @GetMapping("/payer/with-dependants/{payerUuid}")
     //@PreAuthorize("hasRole('Read-Insured-Persons')")
     @Operation(summary = "Get insured persons with dependants by institution",
             description = "Retrieves all insured persons with their dependants for a specific institution with search capability")
     public List<InsuredDependantResponse> getAllInsuredPersonsWithDependantsByInstitution(
-            @PathVariable String institutionUuid,
+            @PathVariable String payerUuid,
             @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "limit", defaultValue = "25") int limit) {
-        return insuredService.getAllInsuredPersonsWithDependantsByInstitution(institutionUuid, search, page, limit);
+        return insuredService.getAllInsuredPersonsWithDependantsByInstitution(payerUuid, search, page, limit);
     }
+
+    @GetMapping("/insuredWithPhotoBase64/{insuredUuid}")
+    @Operation(summary = "Get insured person with photo", description = "Retrieves an insured person with their photo as base64")
+    public ResponseEntity<?> getInsuredPersonWithPhoto(@PathVariable String insuredUuid) {
+        return insuredService.getInsuredPersonWithPhotoBase64(insuredUuid);
+    }
+
 }

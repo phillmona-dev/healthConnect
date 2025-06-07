@@ -6,6 +6,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.contract.Contrac
 import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractTerminationRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractServiceGroupAssignmentRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
+import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractListPayerResponse;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractResponse;
@@ -17,7 +18,7 @@ import org.springframework.http.ResponseEntity;
 import java.util.List;
 
 public interface ContractService {
-    ResponseEntity<?> createContract(@Valid ContractRequest contractRequest);
+    ResponseEntity<ContractResponse> createContract(@Valid ContractRequest contractRequest);
 
     ResponseEntity<?> updateContract(String contractUuid, @Valid ContractRequest contractRequest);
 
@@ -57,4 +58,6 @@ public interface ContractService {
     // Contract termination
     ResponseEntity<?> terminateContract(String contractUuid, @Valid ContractTerminationRequest terminationRequest);
     ResponseEntity<?> withdrawTermination(String contractUuid);
+
+    ResponseEntity<?> getFilteredContracts(ContractFilterRequest filter, Pageable pageable);
 }

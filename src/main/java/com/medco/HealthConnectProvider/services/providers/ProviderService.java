@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.services.providers;
 
 
 import com.medco.HealthConnectProvider.ui.request.auth.password.providers.ProviderRequest;
+import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PayersNameForProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
@@ -30,7 +31,7 @@ public interface ProviderService {
 
     ResponseEntity<ByteArrayResource> getProviderLogo(String providerUuid);
 
-    List<ProviderResponse> getProvidersWithFilters(String searchKey, int page, int limit, Status status, String category, String providerName, String tinNumber, String level, String sortBy, String sortDir);
+    PagedResponse<ProviderResponse> getProvidersWithFilters(String searchKey, int page, int limit, Status status, String category, String providerName, String tinNumber, String level, String sortBy, String sortDir);
 
     /**
      * Updates the status of a provider

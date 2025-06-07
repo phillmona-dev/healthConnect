@@ -12,7 +12,7 @@ import java.util.Date;
 @Getter
 @Setter
 public class ContractRequest {
-
+    @NotBlank
     @Size(min = 36, max = 40)
     private String providerUuid;
 
@@ -28,6 +28,7 @@ public class ContractRequest {
     @Size(min = 3, max = 200)
     private String description;
 
+    @NotBlank
     @Size(min = 36, max = 40)
     private String payerUuid;
 
@@ -35,8 +36,7 @@ public class ContractRequest {
 
     @NotNull
     private Date beginDate;
+
     @NotNull
     private Date endDate;
-
-
 }

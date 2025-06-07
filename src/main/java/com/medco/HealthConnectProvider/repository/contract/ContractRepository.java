@@ -1,12 +1,19 @@
 package com.medco.HealthConnectProvider.repository.contract;
 
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
+import com.medco.HealthConnectProvider.entity.payers.Payer;
+import com.medco.HealthConnectProvider.entity.providers.Provider;
+import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,7 +21,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface ContractRepository extends JpaRepository<ContractHeader, Long> {
+public interface ContractRepository extends JpaRepository<ContractHeader, Long>, JpaSpecificationExecutor<ContractHeader> {
 
     /**
      * Find policy holders list
@@ -152,5 +159,94 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long> 
             boolean isDeleted,
             String contractName,
             Pageable pageable);
+
+
+
+    // More flexible approach using Specifications with eager fetching
+    default Page<ContractHeader> findFilteredContracts(ContractFilterRequest filter, Pageable pageable) {
+        return findAll((root, query, cb) -> {
+            // Add joins to fetch related entities eagerly
+            if (query.getResultType() == ContractHeader.class) {
+                root.fetch("payer", JoinType.LEFT);
+                root.fetch("provider", JoinType.LEFT);
+            }
+
+            Predicate predicate = cb.conjunction();
+
+            // Contract number filter
+            if (filter.getContractNumber() != null) {
+                predicate = cb.and(predicate,
+                        cb.like(cb.lower(root.get("contractNumber")),
+                                "%" + filter.getContractNumber().toLowerCase() + "%"));
+            }
+
+            // Contract name filter
+            if (filter.getContractName() != null) {
+                predicate = cb.and(predicate,
+                        cb.like(cb.lower(root.get("contractName")),
+                                "%" + filter.getContractName().toLowerCase() + "%"));
+            }
+
+            // Status filter
+            if (filter.getStatus() != null) {
+                predicate = cb.and(predicate, cb.equal(root.get("status"), filter.getStatus()));
+            }
+
+            // Payer UUID filter - corrected to use payerUuid instead of id
+            if (filter.getPayerUuid() != null) {
+                Join<ContractHeader, Payer> payerJoin = root.join("payer", JoinType.INNER);
+                predicate = cb.and(predicate,
+                        cb.equal(payerJoin.get("payerUuid"), filter.getPayerUuid()));
+            }
+
+            // Provider UUID filter - corrected to use providerUuid instead of id
+            if (filter.getProviderUuid() != null) {
+                Join<ContractHeader, Provider> providerJoin = root.join("provider", JoinType.INNER);
+                predicate = cb.and(predicate,
+                        cb.equal(providerJoin.get("providerUuid"), filter.getProviderUuid()));
+            }
+
+            // Date range filters
+            if (filter.getStartDateFrom() != null) {
+                predicate = cb.and(predicate,
+                        cb.greaterThanOrEqualTo(root.get("startDate"), filter.getStartDateFrom()));
+            }
+
+            if (filter.getStartDateTo() != null) {
+                predicate = cb.and(predicate,
+                        cb.lessThanOrEqualTo(root.get("startDate"), filter.getStartDateTo()));
+            }
+
+            if (filter.getEndDateFrom() != null) {
+                predicate = cb.and(predicate,
+                        cb.greaterThanOrEqualTo(root.get("endDate"), filter.getEndDateFrom()));
+            }
+
+            if (filter.getEndDateTo() != null) {
+                predicate = cb.and(predicate,
+                        cb.lessThanOrEqualTo(root.get("endDate"), filter.getEndDateTo()));
+            }
+
+            // Prepared by filter
+            if (filter.getPreparedBy() != null) {
+                predicate = cb.and(predicate,
+                        cb.equal(root.get("preparedBy"), filter.getPreparedBy()));
+            }
+
+            // Deleted flag filter with default to non-deleted
+            predicate = cb.and(predicate,
+                    cb.equal(root.get("isDeleted"),
+                            filter.getIsDeleted() != null ? filter.getIsDeleted() : false));
+
+            // Add additional filters if needed
+//            if (filter.getContractCode() != null) {
+//                predicate = cb.and(predicate,
+//                        cb.like(cb.lower(root.get("contractCode")),
+//                                "%" + filter.getContractCode().toLowerCase() + "%"));
+//            }
+
+            return predicate;
+        }, pageable);
+    }
 
 }

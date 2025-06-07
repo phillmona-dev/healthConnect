@@ -24,6 +24,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.contract.Contrac
 import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractTerminationRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractServiceGroupAssignmentRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
+import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractDetailResponse;
@@ -34,6 +35,7 @@ import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.service.ServiceResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
+import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,13 +73,15 @@ public class ContractServiceImpl implements ContractService {
     private final EmployeeDependantGroupRepository employeeDependantGroupRepository;
     private final ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository;
 
+    private final ModelMapper modelMapper;
+
     @Value("${api.provider.contract}")
     private String providerContractApi;
 
     @Value("${provider.HostDomain}")
     private String providerHostDomain;
 
-    public ContractServiceImpl(ContractRepository contractRepository, ProviderRepository providerRepository, ServicelistRepository servicelistRepository, PayerRepository payerRepository, ContractDetailRepository contractDetailRepository, EmployeeDependantGroupRepository employeeDependantGroupRepository, ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository) {
+    public ContractServiceImpl(ContractRepository contractRepository, ProviderRepository providerRepository, ServicelistRepository servicelistRepository, PayerRepository payerRepository, ContractDetailRepository contractDetailRepository, EmployeeDependantGroupRepository employeeDependantGroupRepository, ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository, ModelMapper modelMapper) {
         this.contractRepository = contractRepository;
 
 
@@ -87,21 +91,60 @@ public class ContractServiceImpl implements ContractService {
         this.contractDetailRepository = contractDetailRepository;
         this.employeeDependantGroupRepository = employeeDependantGroupRepository;
         this.contractDetailEmployeeGroupRepository = contractDetailEmployeeGroupRepository;
+        this.modelMapper = modelMapper;
     }
 
+    @Transactional
     @Override
-    public ResponseEntity<?> createContract(ContractRequest contractRequest) {
+    public ResponseEntity<ContractResponse> createContract(ContractRequest contractRequest) {
+        // Fetch provider and payer
+        Provider provider = providerRepository.findByProviderUuid(contractRequest.getProviderUuid())
+                .orElseThrow(() -> new RuntimeException(
+                        "Provider not found with uuid: " + contractRequest.getProviderUuid()));
 
-        //UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        Payer payer = payerRepository.findByPayerUuid(contractRequest.getPayerUuid());
+        if (payer == null){
+            throw  new RuntimeException(
+                    "Payer not found with uuid: " + contractRequest.getPayerUuid());
+        }
 
-        //String preparedBy = userDetails.getUserUuid();
+        // Create and populate contract
         ContractHeader contract = new ContractHeader();
-        BeanUtils.copyProperties(contractRequest, contract);
-        //contract.setPreparedBy(preparedBy);
-        contract.setStatus(Status.PENDING);
-        contractRepository.save(contract);
+        modelMapper.map(contractRequest, contract);
 
-        return ResponseEntity.ok(new MessageResponse("Contract added successfully!"));
+        // Set relationships
+        contract.setProvider(provider);
+        contract.setPayer(payer);
+
+        // Set additional fields
+        contract.setStatus(Status.PENDING);
+        contract.setStartDate(contractRequest.getBeginDate().toInstant()
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate());
+        contract.setEndDate(contractRequest.getEndDate().toInstant()
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate());
+
+        // Save the contract
+        ContractHeader savedContract = contractRepository.save(contract);
+
+        // Add contract to provider's and payer's collections
+        provider.getContractHeaders().add(savedContract);
+        payer.getContractHeaders().add(savedContract);
+
+        // Map to response DTO
+        ContractResponse response = modelMapper.map(savedContract, ContractResponse.class);
+
+        // Map related entities
+        response.setPayerUuid(payer.getPayerUuid());
+        response.setPayerName(payer.getPayerName());
+        response.setPayerCode(payer.getPayerCode());
+
+        response.setProviderUuid(provider.getProviderUuid());
+        response.setProviderName(provider.getProviderName());
+        response.setProviderCode(provider.getProviderCode());
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @Override
@@ -948,6 +991,51 @@ public class ContractServiceImpl implements ContractService {
         // TODO: Send notification to provider about termination withdrawal
 
         return ResponseEntity.ok(new MessageResponse("Contract termination request withdrawn successfully"));
+    }
+
+
+
+    public ResponseEntity<?> getFilteredContracts(ContractFilterRequest filter, Pageable pageable) {
+        Page<ContractHeader> contractPage = contractRepository.findFilteredContracts(filter, pageable);
+
+        Page<ContractResponse> responsePage = contractPage.map(contract -> {
+            ContractResponse response = new ContractResponse();
+            BeanUtils.copyProperties(contract, response);
+
+            // Explicitly map related entities to avoid null values
+            if (contract.getPayer() != null) {
+                response.setPayerUuid(contract.getPayer().getPayerUuid());
+                response.setPayerName(contract.getPayer().getPayerName());
+                response.setPayerCode(contract.getPayer().getPayerCode());
+            }
+
+            if (contract.getProvider() != null) {
+                response.setProviderUuid(contract.getProvider().getProviderUuid());
+                response.setProviderName(contract.getProvider().getProviderName());
+                response.setProviderCode(contract.getProvider().getProviderCode());
+            }
+
+            // Ensure dates are properly mapped
+            response.setStartDate(contract.getStartDate());
+            response.setEndDate(contract.getEndDate());
+
+            // Map other potentially null fields with defaults if needed
+            response.setContractNumber(contract.getContractNumber() != null ?
+                    contract.getContractNumber() : "");
+            response.setContractDescription(contract.getContractDescription() != null ?
+                    contract.getContractDescription() : "");
+            response.setRemark(contract.getRemark() != null ?
+                    contract.getRemark() : "");
+            response.setDescription(contract.getDescription() != null ?
+                    contract.getDescription() : "");
+
+            // Set status explicitly
+            response.setStatus(contract.getStatus());
+
+            return response;
+        });
+
+        return ResponseEntity.ok(responsePage);
     }
 
 }

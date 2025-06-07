@@ -16,14 +16,14 @@ public class InsuredListResponse {
     private String payerInstitutionContractName;
     private String payerInstitutionContractCode;
 
-    private LocalDate payerInstitutionContractBeginDate; // Changed to LocalDate
-    private LocalDate payerInstitutionContractEndDate;   // Changed to LocalDate
+    private LocalDate payerInstitutionContractBeginDate;
+    private LocalDate payerInstitutionContractEndDate;
 
     private String payerProviderContractCode;
     private String payerProviderContractName;
 
-    private LocalDate payerProviderContractBeginDate;    // Changed to LocalDate
-    private LocalDate payerProviderContractEndDate;      // Changed to LocalDate
+    private LocalDate payerProviderContractBeginDate;
+    private LocalDate payerProviderContractEndDate;
 
     private String payerName;
     private String payerPhone;
@@ -52,14 +52,10 @@ public class InsuredListResponse {
     private double premium;
     private double remainingAmount;
 
-    private String address1;
-    private String address2;
-    private String address3;
+    private String address;
     private String state;
     private String country;
 
-    private Date beginDate;
-    private Date endDate;
     private String status;
 
     // Constructor matching the JPQL query parameters
@@ -94,13 +90,9 @@ public class InsuredListResponse {
             String profilePicture,
             double premium,
             double remainingAmount,
-            String address1,
-            String address2,
-            String address3,
+            String address,
             String state,
             String country,
-            Date beginDate,
-            Date endDate,
             String status) {
         this.insuredUuid = insuredUuid;
         this.payerInstitutionContractName = payerInstitutionContractName;
@@ -132,13 +124,9 @@ public class InsuredListResponse {
         this.profilePicture = profilePicture;
         this.premium = premium;
         this.remainingAmount = remainingAmount;
-        this.address1 = address1;
-        this.address2 = address2;
-        this.address3 = address3;
+        this.address = address;
         this.state = state;
         this.country = country;
-        this.beginDate = beginDate;
-        this.endDate = endDate;
         this.status = status;
     }
 }

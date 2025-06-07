@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.ui.response;
 
+import com.medco.HealthConnectProvider.ui.response.user.UserResponse;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,4 +19,7 @@ public class PagedResponse<T> {
     private long totalElements;
     private int totalPages;
     private boolean last;
+
+    public PagedResponse(List<UserResponse> content, int number, int size, long totalElements, int totalPages, boolean b, boolean b1) {
+    }
 }

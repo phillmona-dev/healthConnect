@@ -34,6 +34,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -42,6 +44,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.FileCopyUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -118,7 +121,7 @@ public class InsuredServiceImpl implements InsuredService {
                 Path path = Paths.get(uploadDir + newFileName);
                 Files.write(path, photo.getBytes());
 
-                insured.setProfilePicture(newFileName);
+                insured.setProfilePicture(newFileName.getBytes());
             }
 
             // Save the insured person
@@ -158,6 +161,78 @@ public class InsuredServiceImpl implements InsuredService {
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    @Override
+    public String getInsuredPhotoBase64(String insuredUuid) {
+        try {
+            Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
+            if (insured == null || insured.getProfilePicture() == null) {
+                return getDefaultPhotoBase64();
+            }
+
+            String photoPath = uploadDirectory + "/insured/photos/" + insured.getProfilePicture();
+            File photoFile = new File(photoPath);
+
+            if (photoFile.exists() && photoFile.isFile()) {
+                byte[] fileContent = Files.readAllBytes(photoFile.toPath());
+                String base64Photo = Base64.getEncoder().encodeToString(fileContent);
+                return "data:" + determineContentType(photoPath) + ";base64," + base64Photo;
+            } else {
+                // Return default photo if insured photo doesn't exist
+                return getDefaultPhotoBase64();
+            }
+        } catch (IOException e) {
+            logger.warn("Could not read photo for insured {}: {}", insuredUuid, e.getMessage());
+            // Return default photo on error
+            return getDefaultPhotoBase64();
+        }
+    }
+
+    private String getDefaultPhotoBase64() {
+        try {
+            Resource resource = new ClassPathResource("static/images/default-profile-photo.png");
+            if (resource.exists()) {
+                byte[] fileContent = FileCopyUtils.copyToByteArray(resource.getInputStream());
+                String base64Photo = Base64.getEncoder().encodeToString(fileContent);
+                return "data:image/png;base64," + base64Photo;
+            }
+        } catch (IOException e) {
+            logger.warn("Could not read default photo: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    private String determineContentType(String path) {
+        String extension = path.substring(path.lastIndexOf(".") + 1).toLowerCase();
+        switch (extension) {
+            case "jpg":
+            case "jpeg":
+                return "image/jpeg";
+            case "png":
+                return "image/png";
+            case "gif":
+                return "image/gif";
+            default:
+                return "application/octet-stream";
+        }
+    }
+
+    @Override
+    public ResponseEntity<?> getInsuredPersonWithPhotoBase64(String insuredUuid) {
+        Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
+        if (insured == null) {
+            throw new ResourceNotFoundException("Insured Person", "insuredUuid", insuredUuid);
+        }
+
+        InsuredResponse response = new InsuredResponse();
+        BeanUtils.copyProperties(insured, response);
+
+        // Add photo as base64
+        String photoBase64 = getInsuredPhotoBase64(insuredUuid);
+        response.setPhotoBase64(photoBase64);
+
+        return ResponseEntity.ok(response);
     }
 
     private String getContentType(String path) {
@@ -207,8 +282,11 @@ public class InsuredServiceImpl implements InsuredService {
         response.setEmail(insured.getEmail());
         response.setBirthDate(insured.getBirthDate());
         response.setStatus(insured.getStatus());
-        response.setAddress1(insured.getAddress1());
-        response.setAddress2(insured.getAddress2());
+        response.setAddress1(insured.getAddress());
+
+        if (insured.getProfilePicture() != null){
+            response.setProfilePictureBase64(Base64.getEncoder().encodeToString(insured.getProfilePicture()));
+        }
 
         // Add dependants if they exist
         if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
@@ -289,7 +367,7 @@ public class InsuredServiceImpl implements InsuredService {
                 Path path = Paths.get(uploadDir + newFileName);
                 Files.write(path, photo.getBytes());
 
-                insured.setProfilePicture(newFileName);
+                insured.setProfilePicture(newFileName.getBytes());
             }
 
             // Save the insured person
@@ -447,14 +525,10 @@ public class InsuredServiceImpl implements InsuredService {
                 person.setBranchOffice(row.getCell(9).getStringCellValue());
                 person.setPosition(row.getCell(10).getStringCellValue());
 
-                person.setAddress1(row.getCell(11).getStringCellValue());
-                person.setAddress2(row.getCell(12).getStringCellValue());
-                person.setAddress3(row.getCell(13).getStringCellValue());
+                person.setAddress(row.getCell(11).getStringCellValue());
                 person.setState(row.getCell(14).getStringCellValue());
                 person.setCountry(row.getCell(15).getStringCellValue());
                 person.setInsuranceId(row.getCell(16).getStringCellValue());
-                person.setBeginDate(row.getCell(17).getDateCellValue());
-                person.setEndDate(row.getCell(18).getDateCellValue());
 
 //				person.setPayerInstitutionContractUuid(payerInstitutionContractUuid);
                 person.setStatus(Status.ACTIVE);
@@ -494,15 +568,16 @@ public class InsuredServiceImpl implements InsuredService {
         byte[] bytes = file.getBytes();
         Path path = Paths.get(uploadDir + newFileName);
         Files.write(path, bytes);
-        insured.setProfilePicture(newFileName);
+        insured.setProfilePicture(newFileName.getBytes());
         insuredRepository.save(insured);
         return ResponseEntity.ok(new MessageResponse("Profile Picture Update Successfully."));
     }
 
-    @Override
-    public List<InsuredListResponse> getInsuredPersonEligiblity(String insuredUuid) {
-        return insuredRepository.findInsuredPersonEligibility(insuredUuid);
-    }
+
+//    @Override
+//    public List<InsuredListResponse> getInsuredPersonEligiblity(String insuredUuid) {
+//        return insuredRepository.findInsuredPersonEligibility(insuredUuid);
+//    }
 
     @Override
     public List<InsuredResponse> getInsuredPersons(String payerInstitutionContractId, String search, int page,
@@ -577,12 +652,10 @@ public class InsuredServiceImpl implements InsuredService {
                                 || !row.getCell(8).getStringCellValue().equalsIgnoreCase("Email")
                                 || !row.getCell(9).getStringCellValue().equalsIgnoreCase("Branch Office")
                                 || !row.getCell(10).getStringCellValue().equalsIgnoreCase("Position")
-                                || !row.getCell(11).getStringCellValue().equalsIgnoreCase("Address1")
-                                || !row.getCell(12).getStringCellValue().equalsIgnoreCase("Address2")
-                                || !row.getCell(13).getStringCellValue().equalsIgnoreCase("Address3")
-                                || !row.getCell(14).getStringCellValue().equalsIgnoreCase("State")
-                                || !row.getCell(15).getStringCellValue().equalsIgnoreCase("Country")
-                                || !row.getCell(16).getStringCellValue().equalsIgnoreCase("Insurance Number")) {
+                                || !row.getCell(11).getStringCellValue().equalsIgnoreCase("Address")
+                                || !row.getCell(12).getStringCellValue().equalsIgnoreCase("State")
+                                || !row.getCell(13).getStringCellValue().equalsIgnoreCase("Country")
+                                || !row.getCell(14).getStringCellValue().equalsIgnoreCase("Insurance Number")) {
                             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                                     "Error: The Excel sheet for uploading insured person should use the standard format.");
                         }
@@ -650,12 +723,10 @@ public class InsuredServiceImpl implements InsuredService {
                         person.setEmail(getCellValueAsString(row.getCell(8)));
                         person.setBranchOffice(getCellValueAsString(row.getCell(9)));
                         person.setPosition(getCellValueAsString(row.getCell(10)));
-                        person.setAddress1(getCellValueAsString(row.getCell(11)));
-                        person.setAddress2(getCellValueAsString(row.getCell(12)));
-                        person.setAddress3(getCellValueAsString(row.getCell(13)));
-                        person.setState(getCellValueAsString(row.getCell(14)));
-                        person.setCountry(getCellValueAsString(row.getCell(15)));
-                        person.setInsuranceId(getCellValueAsString(row.getCell(16)));
+                        person.setAddress(getCellValueAsString(row.getCell(11)));
+                        person.setState(getCellValueAsString(row.getCell(12)));
+                        person.setCountry(getCellValueAsString(row.getCell(13)));
+                        person.setInsuranceId(getCellValueAsString(row.getCell(14)));
 
                         // Set status and institution
                         person.setStatus(Status.ACTIVE);
@@ -986,8 +1057,7 @@ public class InsuredServiceImpl implements InsuredService {
             response.setEmail(insured.getEmail());
             response.setBirthDate(insured.getBirthDate());
             response.setStatus(insured.getStatus());
-            response.setAddress1(insured.getAddress1());
-            response.setAddress2(insured.getAddress2());
+            response.setAddress1(insured.getAddress());
 
             if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
                 for (Dependant dependant : insured.getDependants()) {
@@ -1073,38 +1143,4 @@ public class InsuredServiceImpl implements InsuredService {
         return newFileName;
     }
 
-//    @Override
-//    public ResponseEntity<ByteArrayResource> getInsuredPhoto(String insuredUuid) {
-//        try {
-//            Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
-//            if (insured == null) {
-//                return ResponseEntity.notFound().build();
-//            }
-//
-//            Path path;
-//            if (insured.getProfilePicture() == null) {
-//                // Return default profile picture
-//                path = Paths.get(uploadDirectory + "/default/default-profile.png");
-//                if (!Files.exists(path)) {
-//                    return ResponseEntity.notFound().build();
-//                }
-//            } else {
-//                path = Paths.get(uploadDirectory + "/insured/photos/" + insured.getProfilePicture());
-//                if (!Files.exists(path)) {
-//                    // If file doesn't exist, return default
-//                    path = Paths.get(uploadDirectory + "/default/default-profile.png");
-//                    if (!Files.exists(path)) {
-//                        return ResponseEntity.notFound().build();
-//                    }
-//                }
-//            }
-//
-//            ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
-//            return ResponseEntity.ok()
-//                    .contentType(MediaType.parseMediaType(getContentType(path.toString())))
-//                    .body(resource);
-//        } catch (IOException e) {
-//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-//        }
-//    }
 }

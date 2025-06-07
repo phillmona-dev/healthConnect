@@ -29,11 +29,12 @@ public class UserPrincipal implements UserDetails {
     private String mobilePhone;
     private Status userStatus;
     private String providerUuid;
+    private String payerUuid;
     private String profilePicture;
     private Collection<? extends GrantedAuthority> authorities;
 
 
-    public UserPrincipal(String userUuid, String email, String password, String title, String firstName, String fatherName, String grandFatherName, String gender, String mobilePhone, Status userStatus, String providerUuid, String profilePicture, Collection<? extends GrantedAuthority> authorities) {
+    public UserPrincipal(String userUuid, String email, String password, String title, String firstName, String fatherName, String grandFatherName, String gender, String mobilePhone, Status userStatus, String payerUuid,String providerUuid, String profilePicture, Collection<? extends GrantedAuthority> authorities) {
         this.userUuid = userUuid;
         this.email = email;
         this.password = password;
@@ -44,6 +45,7 @@ public class UserPrincipal implements UserDetails {
         this.gender = gender;
         this.mobilePhone = mobilePhone;
         this.userStatus = userStatus;
+        this.payerUuid = payerUuid;
         this.providerUuid = providerUuid;
         this.profilePicture = profilePicture;
         this.authorities = authorities;
@@ -53,7 +55,7 @@ public class UserPrincipal implements UserDetails {
 
         return new UserPrincipal(user.getUserUuid(), user.getEmail(), user.getPassword(),
                 user.getTitle(), user.getFirstName(), user.getFatherName(), user.getGrandFatherName(),user.getGender(),
-                user.getMobilePhone(), user.getUserStatus(), user.getProviderUuid(), user.getProfilePicture(),
+                user.getMobilePhone(), user.getUserStatus(), user.getPayerUuid(), user.getProviderUuid(), user.getProfilePicture(),
                 privilegesForRole);
     }
 

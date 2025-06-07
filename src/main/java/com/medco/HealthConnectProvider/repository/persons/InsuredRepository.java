@@ -104,28 +104,30 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
             @Param("isDeleted") boolean isDeleted,
             @Param("searchKey") String searchKey);
 
-    /**
-     * Find eligibility information for an insured person by UUID
-     * @param insuredUuid The UUID of the insured person
-     * @return List of InsuredListResponse objects with eligibility information
-     */
-    @Query("SELECT new com.medco.HealthConnectProvider.ui.response.persons.InsuredListResponse(" +
-            "i.insuredUuid, " +
-            "ch.contractName, ch.contractCode, ch.startDate, ch.endDate, " +
-            "ch.contractCode, ch.contractName, ch.startDate, ch.endDate, " +
-            "p.payerName, p.telephone, pr.telephone, pr.providerName, " +
-            "p.telephone, p.payerName, " +
-            "i.email, i.title, i.firstName, i.fatherName, i.grandFatherName, i.gender, " +
-            "i.birthDate, i.phone, i.branchOffice, i.position, i.idNumber, i.insuranceId, " +
-            "i.profilePicture, 0.0, 0.0, " +
-            "i.address1, i.address2, i.address3, i.state, i.country, " +
-            "i.beginDate, i.endDate, CAST(i.status AS string)) " + // Changed to CAST as string
-            "FROM Insured i " +
-            "JOIN i.payer p " +
-            "JOIN i.contracts ch " +
-            "JOIN ch.provider pr " +
-            "WHERE i.isDeleted = false AND i.insuredUuid = :insuredUuid")
-    List<InsuredListResponse> findInsuredPersonEligibility(@Param("insuredUuid") String insuredUuid);
+//    /**
+//     * Find eligibility information for an insured person by UUID
+//     * @param insuredUuid The UUID of the insured person
+//     * @return List of InsuredListResponse objects with eligibility information
+//     */
+//    @Query("SELECT new com.medco.HealthConnectProvider.ui.response.persons.InsuredListResponse(" +
+//            "i.insuredUuid, " +                                 // 1
+//            "ch.contractName, ch.contractCode, " +             // 3
+//            "ch.startDate, ch.endDate, " +                     // 5
+//            "ch.contractCode, ch.contractName, " +             // 7
+//            "ch.startDate, ch.endDate, " +                     // 9
+//            "p.payerName, p.telephone, pr.telephone, pr.providerName, " + // 13
+//            "i.phone, p.payerName, " +                          // institutionPhone, institutionName
+//            "i.email, i.title, i.firstName, i.fatherName, i.grandFatherName, i.gender, " + // 21
+//            "i.birthDate, i.phone, i.branchOffice, i.position, i.idNumber, i.insuranceId, " + // 27
+//            "i.profilePicture, 0.0, 0.0, " +                   // 30
+//            "i.address, i.state, i.country, " +                // 33
+//            "CAST(i.status AS string)) " +                     // 34
+//            "FROM Insured i " +
+//            "JOIN i.payer p " +
+//            "JOIN i.contracts ch " +
+//            "JOIN ch.provider pr " +
+//            "WHERE i.isDeleted = false AND i.insuredUuid = :insuredUuid")
+//    List<InsuredListResponse> findInsuredPersonEligibility(@Param("insuredUuid") String insuredUuid);
 
 
     /**
@@ -188,4 +190,5 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
     Insured findByNationalIdAndPayer(@Param("nationalId") String nationalId, @Param("payerUuid") String payerUuid);
 
     Insured findByInsuranceId(String patientId);
+
 }
