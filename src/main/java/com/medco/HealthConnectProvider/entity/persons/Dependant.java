@@ -14,6 +14,7 @@ import lombok.*;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -68,8 +69,14 @@ public class Dependant implements Serializable {
     @Enumerated(EnumType.STRING)
     private Status status;
 
-    @Column(columnDefinition = "boolean default false")
-    private boolean isDeleted;
+
+    @Column(nullable = false)
+    private boolean isDeleted = false;
+
+    @Column
+    private LocalDateTime deletedAt;
+
+    private String profilePicturePath;
 
     @ManyToOne
     @JoinColumn(name = "insured_uuid", nullable = false)

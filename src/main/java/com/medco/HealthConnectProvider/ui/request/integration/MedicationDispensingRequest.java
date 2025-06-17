@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.ui.request.integration;
 
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -8,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -15,7 +17,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MedicationDispensingRequest {
-    
+
     @NotBlank(message = "Provider UUID is required")
     private String providerUuid;
     
@@ -26,7 +28,11 @@ public class MedicationDispensingRequest {
     private String employeeId;
     private String insuranceId;
     private String nationalId;
-    private String phoneNumber;
+    private String phone;
+
+    private Status status = Status.PENDING;
+
+    private String branchName;
     
     @NotBlank(message = "Prescription number is required")
     private String prescriptionNumber;
@@ -35,7 +41,7 @@ public class MedicationDispensingRequest {
     private String pharmacyTransactionId;
     
     @NotNull(message = "Dispensing date is required")
-    private LocalDateTime dispensingDate;
+    private LocalDate dispensingDate;
     
     private String prescribingPhysicianName;
     private String prescribingPhysicianId;
@@ -50,26 +56,24 @@ public class MedicationDispensingRequest {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MedicationItem {
-        @NotBlank(message = "Medication code is required")
+
         private String medicationCode;
-        
-        @NotBlank(message = "Medication name is required")
+
         private String medicationName;
-        
-        @NotNull(message = "Quantity is required")
+
         private Double quantity;
-        
-        @NotBlank(message = "Unit of measure is required")
+
         private String unitOfMeasure;
-        
-        @NotNull(message = "Unit price is required")
+
         private Double unitPrice;
-        
-        @NotNull(message = "Total price is required")
+
         private Double totalPrice;
         
         private String dosageInstructions;
         private String strength;
-        private String formulation; // tablet, capsule, syrup, etc.
+        private String formulation;
+
+        private String serviceUuid;
+
     }
 }

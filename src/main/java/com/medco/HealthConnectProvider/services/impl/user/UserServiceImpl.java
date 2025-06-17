@@ -26,6 +26,9 @@ import com.medco.HealthConnectProvider.ui.response.user.UserResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.mapper.MapperClass;
 import com.medco.HealthConnectProvider.utils.paginationUtils.Pagination;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,10 +45,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
 public class UserServiceImpl implements UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
 
     private final UserRepository userRepository;
     private final AuthenticationManager authenticationManager;
@@ -207,13 +213,22 @@ public class UserServiceImpl implements UserService {
 
 
     private PagedResponse<UserResponse> getAllUsers(String roleUuid, String providerUuid, Pageable pageable) {
+        log.debug("Fetching all users with roleUuid={}, providerUuid={}, pageable={}", roleUuid, providerUuid, pageable);
+
         Page<User> userPage = userRepository.findAllByIsDeleted(false, pageable);
 
-        List<UserResponse> content = userPage.stream()
-                .filter(user -> (roleUuid == null || roleUuid.equals(user.getRole().getRoleUuid().toString())))
-                .filter(user -> (providerUuid == null || providerUuid.equals(user.getProviderUuid().toString())))
-                .map(MapperClass::mapToUserResponse)
+        log.info("Total elements found: {}", userPage.getTotalElements());
+        log.info("Total pages: {}", userPage.getTotalPages());
+
+        List<UserResponse> content = userPage.getContent().stream()
+                .peek(user -> log.debug("Processing user: {}", user.getUserUuid()))
+                .filter(user -> filterByRole(user, roleUuid))
+                .filter(user -> filterByProvider(user, providerUuid))
+                .map(this::mapToUserResponse)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+
+        log.info("Filtered content size: {}", content.size());
 
         return new PagedResponse<>(
                 content,
@@ -221,20 +236,25 @@ public class UserServiceImpl implements UserService {
                 userPage.getSize(),
                 userPage.getTotalElements(),
                 userPage.getTotalPages(),
-                userPage.hasNext(),
-                userPage.hasPrevious()
+                userPage.isLast()
         );
     }
 
 
     private PagedResponse<UserResponse> getAllUsersWithSearch(String search, String roleUuid, String providerUuid, Pageable pageable) {
+        log.debug("Searching users with search={}, roleUuid={}, providerUuid={}, pageable={}", search, roleUuid, providerUuid, pageable);
+
         Page<User> userPage = userRepository.findAllByIsDeletedAndFirstNameContainingOrMobilePhoneContaining(false, search, search, pageable);
 
-        List<UserResponse> content = userPage.stream()
-                .filter(user -> (roleUuid == null || roleUuid.equals(user.getRole().getRoleUuid().toString())))
-                .filter(user -> (providerUuid == null || providerUuid.equals(user.getProviderUuid().toString())))
-                .map(MapperClass::mapToUserResponse)
+        log.info("Found {} users before filtering", userPage.getTotalElements());
+
+        List<UserResponse> content = userPage.getContent().stream()
+                .filter(user -> filterByRole(user, roleUuid))
+                .filter(user -> filterByProvider(user, providerUuid))
+                .map(this::mapToUserResponse)
                 .collect(Collectors.toList());
+
+        log.info("Filtered to {} users", content.size());
 
         return new PagedResponse<>(
                 content,
@@ -242,14 +262,43 @@ public class UserServiceImpl implements UserService {
                 userPage.getSize(),
                 userPage.getTotalElements(),
                 userPage.getTotalPages(),
-                userPage.hasNext(),
-                userPage.hasPrevious()
+                userPage.isLast()
         );
     }
 
+    private boolean filterByRole(User user, String roleUuid) {
+        if (roleUuid == null) return true;
+        if (user.getRole() == null) return false;
+        boolean matches = roleUuid.equals(user.getRole().getRoleUuid().toString());
+        log.debug("User {} role filter: {}", user.getUserUuid(), matches);
+        return matches;
+    }
 
+    private boolean filterByProvider(User user, String providerUuid) {
+        if (providerUuid == null) return true;
+        boolean matches = providerUuid.equals(user.getProviderUuid());
+        log.debug("User {} provider filter: {}", user.getUserUuid(), matches);
+        return matches;
+    }
 
-    //Filmon
+    private UserResponse mapToUserResponse(User user) {
+        try {
+            UserResponse response = new UserResponse();
+            BeanUtils.copyProperties(user, response);
+
+            if(user.getRole() != null){
+                response.setRoleName(user.getRole().getRoleName());
+            }
+
+            if (user.getUserStatus() != null){
+                response.setUserStatus(user.getUserStatus());
+            }
+            return response;
+        } catch (Exception e) {
+            log.error("Error mapping user {} to UserResponse: {}", user.getUserUuid(), e.getMessage());
+            return null;
+        }
+    }
 
 
     @Override
@@ -308,5 +357,6 @@ public class UserServiceImpl implements UserService {
         UserResponse userResponse = new UserResponse();
         BeanUtils.copyProperties(savedUser, userResponse);
         return userResponse;
+
     }
 }

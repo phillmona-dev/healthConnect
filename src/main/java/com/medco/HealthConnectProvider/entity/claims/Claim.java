@@ -13,9 +13,15 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.io.Serial;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -35,7 +41,7 @@ public class Claim extends Audit {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, updatable = false)
     private String claimUuid = UUID.randomUUID().toString();
 
     @Column(nullable = false, unique = true)
@@ -45,50 +51,57 @@ public class Claim extends Audit {
     @Enumerated(EnumType.STRING)
     private ClaimStatus status;
 
-    // Add explicit UUID columns for repository queries
     @Column(name = "provider_uuid")
     private String providerUuid;
 
     @Column(name = "payer_uuid")
     private String payerUuid;
 
-    // Claim details
     @Column(nullable = false)
     private String mrnNumber;
 
     @Column(nullable = false)
-    private Date visitDate;
+    private LocalDateTime visitDate;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal totalAmount;
 
     @Column(nullable = false)
-    private Double totalAmount;
+    private String claimType;
 
+    @Column(nullable = false)
+    private LocalDate serviceDate;
+
+    @Column(length = 1000)
     private String providerComment;
 
-    // Submission information
-    private Date submissionDate;
+    @Column(nullable = false, updatable = false)
+    @CreationTimestamp
+    private LocalDateTime submissionDate;
+
+    @Column(nullable = false)
     private String submittedByUuid;
+
+    @Column(nullable = false)
     private String submittedByName;
 
-    // Provider approval information
     private String preparedByProviderUuid;
     private String preparedByProviderStatus;
-    private Instant preparedByProviderDate;
+    private LocalDateTime preparedByProviderDate;
 
     private String approvedByProviderUuid;
     private String approvedByProviderStatus;
-    private Instant approvedByProviderDate;
+    private LocalDateTime approvedByProviderDate;
 
-    // Payer approval information
     private String approvedByPayerUuid;
     private String approvedByPayerStatus;
-    private Instant approvedByPayerDate;
+    private LocalDateTime approvedByPayerDate;
 
-    // Payment information
     private String paymentRequestedByUuid;
-    private Date paymentRequestedDate;
+    private LocalDateTime paymentRequestedDate;
     private String paidByPayerUuid;
     private String paidByPayerName;
-    private Date paidDate;
+    private LocalDateTime paidDate;
     private String paidStatus;
     private String paymentCode;
     private String paymentType;
@@ -97,53 +110,77 @@ public class Claim extends Audit {
     private String toBank;
     private String transactionNumber;
 
-    // Cancellation information
     private String cancelledByUuid;
-    private Date cancelledDate;
+    private LocalDateTime cancelledDate;
 
-    // Relationships with other entities
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal copayAmount;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal deductibleAmount;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal coinsuranceAmount;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal payerAmount;
+
+    @Column(nullable = false)
+    private String diagnosisCodes;
+
+    @Column(nullable = false)
+    private String procedureCodes;
+
+    @Column(length = 1000)
+    private String reviewComment;
+
+    @Column
+    private String reviewedByUuid;
+
+    @Column
+    private Instant reviewedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "contract_id")
+    @JoinColumn(name = "contract_id", nullable = false)
     private ContractHeader contract;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "provider_id")
+    @JoinColumn(name = "provider_id", nullable = false)
     private Provider provider;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payer_id")
+    @JoinColumn(name = "payer_id", nullable = false)
     private Payer payer;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "insured_id")
+    @JoinColumn(name = "insured_id", nullable = false)
     private Insured insuredPerson;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dependant_id")
     private Dependant dependant;
 
-    // Child entity relationships
     @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ClaimAttachment> attachments;
+    private List<ClaimAttachment> attachments = new ArrayList<>();
 
     @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ClaimComment> comments;
+    private List<ClaimComment> comments = new ArrayList<>();
 
     @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ClaimLogs> logs;
+    private List<ClaimLogs> logs = new ArrayList<>();
 
     @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ClaimPayment> payments;
+    private List<ClaimPayment> payments = new ArrayList<>();
 
     @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ProvidedService> providedServices;
+    private List<ProvidedService> providedServices = new ArrayList<>();
+
+    @Column(nullable = false)
+    @UpdateTimestamp
+    private LocalDateTime lastUpdated;
 
     @PrePersist
     public void prePersist() {
-        if (submissionDate == null) {
-            submissionDate = Date.from(Instant.now());
-        }
-
         if (status == null) {
             status = ClaimStatus.SUBMITTED;
         }
@@ -152,13 +189,16 @@ public class Claim extends Audit {
             claimUuid = UUID.randomUUID().toString();
         }
 
-        // Set the UUID fields from the related entities if they're not already set
         if (providerUuid == null && provider != null) {
             providerUuid = provider.getProviderUuid();
         }
 
         if (payerUuid == null && payer != null) {
             payerUuid = payer.getPayerUuid();
+        }
+
+        if (reviewedAt == null) {
+            reviewedAt = Instant.now();
         }
     }
 
@@ -297,4 +337,17 @@ public class Claim extends Audit {
         service.setClaim(null);
         service.setClaimUuid(null);
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Claim)) return false;
+        return id != null && id.equals(((Claim) o).getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
+
 }

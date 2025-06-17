@@ -24,9 +24,6 @@ public class InsuredRequest {
 
     double premium;
 
-
-    @NotBlank(message = " title must be null ")
-    @Size(min = 2, max = 25)
     private String title;
 
 
@@ -35,17 +32,17 @@ public class InsuredRequest {
     private String firstName;
 
 
-    @NotBlank(message = " fatherName must be null ")
+    @NotBlank(message = " fatherName must not be null ")
     @Size(min = 2, max = 25)
     private String fatherName;
 
 
-    @NotBlank(message = " grandFatherName must be null ")
+    @NotBlank(message = " grandFatherName must not be null ")
     @Size(min = 2, max = 25)
     private String grandFatherName;
 
 
-    @NotBlank(message = " Gender must be null ")
+    @NotBlank(message = " Gender must not be null ")
     @Size(min = 1, max = 10)
     private String Gender;
 
@@ -53,7 +50,7 @@ public class InsuredRequest {
     private Date birthDate;
 
 
-    @NotBlank(message = " phone must be null ")
+    @NotBlank(message = " phone must not be null ")
     @Size(min = 9, max = 13)
     private String phone;
 

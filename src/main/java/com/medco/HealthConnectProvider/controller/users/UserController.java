@@ -15,17 +15,21 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/healthConnect/users")
 @Tag(name = "User Management", description = "APIs for managing system users, authentication, and user operations")
 public class UserController {
+
+    private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
     private final AuthenticationManager authenticationManager;
     private final UserService userService;
@@ -67,15 +71,21 @@ public class UserController {
     }
 
     @GetMapping("/all")
-    @Operation(summary = "List all users", description = "Retrieves a list of all system users with filtering, pagination and search capabilities")
-    public PagedResponse<UserResponse> getAllSystemUsers(
-            @RequestParam(value = "search", required = false) String search,
-            @RequestParam(value = "filterByRole", required = false) String roleUuid,
-            @RequestParam(value = "filterByProvider", required = false) String providerUuid,
-            @RequestParam(value = "page", defaultValue = "1") int page,
-            @RequestParam(value = "limit", defaultValue = "25") int limit
-    ){
-        return userService.getAllSystemUsers(search,roleUuid,providerUuid,page,limit);
+    public ResponseEntity<PagedResponse<UserResponse>> getAllUsers(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String roleUuid,
+            @RequestParam(required = false) String providerUuid,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int limit) {
+
+        log.info("Fetching users with search={}, roleUuid={}, providerUuid={}, page={}, limit={}",
+                search, roleUuid, providerUuid, page, limit);
+
+        PagedResponse<UserResponse> response = userService.getAllSystemUsers(search, roleUuid, providerUuid, page, limit);
+
+        log.info("Returned {} users", response.getContent().size());
+
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping(path = "/{userUuid}")

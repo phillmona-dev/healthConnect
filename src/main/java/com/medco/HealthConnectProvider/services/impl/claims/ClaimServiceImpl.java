@@ -22,6 +22,8 @@ import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
 
 import com.medco.HealthConnectProvider.services.claims.ClaimService;
+import com.medco.HealthConnectProvider.services.notification.NotificationService;
+import com.medco.HealthConnectProvider.services.payment.PaymentService;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimCommentRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimPaymentRequest;
@@ -34,6 +36,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +44,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -80,6 +85,16 @@ public class ClaimServiceImpl implements ClaimService {
     
     @Autowired
     private ProvidedServiceRepository providedServiceRepository;
+
+    private final PaymentService paymentService;
+    private final NotificationService notificationService;
+
+    @Autowired
+    public ClaimServiceImpl(PaymentService paymentService, NotificationService notificationService) {
+        this.paymentService = paymentService;
+        this.notificationService = notificationService;
+    }
+
 
     @Override
     @Transactional
@@ -158,7 +173,7 @@ public class ClaimServiceImpl implements ClaimService {
         claim.setClaimUuid(UUID.randomUUID().toString());
         claim.setMrnNumber(claimRequest.getMrnNumber());
         claim.setVisitDate(claimRequest.getVisitDate());
-        claim.setTotalAmount(claimRequest.getTotalAmount());
+        claim.setTotalAmount(BigDecimal.valueOf(claimRequest.getTotalAmount()));
         claim.setProviderComment(claimRequest.getProviderComment());
 
         // Set entity relationships
@@ -175,7 +190,7 @@ public class ClaimServiceImpl implements ClaimService {
         claim.setStatus(ClaimStatus.SUBMITTED);
         claim.setPreparedByProviderUuid(userDetails.getUserUuid());
         claim.setPreparedByProviderStatus("Submitted");
-        claim.setPreparedByProviderDate(Instant.now());
+        claim.setPreparedByProviderDate(LocalDateTime.from(Instant.now()));
 
         // Set default statuses
         claim.setApprovedByProviderStatus("Pending");
@@ -204,8 +219,10 @@ public class ClaimServiceImpl implements ClaimService {
         log.setPreviousStatus("New");
         claimLogsRepository.save(log);
 
-        return ResponseEntity.ok(new MessageResponse("Claim submitted successfully with UUID: " + savedClaim.getClaimUuid()));
+        // Notify claim submission
+        notificationService.notifyClaimSubmitted(savedClaim);
 
+        return ResponseEntity.ok(new MessageResponse("Claim submitted successfully with UUID: " + savedClaim.getClaimUuid()));
     }
 
 
@@ -448,7 +465,7 @@ public class ClaimServiceImpl implements ClaimService {
             if (approved) {
                 claim.setApprovedByProviderUuid(userDetails.getUserUuid());
                 claim.setApprovedByProviderStatus("Approved");
-                claim.setApprovedByProviderDate(Instant.now());
+                claim.setApprovedByProviderDate(LocalDateTime.from(Instant.now()));
                 newStatus = ClaimStatus.UNDER_REVIEW; // Move to payer review
             } else {
                 claim.setApprovedByProviderStatus("Rejected");
@@ -467,7 +484,7 @@ public class ClaimServiceImpl implements ClaimService {
             if (approved) {
                 claim.setApprovedByPayerUuid(userDetails.getUserUuid());
                 claim.setApprovedByPayerStatus("Approved");
-                claim.setApprovedByPayerDate(Instant.now());
+                claim.setApprovedByPayerDate(LocalDateTime.from(Instant.now()));
                 newStatus = ClaimStatus.APPROVED;
             } else {
                 claim.setApprovedByPayerStatus("Rejected");
@@ -542,7 +559,7 @@ public class ClaimServiceImpl implements ClaimService {
             case SUBMITTED:
                 claim.setPreparedByProviderUuid(userDetails.getUserUuid());
                 claim.setPreparedByProviderStatus("Submitted");
-                claim.setPreparedByProviderDate(Instant.now());
+                claim.setPreparedByProviderDate(LocalDateTime.from(Instant.now()));
                 break;
             case UNDER_REVIEW:
                 // Already handled in reviewClaim method
@@ -551,7 +568,7 @@ public class ClaimServiceImpl implements ClaimService {
                 // Already handled in reviewClaim method
                 break;
             case PAYMENT_REQUESTED:
-                claim.setPaymentRequestedDate(Date.from(Instant.now()));
+                claim.setPaymentRequestedDate(LocalDateTime.from(Instant.now()));
                 claim.setPaymentRequestedByUuid(userDetails.getUserUuid());
                 break;
             case PAID:
@@ -561,7 +578,7 @@ public class ClaimServiceImpl implements ClaimService {
                 // Already handled in reviewClaim method
                 break;
             case CANCELLED:
-                claim.setCancelledDate(Date.from(Instant.now()));
+                claim.setCancelledDate(LocalDateTime.from(Instant.now()));
                 claim.setCancelledByUuid(userDetails.getUserUuid());
                 break;
             default:
@@ -779,7 +796,7 @@ public class ClaimServiceImpl implements ClaimService {
         // Update claim status
         ClaimStatus previousStatus = claim.getStatus();
         claim.setStatus(ClaimStatus.PAYMENT_REQUESTED);
-        claim.setPaymentRequestedDate(Date.from(Instant.now()));
+        claim.setPaymentRequestedDate(LocalDateTime.from(Instant.now()));
         claim.setPaymentRequestedByUuid(userDetails.getUserUuid());
 
         claimRepository.save(claim);
@@ -791,70 +808,70 @@ public class ClaimServiceImpl implements ClaimService {
         return ResponseEntity.ok(new MessageResponse("Payment request submitted successfully"));
     }
 
-    @Override
-    @Transactional
-    public ResponseEntity<?> processPayment(String claimUuid, ClaimPaymentRequest paymentRequest) {
-        Claim claim = claimRepository.findByClaimUuid(claimUuid)
-                .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
-
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-
-        // Check if user has access to this claim
-        if (userDetails.getInstitutionUuid() == null || !claim.getPayerUuid().equals(userDetails.getInstitutionUuid())) {
-            throw new BadRequestException("Only payer users can process payments for claims");
-        }
-
-        // Check if claim is in payment requested status
-        if (!claim.getStatus().equals(ClaimStatus.PAYMENT_REQUESTED.toString())) {
-            throw new BadRequestException("Only claims with payment requested can be processed for payment");
-        }
-
-        // Validate payment type
-        if (paymentRequest.getPaymentType().equals("CHECK") &&
-                (paymentRequest.getCheckNumber() == null || paymentRequest.getCheckNumber().isEmpty())) {
-            throw new BadRequestException("Check number is required for check payments");
-        }
-
-        // Create payment record
-        ClaimPayment payment = new ClaimPayment();
-        payment.setPaymentUuid(UUID.randomUUID().toString());
-        payment.setClaim(claim);
-        payment.setAmount(paymentRequest.getAmount());
-        payment.setPaymentType(paymentRequest.getPaymentType());
-        payment.setCheckNumber(paymentRequest.getCheckNumber());
-        payment.setFromBank(paymentRequest.getFromBank());
-        payment.setToBank(paymentRequest.getToBank());
-        payment.setTransactionNumber(paymentRequest.getTransactionNumber());
-        payment.setPaymentDate(Date.from(Instant.now()));
-        payment.setPaidByUuid(userDetails.getUserUuid());
-        payment.setPaidByName(userDetails.getFirstName() + " " + userDetails.getFatherName());
-
-        claimPaymentRepository.save(payment);
-
-        // Update claim status
-        ClaimStatus previousStatus = claim.getStatus();
-        claim.setStatus(ClaimStatus.PAID);
-        claim.setPaidStatus("Paid");
-        claim.setPaidDate(Date.from(Instant.now()));
-        claim.setPaidByPayerUuid(userDetails.getUserUuid());
-        claim.setPaidByPayerName(userDetails.getFirstName() + " " + userDetails.getFatherName());
-        claim.setPaymentCode(payment.getPaymentUuid());
-        claim.setCheckNumber(paymentRequest.getCheckNumber());
-        claim.setFromBank(paymentRequest.getFromBank());
-        claim.setToBank(paymentRequest.getToBank());
-        claim.setTransactionNumber(paymentRequest.getTransactionNumber());
-
-        claimRepository.save(claim);
-
-        // Create log entry
-        createClaimLog(claim, userDetails, previousStatus, ClaimStatus.PAID,
-                "Payment processed by payer. Amount: " + paymentRequest.getAmount() +
-                        ", Type: " + paymentRequest.getPaymentType() +
-                        (paymentRequest.getCheckNumber() != null ? ", Check #: " + paymentRequest.getCheckNumber() : "") +
-                        (paymentRequest.getTransactionNumber() != null ? ", Transaction #: " + paymentRequest.getTransactionNumber() : ""));
-
-        return ResponseEntity.ok(new MessageResponse("Payment processed successfully"));
-    }
+//    @Override
+//    @Transactional
+//    public ResponseEntity<?> processPayment(String claimUuid, ClaimPaymentRequest paymentRequest) {
+//        Claim claim = claimRepository.findByClaimUuid(claimUuid)
+//                .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
+//
+//        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+//
+//        // Check if user has access to this claim
+//        if (userDetails.getInstitutionUuid() == null || !claim.getPayerUuid().equals(userDetails.getInstitutionUuid())) {
+//            throw new BadRequestException("Only payer users can process payments for claims");
+//        }
+//
+//        // Check if claim is in payment requested status
+//        if (!claim.getStatus().equals(ClaimStatus.PAYMENT_REQUESTED.toString())) {
+//            throw new BadRequestException("Only claims with payment requested can be processed for payment");
+//        }
+//
+//        // Validate payment type
+//        if (paymentRequest.getPaymentType().equals("CHECK") &&
+//                (paymentRequest.getCheckNumber() == null || paymentRequest.getCheckNumber().isEmpty())) {
+//            throw new BadRequestException("Check number is required for check payments");
+//        }
+//
+//        // Create payment record
+//        ClaimPayment payment = new ClaimPayment();
+//        payment.setPaymentUuid(UUID.randomUUID().toString());
+//        payment.setClaim(claim);
+//        payment.setAmount(paymentRequest.getAmount());
+//        payment.setPaymentType(paymentRequest.getPaymentType());
+//        payment.setCheckNumber(paymentRequest.getCheckNumber());
+//        payment.setFromBank(paymentRequest.getFromBank());
+//        payment.setToBank(paymentRequest.getToBank());
+//        payment.setTransactionNumber(paymentRequest.getTransactionNumber());
+//        payment.setPaymentDate(Date.from(Instant.now()));
+//        payment.setPaidByUuid(userDetails.getUserUuid());
+//        payment.setPaidByName(userDetails.getFirstName() + " " + userDetails.getFatherName());
+//
+//        claimPaymentRepository.save(payment);
+//
+//        // Update claim status
+//        ClaimStatus previousStatus = claim.getStatus();
+//        claim.setStatus(ClaimStatus.PAID);
+//        claim.setPaidStatus("Paid");
+//        claim.setPaidDate(LocalDateTime.from(Instant.now()));
+//        claim.setPaidByPayerUuid(userDetails.getUserUuid());
+//        claim.setPaidByPayerName(userDetails.getFirstName() + " " + userDetails.getFatherName());
+//        claim.setPaymentCode(payment.getPaymentUuid());
+//        claim.setCheckNumber(paymentRequest.getCheckNumber());
+//        claim.setFromBank(paymentRequest.getFromBank());
+//        claim.setToBank(paymentRequest.getToBank());
+//        claim.setTransactionNumber(paymentRequest.getTransactionNumber());
+//
+//        claimRepository.save(claim);
+//
+//        // Create log entry
+//        createClaimLog(claim, userDetails, previousStatus, ClaimStatus.PAID,
+//                "Payment processed by payer. Amount: " + paymentRequest.getAmount() +
+//                        ", Type: " + paymentRequest.getPaymentType() +
+//                        (paymentRequest.getCheckNumber() != null ? ", Check #: " + paymentRequest.getCheckNumber() : "") +
+//                        (paymentRequest.getTransactionNumber() != null ? ", Transaction #: " + paymentRequest.getTransactionNumber() : ""));
+//
+//        return ResponseEntity.ok(new MessageResponse("Payment processed successfully"));
+//    }
 
     @Override
     public List<?> getClaimLogs(String claimUuid, Pageable pageable) {
@@ -877,5 +894,94 @@ public class ClaimServiceImpl implements ClaimService {
         return logsPage.getContent().stream()
                 .map(this::mapToLogResponse)
                 .collect(Collectors.toList());
+    }
+
+    //payment
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> processPayment(String claimUuid, ClaimPaymentRequest paymentRequest) {
+        Claim claim = claimRepository.findByClaimUuid(claimUuid)
+                .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
+
+        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+
+        // Check if user has access to this claim
+        if (userDetails.getInstitutionUuid() == null || !claim.getPayerUuid().equals(userDetails.getInstitutionUuid())) {
+            throw new BadRequestException("Only payer users can process payments for claims");
+        }
+
+        // Check if claim is in approved status
+        if (!claim.getStatus().equals(ClaimStatus.APPROVED.toString())) {
+            throw new BadRequestException("Only approved claims can be processed for payment");
+        }
+
+        // Initiate payment through Chapa
+        String paymentResponse = String.valueOf(paymentService.initiatePayment(claimUuid, BigDecimal.valueOf(paymentRequest.getAmount()), "ETB"));
+
+        // Create payment record
+        ClaimPayment payment = new ClaimPayment();
+        payment.setPaymentUuid(UUID.randomUUID().toString());
+        payment.setClaim(claim);
+        payment.setAmount(paymentRequest.getAmount());
+        payment.setPaymentType("CHAPA");
+        payment.setTransactionNumber(paymentResponse); // Assuming the response contains the transaction ID
+        payment.setPaymentDate(Date.from(Instant.now()));
+        payment.setPaidByUuid(userDetails.getUserUuid());
+        payment.setPaidByName(userDetails.getFirstName() + " " + userDetails.getFatherName());
+
+        claimPaymentRepository.save(payment);
+
+        // Update claim status
+        ClaimStatus previousStatus = claim.getStatus();
+        claim.setStatus(ClaimStatus.PAYMENT_INITIATED);
+        claim.setPaidStatus("Payment Initiated");
+        claim.setPaidDate(LocalDateTime.from(Instant.now()));
+        claim.setPaidByPayerUuid(userDetails.getUserUuid());
+        claim.setPaidByPayerName(userDetails.getFirstName() + " " + userDetails.getFatherName());
+        claim.setPaymentCode(payment.getPaymentUuid());
+        claim.setTransactionNumber(paymentResponse);
+
+        claimRepository.save(claim);
+
+        // Create log entry
+        createClaimLog(claim, userDetails, previousStatus, ClaimStatus.PAYMENT_INITIATED,
+                "Payment initiated through Chapa. Amount: " + paymentRequest.getAmount());
+
+        // Notify the pharmacy
+        notificationService.notifyPharmacy(claim.getProvider(), "Payment initiated for claim " + claimUuid);
+
+        return ResponseEntity.ok(new MessageResponse("Payment initiated successfully"));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> verifyPayment(String claimUuid) {
+        Claim claim = claimRepository.findByClaimUuid(claimUuid)
+                .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
+
+        if (!claim.getStatus().equals(ClaimStatus.PAYMENT_INITIATED.toString())) {
+            throw new BadRequestException("Payment verification can only be done for claims with initiated payments");
+        }
+
+        boolean paymentVerified = paymentService.verifyPayment(claim.getTransactionNumber());
+
+        if (paymentVerified) {
+            ClaimStatus previousStatus = claim.getStatus();
+            claim.setStatus(ClaimStatus.PAID);
+            claim.setPaidStatus("Paid");
+            claimRepository.save(claim);
+
+            createClaimLog(claim, SecurityUtils.getAuthenticatedUser(), previousStatus, ClaimStatus.PAID,
+                    "Payment verified successfully");
+
+            // Notify the pharmacy
+            notificationService.notifyPharmacy(claim.getProvider(), "Payment confirmed for claim " + claimUuid);
+
+            return ResponseEntity.ok(new MessageResponse("Payment verified successfully"));
+        } else {
+            return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED)
+                    .body(new MessageResponse("Payment verification failed"));
+        }
     }
 }

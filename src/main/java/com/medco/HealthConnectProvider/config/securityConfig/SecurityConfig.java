@@ -17,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
@@ -41,21 +42,35 @@ public class SecurityConfig {
         return new JwtAuthenticationFilter();
     }
 
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
+                .allowedOrigins("*")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
+                .allowedHeaders("*")
+                .maxAge(3600);
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .cors(withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .headers(headers -> headers
-                        .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; script-src 'self';"))
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:")
+                        )
                 )
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unAuthorizedHandler))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/provider/healthConnectProvider/users/**",
+                        .requestMatchers(
+                                "/api/provider/healthConnectProvider/users/**",
                                 "/api/provider/healthConnectProvider/claim/**",
-                        "/api/v1/healthConnect/payer-provider-contract/**")
-                        .permitAll()
-                        .requestMatchers( "/v3/api-docs/**", "/swagger-ui/**").permitAll()
+                                "/api/v1/healthConnect/payer-provider-contract/**",
+                                "/api/v1/healthConnect/dependant/createDependant/**",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
                         .anyRequest().permitAll()
                 )
                 .httpBasic(withDefaults())
@@ -63,7 +78,9 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(authenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
+
     }
 
     @Bean

@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.ui.response.eligibility;
 
+import com.medco.HealthConnectProvider.utils.enums.Relationship;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -17,7 +18,9 @@ public class DependentEligibilityResponse {
     private String firstName;
     private String fatherName;
     private String grandFatherName;
-    private String relationship;
+    private Relationship relationship;
     private Status status;
     private List<GroupMembershipResponse> groups;
+
+    private String profilePictureBase64;
 }

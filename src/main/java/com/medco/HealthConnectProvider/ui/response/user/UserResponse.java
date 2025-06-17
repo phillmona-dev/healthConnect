@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.ui.response.user;
 
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,9 +23,10 @@ public class UserResponse implements Serializable {
     private String Gender;
 
     private String mobilePhone;
-    private String userStatus;
+    private Status userStatus;
     private String payerUuid;
     private String providerUuid;
     private String profilePicture;
     private boolean isDeleted;
+    private String roleName;
 }

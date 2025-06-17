@@ -4,6 +4,7 @@ import com.medco.HealthConnectProvider.utils.enums.Relationship;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Data

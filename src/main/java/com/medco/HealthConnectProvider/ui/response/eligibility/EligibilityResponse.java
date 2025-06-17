@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 
 @Getter
@@ -24,6 +25,7 @@ public class EligibilityResponse {
     private String nationalId;
     private String phoneNumber;
     private Status status;
+    private Date birthDate;
     
     // Payer details
     private String payerUuid;
@@ -47,4 +49,10 @@ public class EligibilityResponse {
     // Overall eligibility status
     private boolean isEligible;
     private String ineligibilityReason;
+
+    private String profilePictureBase64;
+
+    public boolean hasRequestedService(){
+        return requestedService != null;
+    }
 }

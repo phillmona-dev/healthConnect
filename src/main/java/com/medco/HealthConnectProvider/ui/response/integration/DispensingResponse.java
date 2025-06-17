@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -13,7 +14,7 @@ public class DispensingResponse {
     private String dispensingUuid;
     private String status;
     private String message;
-    private LocalDateTime recordedAt;
+    private LocalDate recordedAt;
     private Double totalAmount;
     private Double patientResponsibility;
     private Double insuranceCoverage;

@@ -46,7 +46,6 @@ public class Provider extends Audit implements Serializable {
     @Email
     private String email;
 
-    @NotBlank
     @Size(min = 3, max = 100)
     private String description;
 

@@ -59,5 +59,5 @@ public interface ContractService {
     ResponseEntity<?> terminateContract(String contractUuid, @Valid ContractTerminationRequest terminationRequest);
     ResponseEntity<?> withdrawTermination(String contractUuid);
 
-    ResponseEntity<?> getFilteredContracts(ContractFilterRequest filter, Pageable pageable);
+    ResponseEntity<?> getFilteredContracts(ContractFilterRequest filter, Pageable pageable, int page);
 }

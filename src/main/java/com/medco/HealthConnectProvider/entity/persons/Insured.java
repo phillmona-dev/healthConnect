@@ -16,6 +16,7 @@ import lombok.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -27,6 +28,10 @@ import java.util.UUID;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
+@Table(indexes = {
+        @Index(name = "idx_insured_payer_uuid", columnList = "payerUuid"),
+        @Index(name = "idx_insured_search_fields", columnList = "firstName, fatherName, grandFatherName, phone, insuranceId")
+})
 public class Insured implements Serializable {
 
     @Serial
@@ -58,7 +63,6 @@ public class Insured implements Serializable {
     @Size(max = 50)
     private String email;
 
-    @NotBlank(message = "title cant be empty")
     @Size(min = 2, max = 25)
     private String title;
 
@@ -110,15 +114,18 @@ public class Insured implements Serializable {
     @Size(min = 2, max = 50)
     private String country;
 
-    @Lob
-    @Column(name = "profile_picture")
-    private byte[] profilePicture;
+    @Size(max = 255)
+    @Column(name = "profile_picture_path")
+    private String profilePicturePath;
 
     @Enumerated(EnumType.STRING)
     private Status status;
 
     @Column(columnDefinition = "boolean default false")
     private boolean isDeleted;
+
+    @Column
+    private LocalDateTime deletedAt;
 
     @OneToMany(mappedBy = "insured", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonManagedReference(value = "employee-insured-groups")
@@ -156,7 +163,7 @@ public class Insured implements Serializable {
     }
 
     @OneToMany(mappedBy = "insured", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Dependant> dependants;  // Renamed from dependents to match usage in EligibilityServiceImpl
+    private List<Dependant> dependants;
 
     @JsonBackReference
     @ManyToMany(mappedBy = "insured")

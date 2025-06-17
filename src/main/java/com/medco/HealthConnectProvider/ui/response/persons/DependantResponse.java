@@ -23,5 +23,7 @@ public class DependantResponse {
     private Relationship relationship;
     private String phone;
     private Status status;
+    private String profilePictureBase64;
+
 
 }

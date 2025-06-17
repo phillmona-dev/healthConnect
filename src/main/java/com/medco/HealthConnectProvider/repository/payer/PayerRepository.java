@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface PayerRepository extends JpaRepository<Payer, Long>, JpaSpecificationExecutor<Payer> {
@@ -54,4 +55,9 @@ public interface PayerRepository extends JpaRepository<Payer, Long>, JpaSpecific
             @Param("payerName") String payerName,
             @Param("tinNumber") Long tinNumber,
             Pageable pageable);
+
+
+    boolean existsByPayerUuid(String payerUuid);
+
+    Payer findByPayerName(String payerName);
 }

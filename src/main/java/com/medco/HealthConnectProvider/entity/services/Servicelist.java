@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.entity.services;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.UUID;
 
@@ -22,6 +23,7 @@ import java.util.List;
 @Table(name = "services")
 public class Servicelist extends Audit implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @Id
@@ -48,7 +50,9 @@ public class Servicelist extends Audit implements Serializable {
     @Enumerated(EnumType.STRING)
     private Status status;
 
-    private BigDecimal price;
+    private Double price;
+
+    private String unitOfMeasure;
 
     // Many-to-One relationship with Provider
     @ManyToOne(fetch = FetchType.LAZY)
@@ -68,6 +72,7 @@ public class Servicelist extends Audit implements Serializable {
         if (serviceUuid == null) {
             serviceUuid = UUID.randomUUID().toString();
         }
+
     }
 
     // Helper methods to maintain bidirectional relationship with ContractDetail
@@ -80,5 +85,6 @@ public class Servicelist extends Audit implements Serializable {
         contractDetails.remove(contractDetail);
         contractDetail.setServicelist(null);
     }
+
 }
 

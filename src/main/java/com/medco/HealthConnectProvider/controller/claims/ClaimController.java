@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.controller.claims;
 
 import com.medco.HealthConnectProvider.services.claims.ClaimService;
+import com.medco.HealthConnectProvider.services.integration.PharmacyIntegrationService;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimCommentRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimPaymentRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimRequest;
@@ -30,6 +31,9 @@ public class ClaimController {
 
     @Autowired
     private ClaimService claimService;
+
+    @Autowired
+    private PharmacyIntegrationService pharmacyIntegrationService;
     
     @PostMapping
     @Operation(summary = "Submit a new claim")
@@ -135,5 +139,22 @@ public class ClaimController {
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("actionDate").descending());
         return claimService.getClaimLogs(claimUuid, pageable);
+    }
+
+    //payment
+
+    @PostMapping("/claims/{claimUuid}/payment")
+    public ResponseEntity<?> initiatePayment(@PathVariable String claimUuid, @RequestBody ClaimPaymentRequest paymentRequest) {
+        return claimService.processPayment(claimUuid, paymentRequest);
+    }
+
+    @PostMapping("/claims/{claimUuid}/payment/verify")
+    public ResponseEntity<?> verifyPayment(@PathVariable String claimUuid) {
+        return claimService.verifyPayment(claimUuid);
+    }
+
+    @PostMapping("/claims/{claimUuid}/reconcile")
+    public ResponseEntity<?> reconcilePayment(@PathVariable String claimUuid) {
+        return pharmacyIntegrationService.reconcilePayment(claimUuid);
     }
 }

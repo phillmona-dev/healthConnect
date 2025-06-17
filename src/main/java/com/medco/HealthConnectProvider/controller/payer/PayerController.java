@@ -96,6 +96,7 @@ public class PayerController {
 
         return payerService.getPayersWithFilters(searchKey, page, limit, status, category,
                 payerName, tinNumber, level, sortBy, sortDir);
+
     }
 
     @GetMapping("/policy-holders/list")

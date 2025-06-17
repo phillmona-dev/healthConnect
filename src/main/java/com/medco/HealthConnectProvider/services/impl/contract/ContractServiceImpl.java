@@ -117,7 +117,7 @@ public class ContractServiceImpl implements ContractService {
         contract.setPayer(payer);
 
         // Set additional fields
-        contract.setStatus(Status.PENDING);
+        contract.setStatus(Status.ACTIVE);
         contract.setStartDate(contractRequest.getBeginDate().toInstant()
                 .atZone(ZoneId.systemDefault())
                 .toLocalDate());
@@ -159,11 +159,12 @@ public class ContractServiceImpl implements ContractService {
         String preparedBy = userDetails.getUserUuid();
 
         BeanUtils.copyProperties(contractRequest, contract);
-        contract.setStatus(Status.PENDING);
+        contract.setStatus(Status.ACTIVE);
         contract.setPreparedBy(preparedBy);
         contractRepository.save(contract);
         return ResponseEntity.ok(new MessageResponse("Contract Updated Successfully!"));
     }
+
 
     @Override
     public ContractResponse getContract(String contractUuid) {
@@ -995,7 +996,12 @@ public class ContractServiceImpl implements ContractService {
 
 
 
-    public ResponseEntity<?> getFilteredContracts(ContractFilterRequest filter, Pageable pageable) {
+    public ResponseEntity<?> getFilteredContracts(ContractFilterRequest filter, Pageable pageable, int page) {
+
+        if (page > 0) {
+            page = page - 1;
+        }
+
         Page<ContractHeader> contractPage = contractRepository.findFilteredContracts(filter, pageable);
 
         Page<ContractResponse> responsePage = contractPage.map(contract -> {

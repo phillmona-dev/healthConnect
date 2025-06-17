@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 
@@ -29,7 +30,7 @@ public class ClaimRequest {
     private String mrnNumber;
     
     @NotNull(message = "Visit date is required")
-    private Date visitDate;
+    private LocalDateTime visitDate;
     
     @NotNull(message = "Total amount is required")
     @Positive(message = "Total amount must be positive")

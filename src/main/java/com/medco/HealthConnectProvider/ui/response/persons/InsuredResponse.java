@@ -1,13 +1,15 @@
 package com.medco.HealthConnectProvider.ui.response.persons;
 
 import com.medco.HealthConnectProvider.utils.enums.Status;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.util.Date;
 
 @Getter
 @Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
 public class InsuredResponse {
 
     private String insuredUuid;
@@ -55,5 +57,7 @@ public class InsuredResponse {
     private long totalPages;
 
     private String photoBase64;
+
+    private String profilePicturePath;
 
 }

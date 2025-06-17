@@ -88,7 +88,7 @@ public interface ProviderRepository extends JpaRepository<Provider, Long>, JpaSp
             @Param("status") Status status,
             @Param("category") String category,
             @Param("providerName") String providerName,
-            @Param("tinNumber") String tinNumber,  // Changed from Long to String
+            @Param("tinNumber") String tinNumber,
             @Param("level") String level,
             Pageable pageable);
 }

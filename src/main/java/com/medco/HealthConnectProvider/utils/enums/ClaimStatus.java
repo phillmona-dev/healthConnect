@@ -8,5 +8,7 @@ public enum ClaimStatus {
     REJECTED,            // Claim has been rejected
     PAYMENT_REQUESTED,   // Provider has requested payment for approved claim
     PAID,                // Payment has been processed
-    CANCELLED            // Claim has been cancelled
+    CANCELLED,            // Claim has been cancelled
+    PAYMENT_INITIATED,
+    RECONCILED
 }

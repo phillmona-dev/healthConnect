@@ -13,8 +13,8 @@ import java.util.List;
 @NoArgsConstructor
 public class PagedResponse<T> {
     private List<T> content;
-    private int currentPage;
-    private int pageSize;
+    private int page;
+    private int perPage;
     private long totalElements;
     private int totalPages;
     private boolean hasNext;

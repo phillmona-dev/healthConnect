@@ -5,11 +5,15 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.text.ParseException;
 import java.util.Date;
+import java.util.stream.Collectors;
 
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
@@ -23,11 +27,15 @@ import com.medco.HealthConnectProvider.services.persons.InsuredService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.persons.DependantRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.persons.InsuredRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.persons.InsuredWithDependantsRequest;
+import com.medco.HealthConnectProvider.ui.request.persons.InsuredUpdateRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.*;
 import com.medco.HealthConnectProvider.utils.enums.Relationship;
 import com.medco.HealthConnectProvider.utils.enums.Status;
+import jakarta.validation.constraints.Size;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +43,6 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -44,7 +51,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.util.FileCopyUtils;
+import org.springframework.util.StreamUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -58,23 +66,23 @@ public class InsuredServiceImpl implements InsuredService {
 
     private final InsuredRepository insuredRepository;
 
-    private final PayerRepository institutionRepository;
+    private final PayerRepository payerRepository;
 
     private final DependantRepository dependantRepository;
 
-    @Value("${file.upload-dir-insured-person-profiles}")
-    private String uploadDirectory;
+    @Value("${file.upload-dir-payer-logos:C:/Users/Administrator/OneDrive/Desktop/MedcoProjects/logos/payers}")
+    private String payerLogosDirectory;
 
-    public InsuredServiceImpl(InsuredRepository insuredRepository, PayerRepository institutionRepository,  DependantRepository dependantRepository) {
+    public InsuredServiceImpl(InsuredRepository insuredRepository, PayerRepository payerRepository, DependantRepository dependantRepository) {
         this.insuredRepository = insuredRepository;
-        this.institutionRepository = institutionRepository;
+        this.payerRepository = payerRepository;
         this.dependantRepository = dependantRepository;
     }
 
     @Override
     public ResponseEntity<?> createInsuredPerson(InsuredRequest insuredRequest, MultipartFile photo) {
         try {
-            // Validate unique constraints
+
             if (insuredRepository.existsByEmailAndPayerPayerUuid(insuredRequest.getEmail(),
                     insuredRequest.getPayerUuid())) {
                 throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Error: Email is already in use!");
@@ -91,13 +99,11 @@ public class InsuredServiceImpl implements InsuredService {
             BeanUtils.copyProperties(insuredRequest, insured);
 
             // Set status
-            if (insuredRequest.getStatus() != null)
-                insured.setStatus(insuredRequest.getStatus());
-            else
-                insured.setStatus(Status.PENDING);
+            insured.setStatus(insuredRequest.getStatus() != null ?
+                    insuredRequest.getStatus() : Status.PENDING);
 
             // Set payer
-            Payer payer = institutionRepository.findByPayerUuid(insuredRequest.getPayerUuid());
+            Payer payer = payerRepository.findByPayerUuid(insuredRequest.getPayerUuid());
             if (payer == null) throw new BadRequestException("Institution not found");
             insured.setPayer(payer);
 
@@ -108,33 +114,48 @@ public class InsuredServiceImpl implements InsuredService {
 
             // Process photo if provided
             if (photo != null && !photo.isEmpty()) {
-                String uploadDir = uploadDirectory + "/insured/photos/";
-                File directory = new File(uploadDir);
-                if (!directory.exists()) {
-                    directory.mkdirs();
+                try {
+                    // Ensure directory exists
+                    File directory = new File(payerLogosDirectory);
+                    if (!directory.exists()) {
+                        directory.mkdirs();
+                        logger.info("Created directory: {}", payerLogosDirectory);
+                    }
+
+                    String fileName = photo.getOriginalFilename();
+                    String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+                    String newFileName = "photo_" + insured.getInsuredUuid() + "." + extension;
+
+                    Path path = Paths.get(payerLogosDirectory + "/" + newFileName);
+                    Files.write(path, photo.getBytes());
+                    logger.info("Saved photo to: {}", path);
+
+                    insured.setProfilePicturePath(newFileName);
+                } catch (IOException e) {
+                    throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                            "Error uploading photo: " + e.getMessage());
                 }
-
-                String fileName = photo.getOriginalFilename();
-                String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
-                String newFileName = insured.getInsuredUuid() + "." + extension;
-
-                Path path = Paths.get(uploadDir + newFileName);
-                Files.write(path, photo.getBytes());
-
-                insured.setProfilePicture(newFileName.getBytes());
             }
 
-            // Save the insured person
             Insured savedInsured = insuredRepository.save(insured);
 
-            // Create response with more details
             InsuredResponse response = new InsuredResponse();
             BeanUtils.copyProperties(savedInsured, response);
+            response.setProfilePicturePath(savedInsured.getProfilePicturePath());
+
+            // Add base64 encoded photo to response if available
+            if (savedInsured.getProfilePicturePath() != null) {
+                try {
+                    Path path = Paths.get(payerLogosDirectory + "/" + savedInsured.getProfilePicturePath());
+                    byte[] fileContent = Files.readAllBytes(path);
+                    String base64Photo = Base64.getEncoder().encodeToString(fileContent);
+                    response.setPhotoBase64(base64Photo);
+                } catch (IOException e) {
+                    logger.warn("Could not read photo for insured {}: {}", savedInsured.getInsuredUuid(), e.getMessage());
+                }
+            }
 
             return ResponseEntity.ok(response);
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new MessageResponse("Error processing photo: " + e.getMessage()));
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
@@ -143,15 +164,53 @@ public class InsuredServiceImpl implements InsuredService {
         }
     }
 
+    private String saveProfilePhoto(MultipartFile photo, String insuredUuid) throws IOException {
+        log.debug("Saving profile photo for insured UUID: {}", insuredUuid);
+
+        File directory = new File(payerLogosDirectory);
+        if (!directory.exists()) {
+            boolean created = directory.mkdirs();
+            if (created) {
+                log.debug("Created directory: {}", payerLogosDirectory);
+            } else {
+                log.warn("Failed to create directory: {}", payerLogosDirectory);
+            }
+        }
+
+        String fileName = photo.getOriginalFilename();
+        if (fileName == null || fileName.isEmpty()) {
+            log.warn("Original filename is null or empty for insured UUID: {}", insuredUuid);
+            throw new IllegalArgumentException("Invalid file name");
+        }
+
+        String extension = FilenameUtils.getExtension(fileName);
+        String newFileName = insuredUuid + "." + extension;
+        Path filePath = Paths.get(payerLogosDirectory, newFileName);
+
+        log.debug("New file name: {}", newFileName);
+        log.debug("Full file path: {}", filePath);
+
+        try {
+
+            Files.write(filePath, photo.getBytes());
+            log.info("Successfully saved profile photo for insured UUID: {} at path: {}", insuredUuid, filePath);
+        } catch (IOException e) {
+            log.error("Failed to save profile photo for insured UUID: {}", insuredUuid, e);
+            throw new IOException("Failed to save profile photo", e);
+        }
+
+        return newFileName;
+    }
+
     @Override
     public ResponseEntity<ByteArrayResource> getInsuredPhoto(String insuredUuid) {
         try {
             Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
-            if (insured == null || insured.getProfilePicture() == null) {
+            if (insured == null || insured.getProfilePicturePath() == null) {
                 return ResponseEntity.notFound().build();
             }
 
-            String photoPath = uploadDirectory + "/insured/photos/" + insured.getProfilePicture();
+            String photoPath = payerLogosDirectory + "/insured/photos/" + insured.getProfilePicturePath();
             Path path = Paths.get(photoPath);
             ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
 
@@ -163,59 +222,14 @@ public class InsuredServiceImpl implements InsuredService {
         }
     }
 
-    @Override
-    public String getInsuredPhotoBase64(String insuredUuid) {
-        try {
-            Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
-            if (insured == null || insured.getProfilePicture() == null) {
-                return getDefaultPhotoBase64();
-            }
-
-            String photoPath = uploadDirectory + "/insured/photos/" + insured.getProfilePicture();
-            File photoFile = new File(photoPath);
-
-            if (photoFile.exists() && photoFile.isFile()) {
-                byte[] fileContent = Files.readAllBytes(photoFile.toPath());
-                String base64Photo = Base64.getEncoder().encodeToString(fileContent);
-                return "data:" + determineContentType(photoPath) + ";base64," + base64Photo;
-            } else {
-                // Return default photo if insured photo doesn't exist
-                return getDefaultPhotoBase64();
-            }
-        } catch (IOException e) {
-            logger.warn("Could not read photo for insured {}: {}", insuredUuid, e.getMessage());
-            // Return default photo on error
-            return getDefaultPhotoBase64();
-        }
-    }
-
-    private String getDefaultPhotoBase64() {
-        try {
-            Resource resource = new ClassPathResource("static/images/default-profile-photo.png");
-            if (resource.exists()) {
-                byte[] fileContent = FileCopyUtils.copyToByteArray(resource.getInputStream());
-                String base64Photo = Base64.getEncoder().encodeToString(fileContent);
-                return "data:image/png;base64," + base64Photo;
-            }
-        } catch (IOException e) {
-            logger.warn("Could not read default photo: {}", e.getMessage());
-        }
-        return null;
-    }
-
     private String determineContentType(String path) {
         String extension = path.substring(path.lastIndexOf(".") + 1).toLowerCase();
-        switch (extension) {
-            case "jpg":
-            case "jpeg":
-                return "image/jpeg";
-            case "png":
-                return "image/png";
-            case "gif":
-                return "image/gif";
-            default:
-                return "application/octet-stream";
-        }
+        return switch (extension) {
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "gif" -> "image/gif";
+            default -> "application/octet-stream";
+        };
     }
 
     @Override
@@ -228,26 +242,616 @@ public class InsuredServiceImpl implements InsuredService {
         InsuredResponse response = new InsuredResponse();
         BeanUtils.copyProperties(insured, response);
 
-        // Add photo as base64
         String photoBase64 = getInsuredPhotoBase64(insuredUuid);
         response.setPhotoBase64(photoBase64);
 
         return ResponseEntity.ok(response);
     }
 
+    @Override
+    public ResponseEntity<?> getInsuredPersonByUuid(String insuredUuid) {
+        try {
+            Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
+            if (insured == null) {
+                throw new RuntimeException("Insured person not found with UUID: " + insuredUuid);
+            }
+
+            InsuredWithDependantsResponse response = new InsuredWithDependantsResponse();
+            BeanUtils.copyProperties(insured, response);
+
+            setProfilePictureBase64(insured.getProfilePicturePath(), response);
+
+            if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
+                List<DependantResponse> dependantResponses = insured.getDependants().stream()
+                        .filter(dependant -> !dependant.isDeleted())
+                        .map(this::mapToDependantResponse)
+                        .collect(Collectors.toList());
+                response.setDependants(dependantResponses);
+            }
+
+            return ResponseEntity.ok(response);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            log.error("Error fetching insured person: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred while fetching the insured person");
+        }
+    }
+
+    private void setProfilePictureBase64(String profilePicturePath, Object response) {
+        if (profilePicturePath != null) {
+            try {
+                Path path = Paths.get(payerLogosDirectory, profilePicturePath);
+                byte[] imageBytes = Files.readAllBytes(path);
+                String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+                String contentType = determineContentType(profilePicturePath);
+                String formattedBase64 = "data:" + contentType + ";base64," + base64Image;
+
+                if (response instanceof InsuredWithDependantsResponse) {
+                    ((InsuredWithDependantsResponse) response).setProfilePictureBase64(formattedBase64);
+                } else if (response instanceof DependantResponse) {
+                    ((DependantResponse) response).setProfilePictureBase64(formattedBase64);
+                }
+            } catch (IOException e) {
+                log.error("Error reading profile picture: {}", e.getMessage());
+                if (response instanceof InsuredWithDependantsResponse) {
+                    ((InsuredWithDependantsResponse) response).setProfilePictureBase64("");
+                } else if (response instanceof DependantResponse) {
+                    ((DependantResponse) response).setProfilePictureBase64("");
+                }
+            }
+        } else {
+            if (response instanceof InsuredWithDependantsResponse) {
+                ((InsuredWithDependantsResponse) response).setProfilePictureBase64("");
+            } else if (response instanceof DependantResponse) {
+                ((DependantResponse) response).setProfilePictureBase64("");
+            }
+        }
+    }
+
+    @Override
+    public ResponseEntity<PagedResponse<InsuredWithDependantsResponse>> getAllInsuredPersonsWithDependants(int page, int size, String search) {
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("firstName").ascending());
+
+        Page<Insured> insuredPage;
+        if (search != null && !search.trim().isEmpty()) {
+            insuredPage = insuredRepository.findBySearchTerm(search.trim(), pageable);
+        } else {
+            insuredPage = insuredRepository.findAll(pageable);
+        }
+
+        List<InsuredWithDependantsResponse> insuredWithDependantsList = insuredPage.getContent().stream()
+                .map(this::mapToInsuredWithDependantsResponse)
+                .collect(Collectors.toList());
+
+        PagedResponse<InsuredWithDependantsResponse> pagedResponse = new PagedResponse<>(
+                insuredWithDependantsList,
+                page,
+                size,
+                insuredPage.getTotalElements(),
+                insuredPage.getTotalPages(),
+                insuredPage.isLast()
+        );
+
+        return ResponseEntity.ok(pagedResponse);
+    }
+
+    @Override
+    public ResponseEntity<PagedResponse<InsuredDependantResponse>> getAllInsuredPersonsWithDependentsByPayer(
+            String payerUuid, int page, int size, String search) {
+        log.info("Fetching insured persons with dependents for payer UUID: {}, page: {}, size: {}, search: {}",
+                payerUuid, page, size, search);
+
+        Payer payer = payerRepository.findByPayerUuid(payerUuid);
+        if (payer == null){
+            throw new RuntimeException("Payer not found");
+        }
+
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("firstName").ascending());
+
+        Page<Insured> insuredPage;
+        if (StringUtils.hasText(search)) {
+            insuredPage = insuredRepository.findByPayerAndSearchKey(payerUuid, false, search, pageable);
+        } else {
+            insuredPage = insuredRepository.findByPayerPayerUuidAndIsDeleted(payerUuid, false, pageable);
+        }
+
+        List<InsuredDependantResponse> insuredDependantResponses = insuredPage.getContent().stream()
+                .map(this::mapToInsuredDependantResponse)
+                .collect(Collectors.toList());
+
+        PagedResponse<InsuredDependantResponse> pagedResponse = new PagedResponse<>(
+                insuredDependantResponses,
+                page,
+                size,
+                insuredPage.getTotalElements(),
+                insuredPage.getTotalPages(),
+                insuredPage.isLast()
+        );
+
+        log.info("Successfully fetched {} insured persons for payer UUID: {}", insuredDependantResponses.size(), payerUuid);
+        return ResponseEntity.ok(pagedResponse);
+    }
+
+    private InsuredDependantResponse mapToInsuredDependantResponse(Insured insured) {
+        InsuredDependantResponse response = new InsuredDependantResponse();
+        response.setInsuredUuid(insured.getInsuredUuid());
+        response.setInsuredTitle(StringUtils.hasText(insured.getTitle()) ? insured.getTitle() : "");
+        response.setFirstName(insured.getFirstName());
+        response.setFatherName(insured.getFatherName());
+        response.setGrandFatherName(insured.getGrandFatherName());
+        response.setGender(insured.getGender());
+        response.setInsuranceId(StringUtils.hasText(insured.getInsuranceId()) ? insured.getInsuranceId() : "");
+        response.setPhone(StringUtils.hasText(insured.getPhone()) ? insured.getPhone() : "");
+        response.setEmail(StringUtils.hasText(insured.getEmail()) ? insured.getEmail() : "");
+        response.setBirthDate(insured.getBirthDate());
+        response.setStatus(insured.getStatus() != null ? insured.getStatus() : Status.PENDING);
+        response.setAddress(StringUtils.hasText(insured.getAddress()) ? insured.getAddress() : "");
+        response.setPosition(insured.getPosition());
+        response.setIdNumber(insured.getIdNumber());
+        response.setEmployeeId(insured.getEmployeeId());
+
+
+        String photoBase64 = getInsuredPhotoBase64(insured.getInsuredUuid());
+        if (StringUtils.hasText(photoBase64)) {
+            String contentType = determineContentType(insured.getProfilePicturePath());
+            String formattedBase64 = "data:" + contentType + ";base64," + photoBase64;
+            response.setProfilePictureBase64(formattedBase64);
+        } else {
+            response.setProfilePictureBase64("");
+        }
+
+        List<DependantInsuredResponse> dependantResponses = dependantRepository.findByInsuredAndIsDeletedFalse(insured)
+                .stream()
+                .map(this::mapToDependantInsuredResponse)
+                .collect(Collectors.toList());
+        response.setDependants(dependantResponses);
+
+        return response;
+    }
+
+    private DependantInsuredResponse mapToDependantInsuredResponse(Dependant dependant) {
+        DependantInsuredResponse response = new DependantInsuredResponse();
+        response.setInsuredPersonUuid(dependant.getInsured().getInsuredUuid());
+        response.setDependantUuid(dependant.getDependantUuid());
+        response.setDependantFirstName(dependant.getFirstName());
+        response.setDependantFatherName(dependant.getFatherName());
+        response.setDependantGrandFatherName(dependant.getGrandFatherName());
+        response.setDependantGender(dependant.getGender());
+        response.setDependantStatus(dependant.getStatus() != null ? dependant.getStatus() : Status.PENDING);
+        response.setRelationship(dependant.getRelationship());
+        response.setDependantBirthDate(dependant.getBirthDate());
+        return response;
+    }
+
+    public String getInsuredPhotoBase64(String insuredUuid) {
+        log.debug("Fetching photo for insured UUID: {}", insuredUuid);
+        try {
+            Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
+            if (insured == null){
+                log.warn("Insured not found for UUID: {}", insuredUuid);
+                throw new ResourceNotFoundException("Insured", "UUID", insuredUuid);
+            }
+
+            String photoPath = insured.getProfilePicturePath();
+            log.debug("Profile picture path for insured UUID: {}: {}", insuredUuid, photoPath);
+
+            if (StringUtils.hasText(photoPath)) {
+                Path path = Paths.get(payerLogosDirectory, photoPath);
+                log.debug("Full path for photo: {}", path);
+                if (Files.exists(path)) {
+                    byte[] photoBytes = Files.readAllBytes(path);
+                    String base64Photo = Base64.getEncoder().encodeToString(photoBytes);
+                    log.debug("Successfully encoded photo for insured UUID: {}. Base64 length: {}", insuredUuid, base64Photo.length());
+                    return base64Photo;
+                } else {
+                    log.warn("Photo file does not exist at path: {}", path);
+                }
+            } else {
+                log.warn("No photo path set for insured UUID: {}", insuredUuid);
+            }
+
+            log.debug("Returning default photo for insured UUID: {}", insuredUuid);
+            return getDefaultPhotoBase64();
+        } catch (IOException e) {
+            log.error("Error fetching photo for insured UUID: {}", insuredUuid, e);
+            return getDefaultPhotoBase64();
+        }
+    }
+
+    private String getDefaultPhotoBase64() {
+        try {
+
+            ClassPathResource resource = new ClassPathResource("static/default-profile.png");
+            byte[] photoBytes = StreamUtils.copyToByteArray(resource.getInputStream());
+            return Base64.getEncoder().encodeToString(photoBytes);
+        } catch (IOException e) {
+            log.error("Error fetching default photo", e);
+            return "";
+        }
+    }
+
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> softDeleteInsuredPerson(String insuredUuid) {
+        log.info("Attempting to soft delete insured person with UUID: {}", insuredUuid);
+
+        Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
+        if (insured == null) {
+            log.warn("Insured person not found with UUID: {}", insuredUuid);
+            throw new ResourceNotFoundException("Insured Person", "insuredUuid", insuredUuid);
+        }
+
+        insured.setDeleted(true);
+        insured.setDeletedAt(LocalDateTime.now());
+        insuredRepository.save(insured);
+
+        List<Dependant> dependants = dependantRepository.findByInsured(insured);
+        for (Dependant dependant : dependants) {
+            dependant.setDeleted(true);
+            dependant.setDeletedAt(LocalDateTime.now());
+        }
+        dependantRepository.saveAll(dependants);
+
+        log.info("Successfully soft deleted insured person with UUID: {} and their dependants", insuredUuid);
+        return ResponseEntity.ok(new MessageResponse("Insured person and their dependants have been successfully deleted."));
+    }
+
+    @Override
+    public InsuredResponse updateInsuredStatus(String insuredUuid, Status newStatus) {
+        log.info("Updating status for insured person with UUID: {} to {}", insuredUuid, newStatus);
+        Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
+        if (insured == null){
+            throw new ResourceNotFoundException("Insured", "UUID", insuredUuid);
+        }
+
+        insured.setStatus(newStatus);
+        Insured updatedInsured = insuredRepository.save(insured);
+
+        if (newStatus == Status.ACTIVE || newStatus == Status.INACTIVE){
+            List<Dependant> dependants = dependantRepository.findByInsured(insured);
+            for (Dependant dependant : dependants){
+                dependant.setStatus(newStatus);
+            }
+            dependantRepository.saveAll(dependants);
+
+            log.info("Insured person with UUID: {} and their dependants have been updated to status: {}",
+                    insuredUuid, newStatus);
+        }else {
+            log.info("Insured person with UUID: {} has been updated to status: {}", insuredUuid, newStatus);
+        }
+        return mapToInsuredResponse(updatedInsured);
+    }
+
+    @Override
+    public List<InsuredSearchResponse> searchInsuredPersons(String phone, String employeeId, String insuranceId, String nationalId) {
+        List<Insured> insuredList = new ArrayList<>();
+
+        // Prioritize exact matches
+        if (StringUtils.hasText(phone)) {
+            Insured insured = insuredRepository.findByPhone(phone);
+            if (insured != null) {
+                insuredList.add(insured);
+                return mapToInsuredSearchResponses(insuredList);
+            }
+        }
+
+        if (StringUtils.hasText(employeeId)) {
+            Insured insured = insuredRepository.findByEmployeeId(employeeId);
+            if (insured != null) {
+                insuredList.add(insured);
+                return mapToInsuredSearchResponses(insuredList);
+            }
+        }
+
+        if (StringUtils.hasText(insuranceId)) {
+            Insured insured = insuredRepository.findByInsuranceId(insuranceId);
+            if (insured != null) {
+                insuredList.add(insured);
+                return mapToInsuredSearchResponses(insuredList);
+            }
+        }
+
+        if (StringUtils.hasText(nationalId)) {
+            Insured insured = insuredRepository.findByNationalId(nationalId);
+            if (insured != null) {
+                insuredList.add(insured);
+                return mapToInsuredSearchResponses(insuredList);
+            }
+        }
+
+        // If no exact matches found, perform a broader search
+        insuredList = insuredRepository.findByPhoneOrEmployeeIdOrInsuranceIdOrNationalId(phone, employeeId, insuranceId, nationalId);
+
+        return mapToInsuredSearchResponses(insuredList);
+    }
+
+    private List<InsuredSearchResponse> mapToInsuredSearchResponses(List<Insured> insuredList) {
+        return insuredList.stream().map(insured -> {
+            InsuredSearchResponse response = new InsuredSearchResponse();
+            BeanUtils.copyProperties(insured, response);
+
+            Payer payer = payerRepository.findByPayerUuid(insured.getPayerUuid());
+            if (payer != null) {
+                response.setPayerName(payer.getPayerName());
+            }
+
+            // Set the isInsured field based on the insured person's status and policy dates
+            response.setInsured(isPersonCurrentlyInsured(insured));
+
+            // Set the profile picture
+            String profilePicturePath = insured.getProfilePicturePath();
+            log.info("Profile picture path for insured {}: {}", insured.getInsuredUuid(), profilePicturePath);
+            String profilePictureBase64 = getProfilePictureBase64(profilePicturePath);
+            response.setProfilePictureBase64(profilePictureBase64);
+            log.info("Profile picture base64 for insured {}: {}", insured.getInsuredUuid(),
+                    profilePictureBase64 != null ? "Set" : "Null");
+
+            // Add dependants if they exist
+            if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
+                List<DependantResponse> dependantResponses = insured.getDependants().stream()
+                        .map(this::mapToDependantResponse)
+                        .collect(Collectors.toList());
+                response.setDependants(dependantResponses);
+            } else {
+                response.setDependants(new ArrayList<>());
+            }
+
+            return response;
+        }).collect(Collectors.toList());
+    }
+
+    private String getProfilePictureBase64(String profilePicturePath) {
+        if (profilePicturePath == null || profilePicturePath.isEmpty()) {
+            log.warn("Profile picture path is null or empty for insured person");
+            return null;
+        }
+
+        try {
+            // Prepend the base directory to the filename
+            Path fullPath = Paths.get(payerLogosDirectory, profilePicturePath);
+            log.info("Attempting to read profile picture from: {}", fullPath);
+
+            if (!Files.exists(fullPath)) {
+                log.warn("Profile picture file does not exist: {}", fullPath);
+                return null;
+            }
+
+            byte[] fileContent = Files.readAllBytes(fullPath);
+            String base64 = Base64.getEncoder().encodeToString(fileContent);
+
+            // Determine the content type
+            String contentType = Files.probeContentType(fullPath);
+            if (contentType == null) {
+                contentType = "application/octet-stream"; // Default to binary if type can't be determined
+            }
+
+            return "data:" + contentType + ";base64," + base64;
+        } catch (IOException e) {
+            log.error("Error reading profile picture: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean isPersonCurrentlyInsured(Insured insured) {
+        LocalDate currentDate = LocalDate.now();
+
+        boolean isActive = insured.getStatus() == Status.ACTIVE;
+        boolean isPolicyStarted = insured.getPolicyStartDate() == null || !currentDate.isBefore(insured.getPolicyStartDate());
+        boolean isPolicyNotEnded = insured.getPolicyEndDate() == null || !currentDate.isAfter(insured.getPolicyEndDate());
+
+        return isActive && isPolicyStarted && isPolicyNotEnded;
+    }
+
+
+    @Transactional
+    @Override
+    public ResponseEntity<?> updateInsuredPerson(String insuredUuid, InsuredUpdateRequest insuredRequest, MultipartFile photo) throws IOException {
+        log.info("Updating insured person with UUID: {}", insuredUuid);
+
+        Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
+        if (insured == null) {
+            throw new ResourceNotFoundException("Insured", "UUID", insuredUuid);
+        }
+        updateInsuredDetails(insured, insuredRequest);
+
+        String photoFileName = null;
+        if (photo != null && !photo.isEmpty()) {
+            photoFileName = saveProfilePhoto(photo, insuredUuid);
+            insured.setProfilePicturePath(photoFileName);
+        }
+        insured = insuredRepository.save(insured);
+
+        InsuredResponse response = mapToInsuredResponse(insured);
+        log.info("Successfully updated insured person with UUID: {}", insuredUuid);
+        return ResponseEntity.ok(response);
+    }
+
+    private InsuredResponse mapToInsuredResponse(Insured insured) {
+        InsuredResponse response = new InsuredResponse();
+        BeanUtils.copyProperties(insured, response);
+        response.setPayerUuid(insured.getPayer().getPayerUuid());
+
+        if (insured.getProfilePicturePath() != null) {
+            response.setPhotoBase64(getBase64FromPath(insured.getProfilePicturePath()));
+        } else {
+            response.setPhotoBase64("");
+        }
+
+        return response;
+    }
+
+
+    private String getBase64FromPath(String photoFileName) {
+        try {
+            Path path = Paths.get(payerLogosDirectory, photoFileName);
+            log.debug("Attempting to read file from path: {}", path.toString());
+
+            if (!Files.exists(path)) {
+                log.error("File does not exist at path: {}", path.toString());
+                return "";
+            }
+
+            byte[] imageBytes = Files.readAllBytes(path);
+            log.debug("Successfully read {} bytes from file", imageBytes.length);
+
+            String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+            String contentType = determineContentType(photoFileName);
+            String result = "data:" + contentType + ";base64," + base64Image;
+
+            log.debug("Successfully created base64 string with length: {}", result.length());
+            return result;
+        } catch (IOException e) {
+            log.error("Error reading profile picture: {}", e.getMessage(), e);
+            return "";
+        }
+    }
+
+    private void updateInsuredDetails(Insured insured, InsuredUpdateRequest request) {
+        if (StringUtils.hasText(request.getTitle())) {
+            insured.setTitle(request.getTitle());
+        }
+        if (StringUtils.hasText(request.getFirstName())) {
+            insured.setFirstName(request.getFirstName());
+        }
+        if (StringUtils.hasText(request.getFatherName())) {
+            insured.setFatherName(request.getFatherName());
+        }
+        if (StringUtils.hasText(request.getGrandFatherName())) {
+            insured.setGrandFatherName(request.getGrandFatherName());
+        }
+        if (StringUtils.hasText(request.getGender())) {
+            insured.setGender(request.getGender());
+        }
+        if (request.getBirthDate() != null) {
+            insured.setBirthDate(request.getBirthDate());
+        }
+        if (StringUtils.hasText(request.getIdNumber())) {
+            insured.setIdNumber(request.getIdNumber());
+        }
+        if (StringUtils.hasText(request.getPhone())) {
+            insured.setPhone(request.getPhone());
+        }
+        if (StringUtils.hasText(request.getEmail())) {
+            insured.setEmail(request.getEmail());
+        }
+        if (StringUtils.hasText(request.getBranchOffice())) {
+            insured.setBranchOffice(request.getBranchOffice());
+        }
+        if (StringUtils.hasText(request.getPosition())) {
+            insured.setPosition(request.getPosition());
+        }
+        if (StringUtils.hasText(request.getAddress())) {
+            insured.setAddress(request.getAddress());
+        }
+        if (StringUtils.hasText(request.getState())) {
+            insured.setState(request.getState());
+        }
+        if (StringUtils.hasText(request.getCountry())) {
+            insured.setCountry(request.getCountry());
+        }
+        if (StringUtils.hasText(request.getInsuranceId())) {
+            insured.setInsuranceId(request.getInsuranceId());
+        }
+        if (request.getStatus() != null) {
+            insured.setStatus(request.getStatus());
+        }
+        if (StringUtils.hasText(request.getPayerUuid())) {
+            Payer payer = payerRepository.findByPayerUuid(request.getPayerUuid());
+            if (payer == null){
+                throw new ResourceNotFoundException("Payer", "UUID", request.getPayerUuid());
+            }
+            insured.setPayer(payer);
+        }
+    }
+
+
+    private InsuredWithDependantsResponse mapToInsuredWithDependantsResponse(Insured insured) {
+        InsuredWithDependantsResponse response = new InsuredWithDependantsResponse();
+        BeanUtils.copyProperties(insured, response);
+
+        if (insured.getProfilePicturePath() != null) {
+            try {
+                Path path = Paths.get(payerLogosDirectory + "/" + insured.getProfilePicturePath());
+                byte[] imageBytes = Files.readAllBytes(path);
+                String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+                String contentType = determineContentType(insured.getProfilePicturePath());
+                String formattedBase64 = "data:" + contentType + ";base64," + base64Image;
+                response.setProfilePictureBase64(formattedBase64);
+            } catch (IOException e) {
+
+                log.error("Error reading profile picture for insured {}: {}", insured.getInsuredUuid(), e.getMessage());
+                response.setProfilePictureBase64("");
+            }
+        } else {
+            response.setProfilePictureBase64("");
+        }
+
+        if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
+            List<DependantResponse> dependantResponses = insured.getDependants().stream()
+                    .filter(dependant -> !dependant.isDeleted())
+                    .map(this::mapToDependantResponse)
+                    .collect(Collectors.toList());
+            response.setDependants(dependantResponses);
+        }
+
+        return response;
+    }
+
+    private DependantResponse mapToDependantResponse(Dependant dependant) {
+        DependantResponse response = new DependantResponse();
+        BeanUtils.copyProperties(dependant, response);
+
+        if (dependant.getProfilePicturePath() != null) {
+            try {
+                Path path = Paths.get(payerLogosDirectory + "/" + dependant.getProfilePicturePath());
+                byte[] imageBytes = Files.readAllBytes(path);
+                String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+                String contentType = determineContentType(dependant.getProfilePicturePath());
+                String formattedBase64 = "data:" + contentType + ";base64," + base64Image;
+                response.setProfilePictureBase64(formattedBase64);
+            } catch (IOException e) {
+                log.error("Error reading profile picture for dependant {}: {}", dependant.getDependantUuid(), e.getMessage());
+                response.setProfilePictureBase64("");
+            }
+        } else {
+            response.setProfilePictureBase64("");
+        }
+
+        if (dependant.getInsured() != null) {
+            response.setInsuredPersonUuid(dependant.getInsured().getInsuredUuid());
+        }
+
+        return response;
+    }
+
+    private PagedResponse<InsuredDependantResponse> buildPagedResponse(
+            Page<Insured> insuredPage, int page, int limit) {
+
+        List<InsuredDependantResponse> responseList = insuredPage.getContent().stream()
+                .map(this::mapToInsuredDependantResponse)
+                .collect(Collectors.toList());
+
+        return new PagedResponse<>(
+                responseList,
+                page,
+                limit,
+                insuredPage.getTotalElements(),
+                insuredPage.getTotalPages(),
+                insuredPage.isLast()
+        );
+    }
+
+
     private String getContentType(String path) {
         String extension = path.substring(path.lastIndexOf(".") + 1).toLowerCase();
-        switch (extension) {
-            case "jpg":
-            case "jpeg":
-                return "image/jpeg";
-            case "png":
-                return "image/png";
-            case "gif":
-                return "image/gif";
-            default:
-                return "application/octet-stream";
-        }
+        return switch (extension) {
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "gif" -> "image/gif";
+            default -> "application/octet-stream";
+        };
     }
 
 
@@ -262,100 +866,42 @@ public class InsuredServiceImpl implements InsuredService {
 
     }
 
-    @Override
-    public ResponseEntity<?> getInsuredPerson(String insuredUuid) {
-        Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
-        if (insured == null) throw new BadRequestException("insured person not found");
-
-        // Create the response with dependants
-        InsuredDependantResponse response = new InsuredDependantResponse();
-
-        // Map insured person properties
-        response.setInsuredPersonUuid(insured.getInsuredUuid());
-        response.setInsuredTitle(insured.getTitle());
-        response.setFirstName(insured.getFirstName());
-        response.setFatherName(insured.getFatherName());
-        response.setGrandFatherName(insured.getGrandFatherName());
-        response.setGender(insured.getGender());
-        response.setInsuranceId(insured.getInsuranceId());
-        response.setPhone(insured.getPhone());
-        response.setEmail(insured.getEmail());
-        response.setBirthDate(insured.getBirthDate());
-        response.setStatus(insured.getStatus());
-        response.setAddress1(insured.getAddress());
-
-        if (insured.getProfilePicture() != null){
-            response.setProfilePictureBase64(Base64.getEncoder().encodeToString(insured.getProfilePicture()));
-        }
-
-        // Add dependants if they exist
-        if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
-            for (Dependant dependant : insured.getDependants()) {
-                // Skip deleted dependants
-                if (dependant.isDeleted()) {
-                    continue;
-                }
-
-                DependantInsuredResponse dependantResponse = new DependantInsuredResponse();
-                dependantResponse.setInsuredPersonUuid(insured.getInsuredUuid());
-                dependantResponse.setDependantUuid(dependant.getDependantUuid());
-                dependantResponse.setDependantFirstName(dependant.getFirstName());
-                dependantResponse.setDependantFatherName(dependant.getFatherName());
-                dependantResponse.setDependantGrandFatherName(dependant.getGrandFatherName());
-                dependantResponse.setDependantGender(dependant.getGender());
-                dependantResponse.setDependantStatus(dependant.getStatus());
-                dependantResponse.setRelationship(dependant.getRelationship());
-                dependantResponse.setDependantBirthDate(dependant.getBirthDate());
-
-                response.getDependants().add(dependantResponse);
-            }
-        }
-
-        return ResponseEntity.ok(response);
-    }
-
-    @Override
     @Transactional
     public ResponseEntity<?> updateInsuredPersonWithDependants(String insuredUuid, InsuredWithDependantsRequest insuredRequest, MultipartFile photo) {
         try {
-            // Find the insured person
+
             Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
             if (insured == null)
                 throw new ResourceNotFoundException("Insured Person", "insuredPersonUuid", insuredUuid);
 
-            // Update basic properties
             BeanUtils.copyProperties(insuredRequest, insured, "status", "institutionUuid", "dependants");
 
-            // Update status
             if (insuredRequest.getStatus() != null)
                 insured.setStatus(insuredRequest.getStatus());
             else
                 insured.setStatus(Status.PENDING);
 
-            // Update institution if provided
             if (insuredRequest.getInstitutionUuid() != null && !insuredRequest.getInstitutionUuid().isEmpty()) {
-                Payer payer = institutionRepository.findByPayerUuid(insuredRequest.getInstitutionUuid());
+                Payer payer = payerRepository.findByPayerUuid(insuredRequest.getInstitutionUuid());
                 if (payer != null) {
                     insured.setPayer(payer);
                     insured.setPayerUuid(insuredRequest.getInstitutionUuid());
                 }
             }
 
-            // Process photo if provided
             if (photo != null && !photo.isEmpty()) {
-                String uploadDir = uploadDirectory + "/insured/photos/";
+                String uploadDir = payerLogosDirectory + "/insured/photos/";
                 File directory = new File(uploadDir);
                 if (!directory.exists()) {
                     directory.mkdirs();
                 }
 
-                // Delete old photo if exists
-                if (insured.getProfilePicture() != null) {
-                    Path oldPath = Paths.get(uploadDir + insured.getProfilePicture());
+                if (insured.getProfilePicturePath() != null) {
+                    Path oldPath = Paths.get(uploadDir + insured.getProfilePicturePath());
                     try {
                         Files.deleteIfExists(oldPath);
                     } catch (IOException e) {
-                        // Log but continue
+
                         logger.warn("Could not delete old photo: " + e.getMessage());
                     }
                 }
@@ -367,10 +913,9 @@ public class InsuredServiceImpl implements InsuredService {
                 Path path = Paths.get(uploadDir + newFileName);
                 Files.write(path, photo.getBytes());
 
-                insured.setProfilePicture(newFileName.getBytes());
+                insured.setProfilePicturePath(Arrays.toString(newFileName.getBytes()));
             }
 
-            // Save the insured person
             insuredRepository.save(insured);
 
             // Process dependants if provided
@@ -431,7 +976,7 @@ public class InsuredServiceImpl implements InsuredService {
                 request.getDependantFatherName() == null &&
                 request.getDependantGrandFatherName() == null &&
                 request.getDependantGender() == null &&
-                request.getDependantGender() == null &&
+                request.getDependantBirthDate() == null &&
                 request.getRelationship() == null &&
                 request.getDependantStatus() == null;
     }
@@ -551,7 +1096,7 @@ public class InsuredServiceImpl implements InsuredService {
     public ResponseEntity<?> setProfilePicture(MultipartFile file, String insuredUuid) throws IOException {
         Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
 
-        String uploadDir = uploadDirectory;
+        String uploadDir = payerLogosDirectory;
         File directory = new File(uploadDir);
         if (!directory.exists()) {
             directory.mkdirs();
@@ -568,7 +1113,7 @@ public class InsuredServiceImpl implements InsuredService {
         byte[] bytes = file.getBytes();
         Path path = Paths.get(uploadDir + newFileName);
         Files.write(path, bytes);
-        insured.setProfilePicture(newFileName.getBytes());
+        insured.setProfilePicturePath(Arrays.toString(newFileName.getBytes()));
         insuredRepository.save(insured);
         return ResponseEntity.ok(new MessageResponse("Profile Picture Update Successfully."));
     }
@@ -598,7 +1143,7 @@ public class InsuredServiceImpl implements InsuredService {
         List<InsuredResponse> insuredResponse = new ArrayList<>();
         for (Insured p : insuredList) {
             InsuredResponse pr = new InsuredResponse();
-            if (insuredResponse.size() == 0)
+            if (insuredResponse.isEmpty())
                 pr.setTotalPages(totalPages);
             BeanUtils.copyProperties(p, pr);
             insuredResponse.add(pr);
@@ -730,7 +1275,7 @@ public class InsuredServiceImpl implements InsuredService {
 
                         // Set status and institution
                         person.setStatus(Status.ACTIVE);
-                        Payer payer = institutionRepository.findByPayerUuid(institutionUuid);
+                        Payer payer = payerRepository.findByPayerUuid(institutionUuid);
                         if (payer == null) {
                             throw new BadRequestException("Institution not found with UUID: " + institutionUuid);
                         }
@@ -948,7 +1493,7 @@ public class InsuredServiceImpl implements InsuredService {
                     .computeIfAbsent(item.getInsuredUuid(), k -> new InsuredDependantResponse());
 
             insuredDependantResponse.setInsuredTitle(item.getTitle());
-            insuredDependantResponse.setInsuredPersonUuid(item.getInsuredUuid());
+            insuredDependantResponse.setInsuredUuid(item.getInsuredUuid());
             insuredDependantResponse.setFirstName(item.getFirstName());
             insuredDependantResponse.setFatherName(item.getFatherName());
             insuredDependantResponse.setGrandFatherName(item.getGrandFatherName());
@@ -966,17 +1511,16 @@ public class InsuredServiceImpl implements InsuredService {
                 dependant.setDependantGrandFatherName(item.getDependantGrandFatherName());
                 dependant.setDependantGender(item.getDependantGender());
 
-                // Handle potential null or invalid status/relationship values
                 try {
                     dependant.setDependantStatus(item.getDependantStatus());
                 } catch (Exception e) {
-                    dependant.setDependantStatus(Status.PENDING); // Default value
+                    dependant.setDependantStatus(Status.PENDING);
                 }
 
                 try {
                     dependant.setRelationship(item.getRelationship());
                 } catch (Exception e) {
-                    dependant.setRelationship(null); // Or a default value if needed
+                    dependant.setRelationship(null);
                 }
 
                 insuredDependantResponse.getDependants().add(dependant);
@@ -1017,79 +1561,6 @@ public class InsuredServiceImpl implements InsuredService {
         return insuredRepository.existsByIsDeleted( false);
     }
 
-    @Override
-    public List<InsuredDependantResponse> getAllInsuredPersonsWithDependantsByInstitution(
-            String institutionUuid, String searchKey, int page, int limit) {
-
-        // Adjust page for 0-based indexing
-        if (page > 0) {
-            page = page - 1;
-        }
-
-        // Create pageable object for pagination and sorting
-        Pageable pageable = PageRequest.of(page, limit, Sort.by(Sort.Direction.DESC, "id"));
-
-        // Fetch insured persons using JPA repository method
-        Page<Insured> insuredPage = insuredRepository.findByPayerAndSearchKey(
-                institutionUuid, false, searchKey, pageable);
-
-        // Get the content from the page
-        List<Insured> insuredList = insuredPage.getContent();
-
-        long totalPages = insuredPage.getTotalPages();
-        long totalElements = insuredPage.getTotalElements();
-
-        // Map to response objects
-        List<InsuredDependantResponse> responseList = new ArrayList<>();
-
-        for (Insured insured : insuredList) {
-            InsuredDependantResponse response = new InsuredDependantResponse();
-
-            // Map insured person properties
-            response.setInsuredPersonUuid(insured.getInsuredUuid());
-            response.setInsuredTitle(insured.getTitle());
-            response.setFirstName(insured.getFirstName());
-            response.setFatherName(insured.getFatherName());
-            response.setGrandFatherName(insured.getGrandFatherName());
-            response.setGender(insured.getGender());
-            response.setInsuranceId(insured.getInsuranceId());
-            response.setPhone(insured.getPhone());
-            response.setEmail(insured.getEmail());
-            response.setBirthDate(insured.getBirthDate());
-            response.setStatus(insured.getStatus());
-            response.setAddress1(insured.getAddress());
-
-            if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
-                for (Dependant dependant : insured.getDependants()) {
-                    // Skip deleted dependants
-                    if (dependant.isDeleted()) {
-                        continue;
-                    }
-
-                    DependantInsuredResponse dependantResponse = new DependantInsuredResponse();
-                    dependantResponse.setInsuredPersonUuid(insured.getInsuredUuid());
-                    dependantResponse.setDependantUuid(dependant.getDependantUuid());
-                    dependantResponse.setDependantFirstName(dependant.getFirstName());
-                    dependantResponse.setDependantFatherName(dependant.getFatherName());
-                    dependantResponse.setDependantGrandFatherName(dependant.getGrandFatherName());
-                    dependantResponse.setDependantGender(dependant.getGender());
-                    dependantResponse.setDependantStatus(dependant.getStatus());
-                    dependantResponse.setRelationship(dependant.getRelationship());
-                    dependantResponse.setDependantBirthDate(dependant.getBirthDate());
-
-                    response.getDependants().add(dependantResponse);
-                }
-            }
-
-            // Set pagination metadata
-            response.setTotalPages(totalPages);
-            response.setTotalElements(totalElements);
-
-            responseList.add(response);
-        }
-
-        return responseList;
-    }
 
     private void validatePhoto(MultipartFile photo) {
         if (photo == null || photo.isEmpty()) {
@@ -1117,7 +1588,7 @@ public class InsuredServiceImpl implements InsuredService {
 
         validatePhoto(photo);
 
-        String uploadDir = uploadDirectory + "/insured/photos/";
+        String uploadDir = payerLogosDirectory + "/insured/photos/";
         File directory = new File(uploadDir);
         if (!directory.exists()) {
             directory.mkdirs();

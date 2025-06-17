@@ -3,10 +3,13 @@ package com.medco.HealthConnectProvider.ui.request.auth.password.persons;
 import com.medco.HealthConnectProvider.utils.enums.Relationship;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Data
@@ -14,28 +17,27 @@ import java.util.Date;
 @AllArgsConstructor
 @NoArgsConstructor
 public class DependantRequest {
-    @Schema(description = "UUID of the dependant (required for updates, null for new dependants)")
-    private String dependantUuid;
+    @NotBlank(message = "Insured person UUID is required")
+    private String insuredPersonUuid;
 
-    @Schema(description = "First name of the dependant", example = "Filmon")
+    @NotBlank(message = "Dependant first name is required")
     private String dependantFirstName;
 
-    @Schema(description = "Father's name of the dependant", example = "Kiros")
+    @NotBlank(message = "Dependant father name is required")
     private String dependantFatherName;
 
-    @Schema(description = "Grandfather's name of the dependant", example = "Gher")
+    @NotBlank(message = "Dependant grand father name is required")
     private String dependantGrandFatherName;
 
-    @Schema(description = "Gender of the dependant", example = "Male")
+    @NotBlank(message = "Dependant gender is required")
     private String dependantGender;
 
-    @Schema(description = "Birth date of the dependant", example = "2020-01-01")
+    @NotNull(message = "Dependant birth date is required")
     private Date dependantBirthDate;
 
-    @Schema(description = "Relationship of the dependant to the insured person", example = "CHILD")
+    @NotNull(message = "Relationship is required")
     private Relationship relationship;
 
-    @Schema(description = "Status of the dependant", example = "ACTIVE")
     private Status dependantStatus;
 
 }

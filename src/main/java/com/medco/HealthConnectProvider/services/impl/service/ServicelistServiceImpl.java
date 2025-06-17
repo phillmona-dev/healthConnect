@@ -3,6 +3,7 @@ package com.medco.HealthConnectProvider.services.impl.service;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -72,7 +73,7 @@ public class ServicelistServiceImpl implements ServicelistService {
         service.setServiceName(serviceRequest.getServiceName());
         service.setServiceCategory(serviceRequest.getCategory());
         service.setServiceSubCategory(serviceRequest.getSubCategory());
-        service.setPrice(BigDecimal.valueOf(serviceRequest.getPrice()));
+        service.setPrice(serviceRequest.getPrice());
         service.setServiceDescription(serviceRequest.getServiceDescription());
 
         // Set status enum from string
@@ -111,7 +112,7 @@ public class ServicelistServiceImpl implements ServicelistService {
 
         // Handle price - use either price or defaultPrice
         if (serviceEntity.getPrice() != null) {
-            response.setPrice(serviceEntity.getPrice());
+            response.setPrice(BigDecimal.valueOf(serviceEntity.getPrice()));
         } else if (serviceEntity.getDefaultPrice() != null) {
             response.setPrice(BigDecimal.valueOf(serviceEntity.getDefaultPrice().doubleValue()));
         } else {
@@ -173,18 +174,26 @@ public class ServicelistServiceImpl implements ServicelistService {
 
     @Override
     public List<ServicelistResponse> searchServices(String providerUuid, String searchKey, int page, int limit) {
-
-        Pageable pageable = Pagination.paginateResource(page,limit,"id","desc");
-
-        Page<Servicelist> serviceLists = searchKey != null ? getServicesBySearch(searchKey,providerUuid,pageable) : getAllServices(providerUuid,pageable);
-
+        Pageable pageable = Pagination.paginateResource(page, limit, "id", "desc");
+        Page<Servicelist> serviceLists = searchKey != null ? getServicesBySearch(searchKey, providerUuid, pageable) : getAllServices(providerUuid, pageable);
         int totalPages = serviceLists.getTotalPages();
-        return  serviceLists.getContent().stream()
+
+        return serviceLists.getContent().stream()
                 .map(servicelist -> {
                     var servicelistResponse = new ServicelistResponse();
-                    BeanUtils.copyProperties(servicelist,servicelistResponse);
-                    servicelistResponse.setTotalPages(totalPages);
+                    BeanUtils.copyProperties(servicelist, servicelistResponse);
+                    servicelistResponse.setPrice(BigDecimal.valueOf(servicelist.getPrice()));
+                    servicelistResponse.setStatus(String.valueOf(servicelist.getStatus()));
+                    servicelistResponse.setProviderName(servicelist.getProvider().getProviderName());
 
+                    if (servicelistResponse.getCreatedAt() != null) {
+                        servicelist.setCreatedAt(servicelistResponse.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant());
+                    }
+                    if (servicelistResponse.getUpdatedAt() != null) {
+                        servicelist.setUpdatedAt(servicelistResponse.getUpdatedAt().atZone(ZoneId.systemDefault()).toInstant());
+                    }
+
+                    servicelistResponse.setTotalPages(totalPages);
                     return servicelistResponse;
                 }).collect(Collectors.toList());
     }
@@ -194,7 +203,6 @@ public class ServicelistServiceImpl implements ServicelistService {
     }
 
     private Page<Servicelist> getServicesBySearch(String searchKey, String providerUuid, Pageable pageable) {
-        // Use the custom query method instead of the long method name
         return servicelistRepository.findByProviderUuidAndSearchTerms(providerUuid, searchKey, pageable);
     }
 
@@ -270,7 +278,7 @@ public class ServicelistServiceImpl implements ServicelistService {
                 serPriceCell.setCellStyle(cellStyle);
                 // Handle both price fields
                 if (service.getPrice() != null) {
-                    serPriceCell.setCellValue((RichTextString) service.getPrice());
+                    serPriceCell.setCellValue((service.getPrice()));
                 } else if (service.getDefaultPrice() != null) {
                     serPriceCell.setCellValue(service.getDefaultPrice().doubleValue());
                 } else {
@@ -322,10 +330,9 @@ public class ServicelistServiceImpl implements ServicelistService {
                 servicelist.setServiceName(row.getCell(1).getStringCellValue());
                 servicelist.setServiceCategory(row.getCell(2).getStringCellValue());
                 servicelist.setServiceSubCategory(row.getCell(3).getStringCellValue());
-                servicelist.setPrice(BigDecimal.valueOf(row.getCell(3).getNumericCellValue()));
+                servicelist.setPrice(row.getCell(3).getNumericCellValue());
                 servicelist.setStatus(Status.valueOf("Active"));
                 servicelistList.add(servicelist);
-
 
             }
             i++;

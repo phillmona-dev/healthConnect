@@ -25,9 +25,18 @@ import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
 import com.medco.HealthConnectProvider.repository.service.ServicelistRepository;
 import com.medco.HealthConnectProvider.services.eligibility.EligibilityService;
+import com.medco.HealthConnectProvider.services.payer.PayerService;
+import com.medco.HealthConnectProvider.services.persons.InsuredService;
 import com.medco.HealthConnectProvider.ui.request.eligibility.EligibilityCheckRequest;
 import com.medco.HealthConnectProvider.ui.response.eligibility.*;
+import com.medco.HealthConnectProvider.ui.response.persons.DependantResponse;
+import com.medco.HealthConnectProvider.ui.response.persons.InsuredSearchResponse;
+import com.medco.HealthConnectProvider.ui.response.persons.MultipleInsuredResponse;
+import com.medco.HealthConnectProvider.utils.enums.Relationship;
 import com.medco.HealthConnectProvider.utils.enums.Status;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -39,6 +48,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class EligibilityServiceImpl implements EligibilityService {
+
+    private final Logger log = LoggerFactory.getLogger(EligibilityServiceImpl.class);
 
     @Autowired
     private PayerRepository payerRepository;
@@ -71,52 +82,150 @@ public class EligibilityServiceImpl implements EligibilityService {
     private DependantGroupRepository dependantGroupRepository;
 
     @Autowired
+    private InsuredService insuredService;
+
+    @Autowired
     private ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository;
 
     @Override
-    public ResponseEntity<EligibilityResponse> checkEligibility(String providerUuid, EligibilityCheckRequest request) {
-        // Validate provider exists
+    public ResponseEntity<?> checkEligibility(String providerUuid, EligibilityCheckRequest request) {
         Provider provider = providerRepository.findByProviderUuid(providerUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Provider", "providerUuid", providerUuid));
 
-        // Validate payer exists
-        Payer payer = payerRepository.findByPayerUuid(request.getPayerUuid());
-        if (payer == null) {
-            throw new ResourceNotFoundException("Payer", "payerUuid", request.getPayerUuid());
+        List<InsuredSearchResponse> insuredList = insuredService.searchInsuredPersons(
+                request.getPhoneNumber(), request.getEmployeeId(), request.getInsuranceId(), request.getNationalId());
+
+        if (insuredList.isEmpty()) {
+            throw new ResourceNotFoundException("Insured Person", "provided identifiers", "Not found");
         }
 
-        // Validate contract exists between provider and payer
+        if (insuredList.size() > 1) {
+            // Return the list of insured persons for selection
+            return ResponseEntity.ok(new MultipleInsuredResponse(insuredList));
+        }
+
+        // If only one insured person is found, proceed with eligibility check
+        return checkEligibilityForInsured(provider, insuredList.get(0), request.getServiceUuid());
+    }
+
+    @Override
+    public ResponseEntity<EligibilityResponse> checkEligibilityForInsured(String providerUuid, InsuredSearchResponse insured, String serviceUuid) {
+        // Create a new EligibilityCheckRequest from the InsuredSearchResponse
+        EligibilityCheckRequest request = new EligibilityCheckRequest();
+        request.setInsuranceId(insured.getInsuranceId());
+        request.setEmployeeId(insured.getEmployeeId());
+        request.setNationalId(insured.getNationalId());
+        request.setPhoneNumber(insured.getPhone());
+        request.setServiceUuid(serviceUuid);
+
+        // Perform the eligibility check
+        Provider provider = providerRepository.findByProviderUuid(providerUuid)
+                .orElseThrow(() -> new ResourceNotFoundException("Provider", "providerUuid", providerUuid));
+
+        Payer payer = payerRepository.findByPayerUuid(insured.getPayerUuid());
+        if (payer == null) {
+            throw new ResourceNotFoundException("Payer", "payerUuid", insured.getPayerUuid());
+        }
+
+        Insured insuredPerson = insuredRepository.findByInsuredUuid(insured.getInsuredUuid());
+        if (insuredPerson == null) {
+            throw new ResourceNotFoundException("Insured", "insuredUuid", insured.getInsuredUuid());
+        }
+
         ContractHeader contract = contractHeaderRepository.findActiveContractBetweenProviderAndPayer(
-                providerUuid, request.getPayerUuid(), Status.ACTIVE);
+                providerUuid, payer.getPayerUuid(), Status.ACTIVE);
         if (contract == null) {
             throw new BadRequestException("No active contract exists between this provider and payer");
         }
 
-        // Find insured person by one of the provided identifiers
-        Insured insured = findInsuredPerson(request, payer);
-
         // Check if insured person's policy is active
-        boolean isPolicyActive = insured.getStatus() == Status.ACTIVE &&
-                LocalDate.now().isAfter(insured.getPolicyStartDate()) &&
-                LocalDate.now().isBefore(insured.getPolicyEndDate());
+        boolean isPolicyActive = insuredPerson.getStatus() == Status.ACTIVE &&
+                (insuredPerson.getPolicyStartDate() == null || LocalDate.now().isAfter(insuredPerson.getPolicyStartDate())) &&
+                (insuredPerson.getPolicyEndDate() == null || LocalDate.now().isBefore(insuredPerson.getPolicyEndDate()));
 
         // Build eligibility response
         EligibilityResponse response = new EligibilityResponse();
 
         // Set insured person details
-        response.setInsuredUuid(insured.getInsuredUuid());
-        response.setEmployeeId(insured.getEmployeeId());
-        response.setFirstName(insured.getFirstName());
-        response.setFatherName(insured.getFatherName());
-        response.setGrandFatherName(insured.getGrandFatherName());
-        response.setInsuranceId(insured.getInsuranceId());
-        response.setNationalId(insured.getNationalId());
-        response.setPhoneNumber(insured.getPhone());
-        response.setStatus(insured.getStatus());
-
-        // Set payer details
+        BeanUtils.copyProperties(insured, response);
         response.setPayerUuid(payer.getPayerUuid());
-        response.setPayerName(payer.getPayerName());
+
+        // Set policy details
+        response.setPolicyNumber(insuredPerson.getPolicyNumber());
+        response.setPolicyStartDate(insuredPerson.getPolicyStartDate());
+        response.setPolicyEndDate(insuredPerson.getPolicyEndDate());
+        response.setPolicyActive(isPolicyActive);
+
+        // Get groups the insured belongs to
+        List<GroupMembershipResponse> groupResponses = getInsuredGroups(insuredPerson);
+        response.setGroups(groupResponses);
+
+        // Set dependents if any
+        if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
+            response.setDependents(insured.getDependants().stream()
+                    .map(this::mapDependantResponseToDependentEligibilityResponse)
+                    .collect(Collectors.toList()));
+        } else {
+            response.setDependents(new ArrayList<>());
+        }
+
+        // Check specific service eligibility if requested
+        if (serviceUuid != null && !serviceUuid.isEmpty()) {
+            response.setRequestedService(checkServiceEligibility(
+                    serviceUuid,
+                    contract,
+                    provider,
+                    insuredPerson,
+                    groupResponses));
+        } else {
+            response.setRequestedService(null);
+        }
+
+        // Determine overall eligibility
+        boolean isEligible = isPolicyActive && insuredPerson.getStatus() == Status.ACTIVE;
+        response.setEligible(isEligible);
+
+        if (!isEligible) {
+            if (!isPolicyActive) {
+                response.setIneligibilityReason("Policy is not active or has expired");
+            } else if (insuredPerson.getStatus() != Status.ACTIVE) {
+                response.setIneligibilityReason("Insured person's status is not active");
+            }
+        }
+
+        return ResponseEntity.ok(response);
+    }
+
+    private ResponseEntity<EligibilityResponse> checkEligibilityForInsured(Provider provider, InsuredSearchResponse insuredResponse, String serviceUuid) {
+        Insured insured = insuredRepository.findByInsuredUuid(insuredResponse.getInsuredUuid());
+        if (insured == null) {
+            throw new ResourceNotFoundException("Insured", "insuredUuid", insuredResponse.getInsuredUuid());
+        }
+
+        Payer payer = payerRepository.findByPayerName(insuredResponse.getPayerName());
+        if (payer == null) {
+            throw new ResourceNotFoundException("Payer", "payerName", insuredResponse.getPayerName());
+        }
+
+        ContractHeader contract = contractHeaderRepository.findActiveContractBetweenProviderAndPayer(
+                provider.getProviderUuid(), payer.getPayerUuid(), Status.ACTIVE);
+        if (contract == null) {
+            throw new BadRequestException("No active contract exists between this provider and payer");
+        }
+
+        // Check if insured person's policy is active
+        boolean isPolicyActive = insured.getStatus() == Status.ACTIVE &&
+                (insured.getPolicyStartDate() == null || LocalDate.now().isAfter(insured.getPolicyStartDate())) &&
+                (insured.getPolicyEndDate() == null || LocalDate.now().isBefore(insured.getPolicyEndDate()));
+
+        // Build eligibility response
+        EligibilityResponse response = new EligibilityResponse();
+
+        // Set insured person details
+        BeanUtils.copyProperties(insuredResponse, response);
+        response.setPayerUuid(payer.getPayerUuid());
+        response.setPhoneNumber(insuredResponse.getPhone());
+        response.setBirthDate(insuredResponse.getBirthDate());
 
         // Set policy details
         response.setPolicyNumber(insured.getPolicyNumber());
@@ -129,20 +238,30 @@ public class EligibilityServiceImpl implements EligibilityService {
         response.setGroups(groupResponses);
 
         // Set dependents if any
-        if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
-            response.setDependents(getDependentsEligibility(insured.getDependants()));
+        if (insuredResponse.getDependants() != null && !insuredResponse.getDependants().isEmpty()) {
+            response.setDependents(insuredResponse.getDependants().stream()
+                    .map(this::mapDependantResponseToDependentEligibilityResponse)
+                    .collect(Collectors.toList()));
         } else {
             response.setDependents(new ArrayList<>());
         }
 
         // Check specific service eligibility if requested
-        if (request.getServiceUuid() != null && !request.getServiceUuid().isEmpty()) {
-            response.setRequestedService(checkServiceEligibility(
-                    request.getServiceUuid(),
-                    contract,
-                    provider,
-                    insured,
-                    groupResponses));
+        if (serviceUuid != null && !serviceUuid.isEmpty() && !serviceUuid.equals("string")) {
+            try {
+                UUID.fromString(serviceUuid);
+                response.setRequestedService(checkServiceEligibility(
+                        serviceUuid,
+                        contract,
+                        provider,
+                        insured,
+                        groupResponses));
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid serviceUuid provided: {}", serviceUuid);
+                response.setRequestedService(null);
+            }
+        } else {
+            response.setRequestedService(null);
         }
 
         // Determine overall eligibility
@@ -160,37 +279,58 @@ public class EligibilityServiceImpl implements EligibilityService {
         return ResponseEntity.ok(response);
     }
 
+    private DependentEligibilityResponse mapDependantResponseToDependentEligibilityResponse(DependantResponse dependantResponse) {
+        DependentEligibilityResponse dependentEligibilityResponse = new DependentEligibilityResponse();
+        BeanUtils.copyProperties(dependantResponse, dependentEligibilityResponse);
+        dependentEligibilityResponse.setRelationship(dependantResponse.getRelationship());
+        return dependentEligibilityResponse;
+    }
+
     private Insured findInsuredPerson(EligibilityCheckRequest request, Payer payer) {
         Insured insured = null;
+        String foundBy = "";
 
-        // Try to find by employee ID
-        if (request.getEmployeeId() != null && !request.getEmployeeId().isEmpty()) {
+        // Try to find by phone number first
+        if (request.getPhoneNumber() != null && !request.getPhoneNumber().isEmpty()) {
+            insured = insuredRepository.findByPhoneAndPayer(request.getPhoneNumber(), payer.getPayerUuid());
+            if (insured != null) {
+                foundBy = "phone number";
+            }
+        }
+
+        // If not found, try by employee ID
+        if (insured == null && request.getEmployeeId() != null && !request.getEmployeeId().isEmpty()) {
             insured = insuredRepository.findByEmployeeIdAndPayer(request.getEmployeeId(), payer.getPayerUuid());
+            if (insured != null) {
+                foundBy = "employee ID";
+            }
         }
 
         // If not found, try by insurance ID
         if (insured == null && request.getInsuranceId() != null && !request.getInsuranceId().isEmpty()) {
             insured = insuredRepository.findByInsuranceIdAndPayer(request.getInsuranceId(), payer.getPayerUuid());
+            if (insured != null) {
+                foundBy = "insurance ID";
+            }
         }
 
         // If not found, try by national ID
         if (insured == null && request.getNationalId() != null && !request.getNationalId().isEmpty()) {
             insured = insuredRepository.findByNationalIdAndPayer(request.getNationalId(), payer.getPayerUuid());
+            if (insured != null) {
+                foundBy = "national ID";
+            }
         }
 
-        // If still not found, try by phone number
-        if (insured == null && request.getPhoneNumber() != null && !request.getPhoneNumber().isEmpty()) {
-            insured = insuredRepository.findByPhoneAndPayer(request.getPhoneNumber(), payer.getPayerUuid());
-        }
-
-        // If not found by any identifier, throw exception
         if (insured == null) {
             throw new ResourceNotFoundException("Insured Person", "identifiers",
-                    "Employee ID: " + request.getEmployeeId() +
+                    "Phone: " + request.getPhoneNumber() +
+                            ", Employee ID: " + request.getEmployeeId() +
                             ", Insurance ID: " + request.getInsuranceId() +
-                            ", National ID: " + request.getNationalId() +
-                            ", Phone: " + request.getPhoneNumber());
+                            ", National ID: " + request.getNationalId());
         }
+
+        log.info("Insured person found by: {}", foundBy);
 
         return insured;
     }
@@ -225,7 +365,7 @@ public class EligibilityServiceImpl implements EligibilityService {
                     response.setFatherName(dependant.getFatherName());
                     response.setGrandFatherName(dependant.getGrandFatherName());
                     response.setRelationship(dependant.getRelationship() != null ?
-                            dependant.getRelationship().toString() : null);
+                            Relationship.valueOf(dependant.getRelationship().toString()) : null);
                     response.setStatus(dependant.getStatus());
 
                     // Get groups for this dependant
@@ -262,37 +402,65 @@ public class EligibilityServiceImpl implements EligibilityService {
             Insured insured,
             List<GroupMembershipResponse> insuredGroups) {
 
-        // Find the service
-        Servicelist service = servicelistRepository.findByServiceUuid(serviceUuid)
-                .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceUuid", serviceUuid));
+        Servicelist service = findService(serviceUuid);
+        ServiceEligibilityResponse response = initializeServiceEligibilityResponse(service);
 
+        List<ContractDetail> contractDetails = findContractDetails(contractHeader, serviceUuid);
+
+        if (contractDetails.isEmpty()) {
+            return handleUncoveredService(response, service);
+        }
+
+        Set<String> insuredGroupUuids = getInsuredGroupUuids(insuredGroups);
+        ContractDetail bestContractDetail = findBestContractDetail(contractDetails, insuredGroupUuids);
+
+        if (bestContractDetail != null) {
+            return calculateCoverage(response, bestContractDetail, contractHeader);
+        } else {
+            return handleUncoveredService(response, service);
+        }
+    }
+
+    private Servicelist findService(String serviceUuid) {
+        try {
+            return servicelistRepository.findByServiceUuid(serviceUuid)
+                    .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceUuid", serviceUuid));
+        } catch (Exception e) {
+            log.error("Error finding service with UUID: {}", serviceUuid, e);
+            throw new ResourceNotFoundException("Service", "serviceUuid", serviceUuid);
+        }
+    }
+    private ServiceEligibilityResponse initializeServiceEligibilityResponse(Servicelist service) {
         ServiceEligibilityResponse response = new ServiceEligibilityResponse();
         response.setServiceUuid(service.getServiceUuid());
         response.setServiceCode(service.getServiceCode());
         response.setServiceName(service.getServiceName());
         response.setCategory(service.getServiceCategory());
         response.setSubCategory(service.getServiceSubCategory());
+        return response;
+    }
 
-        // Find contract details for this service under the contract
-        List<ContractDetail> contractDetails = contractDetailRepository
+    private List<ContractDetail> findContractDetails(ContractHeader contractHeader, String serviceUuid) {
+        return contractDetailRepository
                 .findByContractHeaderAndService(contractHeader.getContractHeaderUuid(), serviceUuid);
+    }
 
-        if (contractDetails.isEmpty()) {
-            // Service not covered under this contract
-            response.setCovered(false);
-            response.setPrice(service.getPrice());
-            response.setCoPaymentAmount(service.getPrice());
-            response.setCoPaymentPercentage(100.0);
-            response.setInsuranceCoverage(BigDecimal.valueOf(0.0));
-            return response;
-        }
+    private ServiceEligibilityResponse handleUncoveredService(ServiceEligibilityResponse response, Servicelist service) {
+        response.setCovered(false);
+        response.setPrice(BigDecimal.valueOf(service.getPrice()));
+        response.setCoPaymentAmount(BigDecimal.valueOf(service.getPrice()));
+        response.setCoPaymentPercentage(100.0);
+        response.setInsuranceCoverage(BigDecimal.valueOf(0.0));
+        return response;
+    }
 
-        // Get the group UUIDs for the insured person
-        Set<String> insuredGroupUuids = insuredGroups.stream()
+    private Set<String> getInsuredGroupUuids(List<GroupMembershipResponse> insuredGroups) {
+        return insuredGroups.stream()
                 .map(GroupMembershipResponse::getGroupUuid)
                 .collect(Collectors.toSet());
+    }
 
-        // Find the best contract detail for this service based on group membership
+    private ContractDetail findBestContractDetail(List<ContractDetail> contractDetails, Set<String> insuredGroupUuids) {
         ContractDetail bestContractDetail = null;
         String appliedGroupUuid = null;
         String appliedGroupName = null;
@@ -306,10 +474,7 @@ public class EligibilityServiceImpl implements EligibilityService {
                 String groupUuid = groupAssociation.getEmployeeDependantGroup().getGroupUuid();
 
                 if (insuredGroupUuids.contains(groupUuid)) {
-                    // Found a contract detail for one of the insured's groups
-                    if (bestContractDetail == null ||
-                            (detail.getNegotiatedPrice() != null && bestContractDetail.getNegotiatedPrice() != null &&
-                                    detail.getNegotiatedPrice().compareTo(bestContractDetail.getNegotiatedPrice())<0)) {
+                    if (isBetterContractDetail(detail, bestContractDetail)) {
                         bestContractDetail = detail;
                         appliedGroupUuid = groupUuid;
                         appliedGroupName = groupAssociation.getEmployeeDependantGroup().getGroupName();
@@ -320,19 +485,7 @@ public class EligibilityServiceImpl implements EligibilityService {
 
         // If no group-specific contract detail found, use a general one if available
         if (bestContractDetail == null) {
-            for (ContractDetail detail : contractDetails) {
-                List<ContractDetailEmployeeGroup> groupAssociations = contractDetailEmployeeGroupRepository
-                        .findByContractDetailUuid(detail.getContractDetailUuid());
-
-                if (groupAssociations.isEmpty()) {
-                    // This is a general contract detail not tied to any specific group
-                    if (bestContractDetail == null ||
-                            (detail.getNegotiatedPrice() != null && bestContractDetail.getNegotiatedPrice() != null &&
-                                    detail.getNegotiatedPrice().compareTo(bestContractDetail.getNegotiatedPrice())<0)) {
-                        bestContractDetail = detail;
-                    }
-                }
-            }
+            bestContractDetail = findGeneralContractDetail(contractDetails);
         }
 
         // If still no contract detail found, use the first one as fallback
@@ -340,37 +493,48 @@ public class EligibilityServiceImpl implements EligibilityService {
             bestContractDetail = contractDetails.get(0);
         }
 
-        // Calculate coverage based on the best contract detail
-        if (bestContractDetail != null) {
-            response.setCovered(true);
-            response.setPrice(bestContractDetail.getNegotiatedPrice());
+        return bestContractDetail;
+    }
 
-            // Get co-payment percentage from contract header or use default
-            Double coPaymentPercentage = contractHeader.getCoPaymentPercentage() != null ?
-                    contractHeader.getCoPaymentPercentage() : 20.0; // Default 20%
+    private boolean isBetterContractDetail(ContractDetail newDetail, ContractDetail currentBest) {
+        return currentBest == null ||
+                (newDetail.getNegotiatedPrice() != null && currentBest.getNegotiatedPrice() != null &&
+                        newDetail.getNegotiatedPrice().compareTo(currentBest.getNegotiatedPrice()) < 0);
+    }
 
-            response.setCoPaymentPercentage(coPaymentPercentage);
+    private ContractDetail findGeneralContractDetail(List<ContractDetail> contractDetails) {
+        return contractDetails.stream()
+                .filter(detail -> contractDetailEmployeeGroupRepository
+                        .findByContractDetailUuid(detail.getContractDetailUuid()).isEmpty())
+                .min(Comparator.comparing(ContractDetail::getNegotiatedPrice,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .orElse(null);
+    }
 
-            // Calculate co-payment amount
-            BigDecimal price = bestContractDetail.getNegotiatedPrice() != null ?
-                    bestContractDetail.getNegotiatedPrice() : BigDecimal.ZERO;
-            BigDecimal coPaymentPercentageBD = BigDecimal.valueOf(coPaymentPercentage / 100.0);
-            BigDecimal coPaymentAmount = price.multiply(coPaymentPercentageBD);
-            response.setCoPaymentAmount(coPaymentAmount);
-            response.setInsuranceCoverage(price.subtract(coPaymentAmount));
+    private ServiceEligibilityResponse calculateCoverage(
+            ServiceEligibilityResponse response,
+            ContractDetail bestContractDetail,
+            ContractHeader contractHeader) {
+        response.setCovered(true);
+        response.setPrice(bestContractDetail.getNegotiatedPrice());
 
-            if (appliedGroupUuid != null) {
-                response.setAppliedGroupUuid(appliedGroupUuid);
-                response.setAppliedGroupName(appliedGroupName);
-            }
-        } else {
+        Double coPaymentPercentage = contractHeader.getCoPaymentPercentage() != null ?
+                contractHeader.getCoPaymentPercentage() : 20.0; // Default 20%
 
-            response.setCovered(false);
-            response.setPrice(service.getPrice());
-            response.setCoPaymentAmount(service.getPrice());
-            response.setCoPaymentPercentage(100.0);
-            response.setInsuranceCoverage(BigDecimal.valueOf(0.0));
-        }
+        response.setCoPaymentPercentage(coPaymentPercentage);
+
+        BigDecimal price = bestContractDetail.getNegotiatedPrice() != null ?
+                bestContractDetail.getNegotiatedPrice() : BigDecimal.ZERO;
+        BigDecimal coPaymentPercentageBD = BigDecimal.valueOf(coPaymentPercentage / 100.0);
+        BigDecimal coPaymentAmount = price.multiply(coPaymentPercentageBD);
+        response.setCoPaymentAmount(coPaymentAmount);
+        response.setInsuranceCoverage(price.subtract(coPaymentAmount));
+
+        // Set applied group info if available
+//        if (bestContractDetail.getAppliedGroupUuid() != null) {
+//            response.setAppliedGroupUuid(bestContractDetail.getAppliedGroupUuid());
+//            response.setAppliedGroupName(bestContractDetail.getAppliedGroupName());
+//        }
 
         return response;
     }

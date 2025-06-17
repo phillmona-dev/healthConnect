@@ -261,18 +261,15 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
             page = page - 1;
         }
 
-        // Validate and sanitize sort parameters
         String validatedSortBy = SortUtils.validateProviderSortField(sortBy);
         String validatedSortDir = SortUtils.validateSortDirection(sortDir);
 
-        // Create sort object
         Sort sort = validatedSortDir.equalsIgnoreCase("asc") ?
                 Sort.by(validatedSortBy).ascending() :
                 Sort.by(validatedSortBy).descending();
 
         Pageable pageable = PageRequest.of(page, limit, sort);
 
-        // Build specification for filtering
         Specification<Provider> spec = Specification.where(ProviderSpecifications.isNotDeleted());
 
         if (searchKey != null && !searchKey.isEmpty()) {
@@ -310,12 +307,10 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
             BeanUtils.copyProperties(provider, response);
             response.setStatus(String.valueOf(provider.getStatus()));
 
-            // Get total contracts for this provider
             Long contractCount = contractRepository.countByProviderProviderUuidAndIsDeleted(
                     provider.getProviderUuid(), false);
             response.setTotalContracts(contractCount);
 
-            // Add logo as base64 if available
             if (provider.getLogoPath() != null && !provider.getLogoPath().isEmpty()) {
                 try {
                     String logoPath = providerLogosDirectory + "/" + provider.getLogoPath();
@@ -326,16 +321,13 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
                         String base64Logo = Base64.getEncoder().encodeToString(fileContent);
                         response.setLogoBase64("data:" + determineContentType(logoPath) + ";base64," + base64Logo);
                     } else {
-                        // Set default logo if provider logo doesn't exist
                         setDefaultLogoBase64(response);
                     }
                 } catch (IOException e) {
                     log.warn("Could not read logo for provider {}: {}", provider.getProviderUuid(), e.getMessage());
-                    // Set default logo on error
                     setDefaultLogoBase64(response);
                 }
             } else {
-                // Set default logo if provider has no logo path
                 setDefaultLogoBase64(response);
             }
 
@@ -344,8 +336,8 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
 
         PagedResponse<ProviderResponse> pagedResponse = new PagedResponse<>();
         pagedResponse.setContent(providerResponses);
-        pagedResponse.setCurrentPage(providerPage.getNumber() + 1);
-        pagedResponse.setPageSize(providerPage.getSize());
+        pagedResponse.setPage(providerPage.getNumber() + 1);
+        pagedResponse.setPerPage(providerPage.getSize());
         pagedResponse.setTotalElements(providerPage.getTotalElements());
         pagedResponse.setTotalPages(providerPage.getTotalPages());
         pagedResponse.setHasNext(providerPage.hasNext());
@@ -385,11 +377,9 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         //managerDto.setProviderUuid(savedProvider.getProviderUuid());
         managerDto.setUserStatus(Status.ACTIVE);
 
-        // Create the user
         try {
             User savedUser = createProviderManagerUser(managerDto, savedProvider);
 
-            // Send welcome email
             String loginUrl = frontendUrl + "/login?newUser=true&email=" + savedUser.getEmail();
             emailService.sendWelcomeEmail(
                     savedUser.getEmail(),
@@ -423,7 +413,6 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
     }
 
     private static String generateRandomPassword() {
-        // Generate a random password with 6 characters
         String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
         StringBuilder sb = new StringBuilder();
         Random random = new Random();
@@ -439,7 +428,6 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         Provider provider = providerRepository.findByProviderUuid(providerUuid)
                 .orElseThrow(() -> new BadRequestException("Can't find Provider with the provided UUID"));
 
-        // Check for duplicate provider name
         if (!provider.getProviderName().equals(providerRequest.getProviderName()) &&
                 providerRepository.existsByProviderName(providerRequest.getProviderName())) {
             return ResponseEntity.badRequest().body(new MessageResponse("Error: Provider name is already in use!"));
@@ -447,22 +435,19 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
 
         BeanUtils.copyProperties(providerRequest, provider);
 
-        // Set status if provided, otherwise keep existing
         if (providerRequest.getStatus() != null && !providerRequest.getStatus().isEmpty()) {
             provider.setStatus(Status.valueOf(providerRequest.getStatus()));
         }
 
-        // Update logo if provided
         if (logo != null && !logo.isEmpty()) {
             try {
-                // Ensure directory exists
+
                 File directory = new File(providerLogosDirectory);
                 if (!directory.exists()) {
                     directory.mkdirs();
                     log.info("Created directory: {}", providerLogosDirectory);
                 }
 
-                // Delete old logo if exists
                 if (provider.getLogoPath() != null && !provider.getLogoPath().isEmpty()) {
                     Path oldLogoPath = Paths.get(providerLogosDirectory + "/" + provider.getLogoPath());
                     try {
@@ -477,7 +462,6 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
                 String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
                 String newFileName = "logo_" + UUID.randomUUID().toString() + "." + extension;
 
-                // Save the new logo
                 Path newLogoPath = Paths.get(providerLogosDirectory + "/" + newFileName);
                 log.info("Saving new logo to: {}", newLogoPath);
                 Files.write(newLogoPath, logo.getBytes());

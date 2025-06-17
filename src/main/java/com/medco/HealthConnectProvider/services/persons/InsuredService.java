@@ -2,10 +2,11 @@ package com.medco.HealthConnectProvider.services.persons;
 
 import com.medco.HealthConnectProvider.ui.request.auth.password.persons.InsuredRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.persons.InsuredWithDependantsRequest;
-import com.medco.HealthConnectProvider.ui.response.persons.InsuredAndDependantCashServiceResponse;
-import com.medco.HealthConnectProvider.ui.response.persons.InsuredDependantResponse;
-import com.medco.HealthConnectProvider.ui.response.persons.InsuredListResponse;
-import com.medco.HealthConnectProvider.ui.response.persons.InsuredResponse;
+import com.medco.HealthConnectProvider.ui.request.persons.InsuredUpdateRequest;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
+import com.medco.HealthConnectProvider.ui.response.persons.*;
+import com.medco.HealthConnectProvider.utils.enums.Status;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,10 @@ import java.util.List;
 
 public interface InsuredService {
     ResponseEntity<?> createInsuredPerson(InsuredRequest insuredRequest, MultipartFile photo);
+
+    @Transactional
+    ResponseEntity<?> updateInsuredPerson(String insuredUuid, InsuredUpdateRequest insuredRequest, MultipartFile photo) throws IOException;
+
     ResponseEntity<?> deleteInsuredPerson(String insuredUuid);
 
 
@@ -37,32 +42,6 @@ public interface InsuredService {
             String institutionUuid, String search, Pageable pageable);
     boolean checkMemberExist(String payerInstitutionContractUuid);
 
-    //Filmon
-    /**
-     * Get all insured persons with their dependants for a specific institution with search capability
-     * @param institutionUuid The UUID of the institution
-     * @param searchKey Optional search key to filter results (name, phone, insurance ID)
-     * @param page Page number (1-based)
-     * @param limit Number of records per page
-     * @return List of insured persons with their dependants
-     */
-    List<InsuredDependantResponse> getAllInsuredPersonsWithDependantsByInstitution(
-            String institutionUuid, String searchKey, int page, int limit);
-
-    /**
-     * Get an insured person by UUID with their dependants
-     * @param insuredUuid The UUID of the insured person
-     * @return ResponseEntity containing the insured person with their dependants
-     */
-    ResponseEntity<?> getInsuredPerson(String insuredUuid);
-
-    /**
-     * Update an insured person and their dependants
-     * @param insuredUuid The UUID of the insured person
-     * @param insuredRequest The request containing insured person and dependant data
-     * @return ResponseEntity with success message
-     */
-    ResponseEntity<?> updateInsuredPersonWithDependants(String insuredUuid, InsuredWithDependantsRequest insuredRequest, MultipartFile photo);
 
     ResponseEntity<ByteArrayResource> getInsuredPhoto(String insuredUuid);
 
@@ -79,4 +58,20 @@ public interface InsuredService {
      * @return ResponseEntity containing the insured person with their dependants and photo in base64
      */
     ResponseEntity<?> getInsuredPersonWithPhotoBase64(String insuredUuid);
+
+
+
+    ResponseEntity<?> getInsuredPersonByUuid(String insuredUuid);
+
+    ResponseEntity<PagedResponse<InsuredWithDependantsResponse>> getAllInsuredPersonsWithDependants(int page, int size, String search);
+
+
+    ResponseEntity<PagedResponse<InsuredDependantResponse>> getAllInsuredPersonsWithDependentsByPayer(String payerUuid, int page, int size, String search);
+
+    ResponseEntity<?> softDeleteInsuredPerson(String insuredUuid);
+
+
+    InsuredResponse updateInsuredStatus(String insuredUuid, Status newStatus);
+
+    List<InsuredSearchResponse> searchInsuredPersons(String phone, String employeeId, String insuranceId, String nationalId);
 }

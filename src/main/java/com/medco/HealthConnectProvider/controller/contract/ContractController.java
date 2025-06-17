@@ -158,9 +158,9 @@ public class ContractController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDateTo,
             @RequestParam(required = false) String preparedBy,
             @RequestParam(required = false) Boolean isDeleted,
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "startDate,desc") String[] sort) {
+            @RequestParam(defaultValue = "startDate") String[] sort) {
 
         ContractFilterRequest filter = ContractFilterRequest.builder()
                 .contractNumber(contractNumber)
@@ -176,9 +176,11 @@ public class ContractController {
                 .isDeleted(isDeleted)
                 .build();
 
-        Pageable pageable = PageRequest.of(page, size, getSort(sort));
+        int zeroBasedPage = Math.max(0, page - 1);
 
-        return contractService.getFilteredContracts(filter, pageable);
+        Pageable pageable = PageRequest.of(zeroBasedPage, size, Sort.by(sort));
+
+        return contractService.getFilteredContracts(filter, pageable, page);
     }
 
     private Sort getSort(String[] sort) {

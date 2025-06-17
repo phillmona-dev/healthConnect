@@ -40,4 +40,6 @@ public interface ClaimService {
     
     // Claim logs
     List<?> getClaimLogs(String claimUuid, Pageable pageable);
+
+    ResponseEntity<?> verifyPayment(String claimUuid);
 }

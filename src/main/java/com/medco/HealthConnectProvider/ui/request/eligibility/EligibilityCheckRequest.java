@@ -6,14 +6,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.UUID;
+
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class EligibilityCheckRequest {
-    
-    @NotBlank(message = "Payer UUID is required")
-    private String payerUuid;
     
     // One of the following identifiers must be provided
     private String employeeId;
@@ -23,4 +22,18 @@ public class EligibilityCheckRequest {
     
     // Optional - specific service to check eligibility for
     private String serviceUuid;
+
+    public void setServiceUuid(String serviceUuid) {
+        if (serviceUuid != null && !serviceUuid.isEmpty() && !serviceUuid.equals("string")) {
+            try {
+                UUID.fromString(serviceUuid);
+                this.serviceUuid = serviceUuid;
+            } catch (IllegalArgumentException e) {
+                // If it's not a valid UUID, set it to null
+                this.serviceUuid = null;
+            }
+        } else {
+            this.serviceUuid = null;
+        }
+    }
 }

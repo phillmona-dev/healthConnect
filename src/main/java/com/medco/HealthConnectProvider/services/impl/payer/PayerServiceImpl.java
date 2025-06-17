@@ -1,12 +1,15 @@
 package com.medco.HealthConnectProvider.services.impl.payer;
 
+import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserDetailsImpl;
 import com.medco.HealthConnectProvider.dto.PayerAdminDto;
+import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.entity.user.Role;
 import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
+import com.medco.HealthConnectProvider.repository.claims.ClaimRepository;
 import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.user.RoleRepository;
@@ -17,14 +20,18 @@ import com.medco.HealthConnectProvider.services.user.UserService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.providers.ProviderRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.user.SignUpRequest;
+import com.medco.HealthConnectProvider.ui.request.claims.ClaimReviewRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
+import com.medco.HealthConnectProvider.ui.response.claims.ClaimResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.utils.SortUtils;
+import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import com.medco.HealthConnectProvider.utils.enums.Status;
+import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +61,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.*;
 
 import java.util.Base64;
@@ -71,6 +79,8 @@ public class PayerServiceImpl implements PayerService {
     private final UserService userService;
     private final ContractRepository contractRepository;
 
+    @Autowired
+    private ClaimRepository claimRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -507,7 +517,7 @@ public class PayerServiceImpl implements PayerService {
         Pageable pageRequest = PageRequest.of(page, limit, sort);
 
         // Build specification for filtering
-        Specification<Payer> spec = Specification.where(PayerSpecifications.isNotDeleted());
+        Specification<Payer> spec = PayerSpecifications.isNotDeleted();
 
         if (searchKey != null && !searchKey.isEmpty()) {
             spec = spec.and(PayerSpecifications.containsSearchKey(searchKey));
@@ -579,8 +589,8 @@ public class PayerServiceImpl implements PayerService {
 
         PagedResponse<PayerResponse> pagedResponse = new PagedResponse<>();
         pagedResponse.setContent(payerResponses);
-        pagedResponse.setCurrentPage(payerPage.getNumber() + 1);
-        pagedResponse.setPageSize(payerPage.getSize());
+        pagedResponse.setPage(payerPage.getNumber() + 1);
+        pagedResponse.setPerPage(payerPage.getSize());
         pagedResponse.setTotalElements(payerPage.getTotalElements());
         pagedResponse.setTotalPages(payerPage.getTotalPages());
         pagedResponse.setHasNext(payerPage.hasNext());
@@ -658,6 +668,55 @@ public class PayerServiceImpl implements PayerService {
             setDefaultLogoBase64(response);
         }
 
+        return response;
+    }
+
+
+    @Override
+    public Page<ClaimResponse> getClaimsForReview(int page, int size) {
+        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getInstitutionUuid();
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Claim> claims = claimRepository.findByPayerUuidAndStatus(payerUuid, String.valueOf(ClaimStatus.UNDER_REVIEW), pageable);
+
+        return claims.map(this::mapClaimToClaimResponse);
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> reviewClaim(String claimUuid, ClaimReviewRequest reviewRequest) {
+        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getInstitutionUuid();
+
+        Claim claim = claimRepository.findByClaimUuid(claimUuid)
+                .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
+
+        if (!claim.getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("You don't have access to review this claim");
+        }
+
+        if (!claim.getStatus().equals(ClaimStatus.UNDER_REVIEW)) {
+            throw new BadRequestException("This claim is not available for review");
+        }
+
+        ClaimStatus newStatus = reviewRequest.isApproved() ? ClaimStatus.APPROVED : ClaimStatus.REJECTED;
+        claim.setStatus(newStatus);
+        claim.setReviewComment(reviewRequest.getComment());
+        claim.setReviewedByUuid(userDetails.getUserUuid());
+        claim.setReviewedAt(Instant.now());
+
+        claimRepository.save(claim);
+
+        // TODO: Implement notification to provider about claim review result
+
+        return ResponseEntity.ok(new MessageResponse("Claim reviewed successfully"));
+    }
+
+    private ClaimResponse mapClaimToClaimResponse(Claim claim) {
+        ClaimResponse response = new ClaimResponse();
+        BeanUtils.copyProperties(claim, response);
+        // Add any additional mapping logic here
         return response;
     }
 

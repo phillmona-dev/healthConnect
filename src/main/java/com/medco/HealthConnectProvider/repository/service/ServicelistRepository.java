@@ -47,4 +47,7 @@ public interface ServicelistRepository extends JpaRepository<Servicelist, Long> 
 
     // Updated method name
     List<Servicelist> findAllByProviderProviderUuidAndStatusAndIsDeleted(String providerUuid, String status, boolean isDeleted);
+
+    Servicelist findByServiceUuidAndProviderProviderUuid(String serviceUuid, String providerUuid);
+
 }
