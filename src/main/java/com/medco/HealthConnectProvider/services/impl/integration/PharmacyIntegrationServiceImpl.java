@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.services.impl.integration;
 
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserDetailsImpl;
 import com.medco.HealthConnectProvider.dto.PendingDispensingRecordDTO;
+import com.medco.HealthConnectProvider.entity.claims.BatchRecord;
 import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.entity.claims.ClaimItem;
 import com.medco.HealthConnectProvider.entity.claims.ClaimLogs;
@@ -13,6 +14,7 @@ import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.entity.services.Servicelist;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
+import com.medco.HealthConnectProvider.repository.claims.BatchRecordRepository;
 import com.medco.HealthConnectProvider.repository.claims.ClaimItemRepository;
 import com.medco.HealthConnectProvider.repository.claims.ClaimLogsRepository;
 import com.medco.HealthConnectProvider.repository.claims.ClaimRepository;
@@ -27,9 +29,11 @@ import com.medco.HealthConnectProvider.services.integration.PharmacyIntegrationS
 import com.medco.HealthConnectProvider.services.persons.InsuredService;
 import com.medco.HealthConnectProvider.ui.request.eligibility.EligibilityCheckRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
+import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.MedicationDispensingRequest;
 import com.medco.HealthConnectProvider.ui.response.ApiErrorResponse;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
+import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
 import com.medco.HealthConnectProvider.ui.response.eligibility.EligibilityResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingRecordResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
@@ -54,6 +58,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -108,29 +113,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Autowired
     private ServicelistRepository servicelistRepository;
 
-    @Override
-    @Transactional
-    public ResponseEntity<DispensingResponse> recordMedicationDispensing(MedicationDispensingRequest request) {
-        log.info("Recording medication dispensing from provider: {}", request.getProviderUuid());
-
-        Provider provider = validateProvider(request.getProviderUuid());
-        Payer payer = validatePayer(request.getPayerUuid());
-        validateUniqueTransaction(request.getPharmacyTransactionId());
-
-        EligibilityResponse eligibilityResponse = checkEligibility(request);
-
-        Insured insured = findInsuredPersonByUuid(eligibilityResponse.getInsuredUuid());
-
-        MedicationDispensing dispensing = createDispensingRecord(request, insured, eligibilityResponse);
-        MedicationDispensing savedDispensing = dispensingRepository.save(dispensing);
-
-        List<MedicationDispensingItem> items = createDispensingItems(request, savedDispensing);
-        dispensingItemRepository.saveAll(items);
-
-        DispensingResponse response = createDispensingResponse(savedDispensing);
-
-        return ResponseEntity.ok(response);
-    }
+    @Autowired
+    private BatchRecordRepository batchRecordRepository;
 
     private Insured findInsuredPersonByUuid(String insuredUuid) {
         Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
@@ -161,8 +145,10 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     private EligibilityResponse checkEligibility(MedicationDispensingRequest request) {
         EligibilityCheckRequest eligibilityRequest = createEligibilityRequest(request);
-        List<InsuredSearchResponse> insuredPersons = insuredService.searchInsuredPersons(
-                request.getPhone(), request.getEmployeeId(), request.getInsuranceId(), request.getNationalId());
+
+        String identifier = getFirstNonNullIdentifier(request);
+
+        List<InsuredSearchResponse> insuredPersons = insuredService.searchInsuredPersons(identifier);
 
         if (insuredPersons.isEmpty()) {
             throw new ResourceNotFoundException("Insured Person", "provided identifiers", "Not found");
@@ -195,6 +181,22 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
 
         return eligibilityResponse;
+    }
+
+    private String getFirstNonNullIdentifier(MedicationDispensingRequest request) {
+        if (StringUtils.hasText(request.getPhone())) {
+            return request.getPhone();
+        }
+        if (StringUtils.hasText(request.getEmployeeId())) {
+            return request.getEmployeeId();
+        }
+        if (StringUtils.hasText(request.getInsuranceId())) {
+            return request.getInsuranceId();
+        }
+        if (StringUtils.hasText(request.getNationalId())) {
+            return request.getNationalId();
+        }
+        throw new IllegalArgumentException("At least one identifier (phone, employeeId, insuranceId, or nationalId) must be provided");
     }
 
     private EligibilityResponse processEligibilityResponse(ResponseEntity<EligibilityResponse> eligibilityResponseEntity) {
@@ -315,8 +317,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     @Override
     public ResponseEntity<Page<PendingDispensingRecordDTO>> getDispensingRecords(
-            String providerUuid, String phone, String status, LocalDate startDate, LocalDate endDate,
-            String medicationName, String patientName, int page, int size, String sortBy, String sortDirection) {
+            String providerUuid, String search, String status, LocalDate startDate, LocalDate endDate,
+            String payerUuid, int page, int size, String sortBy, String sortDirection) {
 
         log.info("Fetching dispensing records with advanced search for provider: {}", providerUuid);
 
@@ -343,23 +345,21 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                     predicates.add(cb.lessThan(root.get("dispensingDate"), endDate.plusDays(1)));
                 }
 
-                if (medicationName != null && !medicationName.isEmpty()) {
-                    predicates.add(cb.like(cb.lower(root.join("items").get("medicationName")), "%" + medicationName.toLowerCase() + "%"));
+                if (search != null && !search.isEmpty()) {
+                    String searchLower = "%" + search.toLowerCase() + "%";
+                    Join<MedicationDispensing, Insured> insuredJoin = root.join("insured", JoinType.LEFT);
+                    Join<MedicationDispensing, MedicationDispensingItem> itemsJoin = root.join("items", JoinType.LEFT);
+
+                    predicates.add(cb.or(
+                            cb.like(cb.lower(insuredJoin.get("firstName")), searchLower),
+                            cb.like(cb.lower(insuredJoin.get("lastName")), searchLower),
+                            cb.like(cb.lower(insuredJoin.get("phone")), searchLower),
+                            cb.like(cb.lower(itemsJoin.get("medicationName")), searchLower)
+                    ));
                 }
 
-                if (patientName != null && !patientName.isEmpty()) {
-                    Join<MedicationDispensing, Insured> insuredJoin = root.join("insured", JoinType.LEFT);
-                    predicates.add(
-                            cb.or(
-                                    cb.like(cb.lower(insuredJoin.get("firstName")), "%" + patientName.toLowerCase() + "%"),
-                                    cb.like(cb.lower(insuredJoin.get("lastName")), "%" + patientName.toLowerCase() + "%")
-                            )
-                    );
-                }
-
-                if (phone != null && !phone.isEmpty()) {
-                    Join<MedicationDispensing, Insured> insuredJoin = root.join("insured", JoinType.LEFT);
-                    predicates.add(cb.equal(insuredJoin.get("phone"), phone));
+                if (payerUuid != null && !payerUuid.isEmpty()) {
+                    predicates.add(cb.equal(root.get("payerUuid"), payerUuid));
                 }
 
                 return cb.and(predicates.toArray(new Predicate[0]));
@@ -418,28 +418,35 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
 
         Claim claim = null;
+        BatchRecord batchRecord = null;
         if (newStatus.equals("SUBMITTED")) {
-
             String payerUuid = dispensingRecords.get(0).getPayerUuid();
             Payer payer = payerRepository.findByPayerUuid(payerUuid);
-            if (payer == null){
+            if (payer == null) {
                 throw new ResourceNotFoundException("Payer", "uuid", payerUuid);
             }
 
             String insuredUuid = dispensingRecords.get(0).getInsuredUuid();
             Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
-            if (insured == null){
+            if (insured == null) {
                 throw new ResourceNotFoundException("Insured", "uuid", insuredUuid);
             }
 
             claim = createClaim(provider, payer, insured, dispensingRecords);
             claim = claimRepository.save(claim);
+
+            // Create batch record
+            batchRecord = createBatchRecord(payer, dispensingRecords, claim);
+            batchRecord = batchRecordRepository.save(batchRecord);
         }
 
         for (MedicationDispensing record : dispensingRecords) {
             record.setClaimStatus(newStatus);
             if (claim != null) {
                 record.setClaimUuid(claim.getClaimUuid());
+            }
+            if (batchRecord != null) {
+                record.setBatchCode(batchRecord.getBatchCode());
             }
         }
 
@@ -454,8 +461,33 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         if (claim != null) {
             message += " and claim created with UUID: " + claim.getClaimUuid();
         }
+        if (batchRecord != null) {
+            message += ". Batch created with code: " + batchRecord.getBatchCode();
+        }
 
         return ResponseEntity.ok(new MessageResponse(message));
+    }
+
+    private BatchRecord createBatchRecord(Payer payer, List<MedicationDispensing> dispensingRecords, Claim claim) {
+        BatchRecord batchRecord = new BatchRecord();
+        batchRecord.setBatchCode(generateBatchCode());
+        batchRecord.setPayerName(payer.getPayerName());
+        batchRecord.setRequestedOn(LocalDateTime.now());
+        batchRecord.setClaimDatingFrom(dispensingRecords.stream()
+                .map(MedicationDispensing::getDispensingDate)
+                .min(LocalDate::compareTo)
+                .orElse(null));
+        batchRecord.setClaimDatingTo(dispensingRecords.stream()
+                .map(MedicationDispensing::getDispensingDate)
+                .max(LocalDate::compareTo)
+                .orElse(null));
+        batchRecord.setTotalAmount(claim.getTotalAmount());
+        batchRecord.setStatus("PENDING");
+        return batchRecord;
+    }
+
+    private String generateBatchCode() {
+        return "BATCH-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
     @Override
@@ -509,6 +541,161 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
     }
 
+    @Override
+    @Transactional
+    public ResponseEntity<DispensingResponse> recordMedicationDispensing(KenemaPharmacyDispensingRequest request) {
+        log.info("Recording medication dispensing from Kenema pharmacy: {}", request.getIdentifier());
+
+        Provider provider = (Provider) providerRepository.findByProviderName(request.getProviderName())
+                .orElseThrow(() -> new ResourceNotFoundException("Provider", "providerName", request.getProviderName()));
+
+        Insured insured = findInsuredPerson(request);
+        if (insured == null) {
+            throw new ResourceNotFoundException("Insured", "provided identifiers", "Not found");
+        }
+
+       // validateUniqueTransaction(request.getMrn());
+
+        EligibilityResponse eligibilityResponse = checkEligibility(insured, provider.getProviderUuid());
+
+        MedicationDispensing dispensing = createDispensingRecord(request, insured, provider, eligibilityResponse);
+        MedicationDispensing savedDispensing = dispensingRepository.save(dispensing);
+
+        List<MedicationDispensingItem> items = createDispensingItems(request, savedDispensing);
+        dispensingItemRepository.saveAll(items);
+
+        DispensingResponse response = createDispensingResponse(savedDispensing);
+
+        return ResponseEntity.ok(response);
+    }
+
+
+    private Insured findInsuredPerson(KenemaPharmacyDispensingRequest request) {
+        if (request.getIdentifier() == null || request.getIdentifier().isEmpty()) {
+            throw new BadRequestException("Identifier is required to find the insured person");
+        }
+
+        Insured insured = null;
+
+        insured = insuredRepository.findByInsuranceId(request.getIdentifier());
+
+        if (insured == null) {
+            insured = insuredRepository.findByEmployeeId(request.getIdentifier());
+        }
+
+        if (insured == null) {
+            insured = (Insured) insuredRepository.findByIdNumber(request.getIdentifier());
+        }
+
+        if (insured == null) {
+            insured = insuredRepository.findByNationalId(request.getIdentifier());
+        }
+
+        if (insured == null) {
+            insured = (Insured) insuredRepository.findByPhone(request.getIdentifier());
+        }
+
+        if (insured == null) {
+            throw new ResourceNotFoundException("Insured Person", "identifier", request.getIdentifier());
+        }
+
+        return insured;
+    }
+
+
+    private EligibilityResponse checkEligibility(Insured insured, String providerUuid) {
+
+        InsuredSearchResponse insuredSearchResponse = convertToInsuredSearchResponse(insured);
+
+        ResponseEntity<EligibilityResponse> eligibilityResponseEntity =
+                eligibilityService.checkEligibilityForInsured(providerUuid, insuredSearchResponse, null);
+
+        EligibilityResponse eligibilityResponse = eligibilityResponseEntity.getBody();
+        if (eligibilityResponse == null) {
+            throw new BadRequestException("Failed to retrieve eligibility information");
+        }
+
+        if (!eligibilityResponse.isEligible()) {
+            throw new BadRequestException("Patient is not eligible for services: " + eligibilityResponse.getIneligibilityReason());
+        }
+
+        return eligibilityResponse;
+    }
+
+    private InsuredSearchResponse convertToInsuredSearchResponse(Insured insured) {
+        InsuredSearchResponse response = new InsuredSearchResponse();
+        response.setInsuredUuid(insured.getInsuredUuid());
+        response.setFirstName(insured.getFirstName());
+        response.setFatherName(insured.getFatherName());
+        response.setGrandFatherName(insured.getGrandFatherName());
+        response.setInsuranceId(insured.getInsuranceId());
+        response.setEmployeeId(insured.getEmployeeId());
+        response.setNationalId(insured.getNationalId());
+        response.setPhone(insured.getPhone());
+        response.setPayerUuid(insured.getPayerUuid());
+        response.setPayerName(insured.getPayer().getPayerName());
+        response.setStatus(insured.getStatus());
+
+        return response;
+    }
+
+    private MedicationDispensing createDispensingRecord(KenemaPharmacyDispensingRequest request, Insured insured, Provider provider, EligibilityResponse eligibilityResponse) {
+        MedicationDispensing dispensing = new MedicationDispensing();
+
+        dispensing.setInvoiceNumber(generateInvoiceNumber());
+        dispensing.setDispensingUuid(UUID.randomUUID().toString());
+        dispensing.setProviderUuid(provider.getProviderUuid());
+        dispensing.setPayerUuid(insured.getPayer().getPayerUuid());
+        dispensing.setInsuredUuid(insured.getInsuredUuid());
+        dispensing.setPharmacyTransactionId(request.getIdentifier());
+        dispensing.setDispensingDate(request.getDispensedDate());
+        dispensing.setPrescribingPhysicianName(request.getPhysicianFullName());
+        dispensing.setBranchName(request.getProviderBranchName());
+        dispensing.setRecordedAt(LocalDate.now());
+        dispensing.setClaimStatus("DRAFT");
+
+        calculateTotals(dispensing, request, eligibilityResponse);
+
+        return dispensing;
+    }
+
+    private void calculateTotals(MedicationDispensing dispensing, KenemaPharmacyDispensingRequest request, EligibilityResponse eligibilityResponse) {
+        double totalAmount = request.getTotalPrice();
+
+        double coveragePercentage = 100.0; // Default coverage percentage
+        if (eligibilityResponse != null && eligibilityResponse.getRequestedService() != null) {
+            coveragePercentage = 100.0 - eligibilityResponse.getRequestedService().getCoPaymentPercentage();
+        }
+
+        double insuranceCoverage = totalAmount * (coveragePercentage / 100.0);
+        double patientResponsibility = totalAmount - insuranceCoverage;
+
+        dispensing.setTotalAmount(totalAmount);
+        dispensing.setPatientResponsibility(patientResponsibility);
+        dispensing.setInsuranceCoverage(insuranceCoverage);
+    }
+
+    private List<MedicationDispensingItem> createDispensingItems(KenemaPharmacyDispensingRequest request, MedicationDispensing savedDispensing) {
+        return request.getPrescriptionDetails().stream()
+                .map(item -> createDispensingItem(item, savedDispensing))
+                .collect(Collectors.toList());
+    }
+
+    private MedicationDispensingItem createDispensingItem(KenemaPharmacyDispensingRequest.PrescriptionDetail item, MedicationDispensing savedDispensing) {
+        MedicationDispensingItem dispensingItem = new MedicationDispensingItem();
+        dispensingItem.setItemUuid(UUID.randomUUID().toString());
+        dispensingItem.setDispensing(savedDispensing);
+        dispensingItem.setMedicationName(item.getMedicationName());
+        dispensingItem.setQuantity(item.getQuantity().doubleValue());
+        dispensingItem.setUnitOfMeasure(item.getUnitOfMeasure());
+        dispensingItem.setUnitPrice(item.getPrice());
+        dispensingItem.setTotalPrice(item.getPrice() * item.getQuantity());
+        dispensingItem.setDosageInstructions(item.getDosage() + " " + item.getFrequency() + " for " + item.getDuration());
+        dispensingItem.setFormulation(item.getRoute());
+        return dispensingItem;
+    }
+
+
     private void calculateCoverageAndResponsibility(MedicationDispensing dispensingRecord, Payer payer, Insured insured) {
 
         Double totalAmount = dispensingRecord.getTotalAmount();
@@ -523,7 +710,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
 
         // Example: 80% coverage by insurance, 20% patient responsibility
-        double coveragePercentage = 0.8; // This should be determined based on the payer and insured's policy
+        double coveragePercentage = 0.8;
         double insuranceCoverage = totalAmount * coveragePercentage;
         double patientResponsibility = totalAmount - insuranceCoverage;
 
@@ -532,10 +719,61 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     private Insured findInsuredPerson(DispensingRecordRequest request) {
-        Insured insured = insuredRepository.findByPhone(request.getPhone());
-        if (insured == null) {
-            throw new ResourceNotFoundException("Insured Person", "phone", request.getPhone());
+        List<Insured> insuredList = new ArrayList<>();
+
+        if (StringUtils.hasText(request.getEmployeeId())) {
+            insuredList.addAll(insuredRepository.findByIdNumber(request.getEmployeeId()));
         }
+
+        if (insuredList.isEmpty() && StringUtils.hasText(request.getPhone())) {
+            insuredList.addAll(insuredRepository.findByPhone(request.getPhone()));
+        }
+
+        if (insuredList.isEmpty()) {
+            throw new ResourceNotFoundException("Insured Person", "identifiers",
+                    "Employee ID: " + request.getEmployeeId() +
+                            ", Phone: " + request.getPhone());
+        }
+
+        if (insuredList.size() > 1) {
+            logger.warn("Multiple insured persons found for the given identifiers. Count: {}", insuredList.size());
+
+            // Filter by payer UUID
+            List<Insured> filteredByPayer = insuredList.stream()
+                    .filter(insured -> insured.getPayerUuid().equals(request.getPayerUuid()))
+                    .collect(Collectors.toList());
+
+            if (filteredByPayer.size() == 1) {
+                logger.info("Single insured person found after filtering by payer UUID.");
+                return filteredByPayer.get(0);
+            } else if (filteredByPayer.size() > 1) {
+                logger.warn("Multiple insured persons found even after filtering by payer UUID. Count: {}", filteredByPayer.size());
+
+                // Additional filtering logic using employeeId (idNumber)
+                if (StringUtils.hasText(request.getEmployeeId())) {
+                    List<Insured> filteredByEmployeeId = filteredByPayer.stream()
+                            .filter(insured -> insured.getIdNumber().equals(request.getEmployeeId()))
+                            .collect(Collectors.toList());
+
+                    if (filteredByEmployeeId.size() == 1) {
+                        logger.info("Single insured person found after filtering by employee ID.");
+                        return filteredByEmployeeId.get(0);
+                    }
+                }
+
+                // If still multiple results, throw an exception
+                throw new BadRequestException("Multiple insured persons found with the given identifiers and payer. Please provide more specific information.");
+            } else {
+                throw new BadRequestException("No insured person found for the given payer UUID.");
+            }
+        }
+
+        Insured insured = insuredList.get(0);
+
+        if (!insured.getPayerUuid().equals(request.getPayerUuid())) {
+            throw new BadRequestException("Insured person does not belong to the specified payer");
+        }
+
         return insured;
     }
 
@@ -552,11 +790,9 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         record.setInvoiceNumber(generateInvoiceNumber());
         record.setRecordedAt(LocalDate.now());
 
-        // Calculate total amount
         double totalAmount = calculateTotalAmount(request.getMedicationItems());
         record.setTotalAmount(totalAmount);
 
-        // Calculate insurance coverage and patient responsibility
         calculateCoverageAndResponsibility(record, payer, insured);
 
         return record;
@@ -600,14 +836,12 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             insured = insuredRepository.findByEmployeeId(request.getEmployeeId());
         }
 
-        // If not found, try national ID
         if (insured == null && request.getNationalId() != null) {
             insured = insuredRepository.findByNationalId(request.getNationalId());
         }
 
-        // If not found, try phone number
         if (insured == null && request.getPhone() != null) {
-            insured = insuredRepository.findByPhone(request.getPhone());
+            insured = (Insured) insuredRepository.findByPhone(request.getPhone());
         }
 
         return insured;
@@ -645,7 +879,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensing.setPharmacyTransactionId(request.getPharmacyTransactionId());
         dispensing.setTotalAmount(calculateTotalAmount(request.getMedicationItems()));
         dispensing.setClaimStatus("DRAFT");
-        // Set other fields as needed
+
         return dispensing;
     }
 
@@ -657,7 +891,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             Object item = items.get(i);
 
             MedicationDispensingItem dispensingItem = new MedicationDispensingItem();
-            dispensingItem.setItemUuid(UUID.randomUUID().toString()); // Set a unique UUID for each item
+            dispensingItem.setItemUuid(UUID.randomUUID().toString());
             dispensingItem.setDispensing(dispensing);
             dispensingItem.setMedicationCode(service.getServiceCode());
             dispensingItem.setMedicationName(service.getServiceName());
@@ -671,12 +905,11 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             } else if (item instanceof DispensingRecordRequest.DispensingItemRequest) {
                 DispensingRecordRequest.DispensingItemRequest dispensingItemRequest = (DispensingRecordRequest.DispensingItemRequest) item;
                 dispensingItem.setQuantity(dispensingItemRequest.getQuantity());
-                // Set other fields if available in DispensingItemRequest
+
             } else {
                 throw new IllegalArgumentException("Unsupported item type");
             }
 
-            // Ensure quantity is not null
             if (dispensingItem.getQuantity() == null) {
                 throw new IllegalArgumentException("Quantity cannot be null for medication item: " + dispensingItem.getMedicationName());
             }
@@ -735,6 +968,15 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dto.setInsuranceCoverage(dispensing.getInsuranceCoverage());
         dto.setPayerUuid(dispensing.getPayerUuid());
 
+        Payer payer = payerRepository.findByPayerUuid(dispensing.getPayerUuid());
+
+        if (payer == null){
+            throw new ResourceNotFoundException("Payer", "uuid", dispensing.getPayerUuid());
+
+        }
+
+        dto.setPayerName(payer.getPayerName());
+
         List<MedicationDispensingItem> items = dispensingItemRepository.findByDispensing(dispensing);
         dto.setMedicationItems(items.stream().map(this::convertToItemDTO).collect(Collectors.toList()));
 
@@ -769,7 +1011,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
 
         if (insured == null) {
-            insured = insuredRepository.findByPhone(patientId);
+            insured = (Insured) insuredRepository.findByPhone(patientId);
         }
 
         return insured;
@@ -938,7 +1180,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
 
         if (insured == null && request.getPhone() != null && !request.getPhone().isEmpty()) {
-            insured = insuredRepository.findByPhone(request.getPhone());
+            insured = (Insured) insuredRepository.findByPhone(request.getPhone());
         }
 
         if (insured == null) {
@@ -1067,7 +1309,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     @Override
-    public ResponseEntity<?> reconcilePayment(String claimUuid) {
+    @Transactional
+    public ResponseEntity<ReconciliationResponse> reconcilePayment(String claimUuid) {
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 
@@ -1076,15 +1319,35 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
 
         // Perform reconciliation logic here
-        // This could involve updating the claim status, creating a reconciliation record, etc.
-
         claim.setStatus(ClaimStatus.RECONCILED);
+
+        // Fetch associated dispensing records
+        List<MedicationDispensing> dispensingRecords = dispensingRepository.findByClaimUuid(claimUuid);
+
+        // Create batch record
+        BatchRecord batchRecord = createBatchRecord(claim.getPayer(), dispensingRecords, claim);
+        batchRecord.setStatus("RECONCILED");
+        batchRecord.setClaim(claim);
+        claim.setBatchRecord(batchRecord);
+
+        // Save both entities
         claimRepository.save(claim);
+        BatchRecord savedBatchRecord = batchRecordRepository.save(batchRecord);
 
         createClaimLog(claim, SecurityUtils.getAuthenticatedUser(), ClaimStatus.PAID, ClaimStatus.RECONCILED,
                 "Claim reconciled by pharmacy");
 
-        return ResponseEntity.ok(new MessageResponse("Claim reconciled successfully"));
+        ReconciliationResponse response = new ReconciliationResponse();
+        response.setBatchCode(savedBatchRecord.getBatchCode());
+        response.setPayerName(savedBatchRecord.getPayerName());
+        response.setRequestedOn(savedBatchRecord.getRequestedOn());
+        response.setClaimDatingFrom(savedBatchRecord.getClaimDatingFrom());
+        response.setClaimDatingTo(savedBatchRecord.getClaimDatingTo());
+        response.setTotalAmount(savedBatchRecord.getTotalAmount());
+        response.setStatus(savedBatchRecord.getStatus());
+        response.setMessage("Claim reconciled successfully");
+
+        return ResponseEntity.ok(response);
     }
 
     private void createClaimLog(Claim claim, UserDetailsImpl user, ClaimStatus previousStatus, ClaimStatus newStatus, String comment) {

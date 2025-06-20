@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Setter
@@ -18,6 +17,7 @@ public class DispensingRecordRequest {
     private String providerUuid;
     private String payerUuid;
     private String phone;
+    private String employeeId;
     private LocalDate dispensingDate;
     private String prescriptionNumber;
     private String pharmacyTransactionId;
@@ -31,7 +31,6 @@ public class DispensingRecordRequest {
         private String serviceUuid;
         private Double quantity;
         private Double totalPrice;
-        // Add other fields as needed
     }
 
 }

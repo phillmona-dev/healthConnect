@@ -7,6 +7,7 @@ import java.util.List;
 
 import com.medco.HealthConnectProvider.services.service.ServicelistService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.service.ServicelistRequest;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.service.ServicelistResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -64,13 +65,14 @@ public class ServiceListController {
 
     @GetMapping("/search/{providerUuid}")
     @Operation(summary = "Search services", description = "Searches for healthcare services for a specific provider with pagination")
-    public List<ServicelistResponse> searchServices(
+    public PagedResponse<ServicelistResponse> searchServices(
             @PathVariable String providerUuid,
             @RequestParam(name="search", required=false) String searchKey,
             @RequestParam(value="page", defaultValue = "1") int page,
             @RequestParam(value="limit", defaultValue = "25") int limit){
         return serviceService.searchServices(providerUuid, searchKey, page, limit);
     }
+
 
     @GetMapping(path="/export/{providerUuid}")
     @Operation(summary = "Export service list", description = "Exports the list of services for a specific provider as an Excel file")

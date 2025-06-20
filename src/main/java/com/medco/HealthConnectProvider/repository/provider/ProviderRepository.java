@@ -91,4 +91,6 @@ public interface ProviderRepository extends JpaRepository<Provider, Long>, JpaSp
             @Param("tinNumber") String tinNumber,
             @Param("level") String level,
             Pageable pageable);
+
+    Optional<Object> findByProviderName(String providerName);
 }

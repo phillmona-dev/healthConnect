@@ -15,7 +15,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class EligibilityResponse {
-    // Insured person details
+
     private String insuredUuid;
     private String employeeId;
     private String firstName;
@@ -24,29 +24,24 @@ public class EligibilityResponse {
     private String insuranceId;
     private String nationalId;
     private String phoneNumber;
+    private String idNumber;
     private Status status;
     private Date birthDate;
-    
-    // Payer details
+
     private String payerUuid;
     private String payerName;
-    
-    // Policy details
+
     private String policyNumber;
     private LocalDate policyStartDate;
     private LocalDate policyEndDate;
     private boolean isPolicyActive;
-    
-    // Group memberships
+
     private List<GroupMembershipResponse> groups;
-    
-    // Dependents
+
     private List<DependentEligibilityResponse> dependents;
-    
-    // Specific service eligibility (if requested)
+
     private ServiceEligibilityResponse requestedService;
-    
-    // Overall eligibility status
+
     private boolean isEligible;
     private String ineligibilityReason;
 

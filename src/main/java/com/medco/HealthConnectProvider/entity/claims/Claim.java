@@ -140,6 +140,9 @@ public class Claim extends Audit {
     @Column
     private Instant reviewedAt;
 
+    @OneToOne(mappedBy = "claim")
+    private BatchRecord batchRecord;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contract_id", nullable = false)
     private ContractHeader contract;

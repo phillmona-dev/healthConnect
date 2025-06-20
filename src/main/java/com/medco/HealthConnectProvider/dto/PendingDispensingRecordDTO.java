@@ -17,6 +17,8 @@ public class PendingDispensingRecordDTO {
     private String invoiceNumber;
     private String dispensingUuid;
     private String payerUuid;
+
+    private String payerName;
     private String patientName;
     private String insuranceId;
     private LocalDate dispensingDate;

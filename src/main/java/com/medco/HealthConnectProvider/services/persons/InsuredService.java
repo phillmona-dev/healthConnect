@@ -73,5 +73,6 @@ public interface InsuredService {
 
     InsuredResponse updateInsuredStatus(String insuredUuid, Status newStatus);
 
-    List<InsuredSearchResponse> searchInsuredPersons(String phone, String employeeId, String insuranceId, String nationalId);
+    List<InsuredSearchResponse> searchInsuredPersons(String identifier);
+
 }

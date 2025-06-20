@@ -25,32 +25,26 @@ public class MedicationDispensing {
 
     private String invoiceNumber;
 
-    @Column(unique = true, nullable = false)
+    private String batchCode;
+
     private String dispensingUuid;
 
-    @Column(nullable = false)
     private String providerUuid;
 
-    @Column(nullable = false)
     private String payerUuid;
 
-    @Column(nullable = false)
     private String insuredUuid;
 
-    @Column(nullable = false)
     private String prescriptionNumber;
 
-    @Column(nullable = false, unique = true)
     private String pharmacyTransactionId;
 
-    @Column(nullable = false)
     private LocalDate dispensingDate;
 
     private String prescribingPhysicianName;
 
     private String prescribingPhysicianId;
 
-    @Column(nullable = false)
     private LocalDate recordedAt;
 
     private String branchName;
@@ -59,10 +53,8 @@ public class MedicationDispensing {
 
     private String claimUuid;
 
-    @Column(nullable = false)
     private Double totalAmount;
 
-    @Column(nullable = false)
     private Double patientResponsibility;
 
     private Double insuranceCoverage;

@@ -87,26 +87,26 @@ public class EligibilityServiceImpl implements EligibilityService {
     @Autowired
     private ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository;
 
-    @Override
-    public ResponseEntity<?> checkEligibility(String providerUuid, EligibilityCheckRequest request) {
-        Provider provider = providerRepository.findByProviderUuid(providerUuid)
-                .orElseThrow(() -> new ResourceNotFoundException("Provider", "providerUuid", providerUuid));
-
-        List<InsuredSearchResponse> insuredList = insuredService.searchInsuredPersons(
-                request.getPhoneNumber(), request.getEmployeeId(), request.getInsuranceId(), request.getNationalId());
-
-        if (insuredList.isEmpty()) {
-            throw new ResourceNotFoundException("Insured Person", "provided identifiers", "Not found");
-        }
-
-        if (insuredList.size() > 1) {
-            // Return the list of insured persons for selection
-            return ResponseEntity.ok(new MultipleInsuredResponse(insuredList));
-        }
-
-        // If only one insured person is found, proceed with eligibility check
-        return checkEligibilityForInsured(provider, insuredList.get(0), request.getServiceUuid());
-    }
+//    @Override
+//    public ResponseEntity<?> checkEligibility(String providerUuid, EligibilityCheckRequest request) {
+//        Provider provider = providerRepository.findByProviderUuid(providerUuid)
+//                .orElseThrow(() -> new ResourceNotFoundException("Provider", "providerUuid", providerUuid));
+//
+//        List<InsuredSearchResponse> insuredList = insuredService.searchInsuredPersons(
+//                request.getPhoneNumber(), request.getEmployeeId(), request.getInsuranceId(), request.getNationalId());
+//
+//        if (insuredList.isEmpty()) {
+//            throw new ResourceNotFoundException("Insured Person", "provided identifiers", "Not found");
+//        }
+//
+//        if (insuredList.size() > 1) {
+//            // Return the list of insured persons for selection
+//            return ResponseEntity.ok(new MultipleInsuredResponse(insuredList));
+//        }
+//
+//        // If only one insured person is found, proceed with eligibility check
+//        return checkEligibilityForInsured(provider, insuredList.get(0), request.getServiceUuid());
+//    }
 
     @Override
     public ResponseEntity<EligibilityResponse> checkEligibilityForInsured(String providerUuid, InsuredSearchResponse insured, String serviceUuid) {
@@ -196,6 +196,62 @@ public class EligibilityServiceImpl implements EligibilityService {
         return ResponseEntity.ok(response);
     }
 
+    @Override
+    public ResponseEntity<?> checkEligibility(String identifier) {
+
+        List<InsuredSearchResponse> insuredList = insuredService.searchInsuredPersons(identifier);
+
+        if (insuredList.isEmpty()) {
+
+            throw new ResourceNotFoundException("Insured Person", "identifier", identifier);
+
+        }
+
+        if (insuredList.size() > 1) {
+            return ResponseEntity.ok(new MultipleInsuredResponse(insuredList));
+        }
+
+        return checkEligibilityForInsured(insuredList.get(0));
+    }
+
+
+    private ResponseEntity<EligibilityResponse> checkEligibilityForInsured(InsuredSearchResponse insured) {
+        EligibilityResponse response = new EligibilityResponse();
+
+        BeanUtils.copyProperties(insured, response);
+        response.setPhoneNumber(insured.getPhone());
+        response.setStatus(insured.getStatus() != null ? Status.valueOf(insured.getStatus().toString()) : null);
+
+        boolean isPolicyActive = isPolicyActive(insured);
+        response.setPolicyActive(isPolicyActive);
+        response.setEligible(isPolicyActive && insured.getStatus() == Status.ACTIVE);
+
+        if (!isPolicyActive) {
+            response.setIneligibilityReason("Policy is not active or has expired");
+        } else if (insured.getStatus() != Status.ACTIVE) {
+            response.setIneligibilityReason("Insured person's status is not active");
+        }
+
+        // Set groups if available
+        // You might need to implement a method to get the groups for an insured person
+        // response.setGroups(getInsuredGroups(insured));
+
+        if (insured.getDependants() != null) {
+            response.setDependents(insured.getDependants().stream()
+                    .map(this::mapDependantResponseToDependentEligibilityResponse)
+                    .collect(Collectors.toList()));
+        }
+
+        return ResponseEntity.ok(response);
+    }
+
+
+    private boolean isPolicyActive(InsuredSearchResponse insured) {
+        // Implement the logic to check if the policy is active
+        // This is a placeholder implementation; replace with your actual logic
+        return insured.getStatus() == Status.ACTIVE;
+    }
+
     private ResponseEntity<EligibilityResponse> checkEligibilityForInsured(Provider provider, InsuredSearchResponse insuredResponse, String serviceUuid) {
         Insured insured = insuredRepository.findByInsuredUuid(insuredResponse.getInsuredUuid());
         if (insured == null) {
@@ -282,6 +338,8 @@ public class EligibilityServiceImpl implements EligibilityService {
     private DependentEligibilityResponse mapDependantResponseToDependentEligibilityResponse(DependantResponse dependantResponse) {
         DependentEligibilityResponse dependentEligibilityResponse = new DependentEligibilityResponse();
         BeanUtils.copyProperties(dependantResponse, dependentEligibilityResponse);
+        dependentEligibilityResponse.setEligible(dependantResponse.getStatus() == Status.ACTIVE);
+        dependentEligibilityResponse.setBirthDate(dependantResponse.getBirthDate());
         dependentEligibilityResponse.setRelationship(dependantResponse.getRelationship());
         return dependentEligibilityResponse;
     }
@@ -290,7 +348,6 @@ public class EligibilityServiceImpl implements EligibilityService {
         Insured insured = null;
         String foundBy = "";
 
-        // Try to find by phone number first
         if (request.getPhoneNumber() != null && !request.getPhoneNumber().isEmpty()) {
             insured = insuredRepository.findByPhoneAndPayer(request.getPhoneNumber(), payer.getPayerUuid());
             if (insured != null) {
@@ -298,7 +355,6 @@ public class EligibilityServiceImpl implements EligibilityService {
             }
         }
 
-        // If not found, try by employee ID
         if (insured == null && request.getEmployeeId() != null && !request.getEmployeeId().isEmpty()) {
             insured = insuredRepository.findByEmployeeIdAndPayer(request.getEmployeeId(), payer.getPayerUuid());
             if (insured != null) {
@@ -306,7 +362,6 @@ public class EligibilityServiceImpl implements EligibilityService {
             }
         }
 
-        // If not found, try by insurance ID
         if (insured == null && request.getInsuranceId() != null && !request.getInsuranceId().isEmpty()) {
             insured = insuredRepository.findByInsuranceIdAndPayer(request.getInsuranceId(), payer.getPayerUuid());
             if (insured != null) {
@@ -314,7 +369,6 @@ public class EligibilityServiceImpl implements EligibilityService {
             }
         }
 
-        // If not found, try by national ID
         if (insured == null && request.getNationalId() != null && !request.getNationalId().isEmpty()) {
             insured = insuredRepository.findByNationalIdAndPayer(request.getNationalId(), payer.getPayerUuid());
             if (insured != null) {

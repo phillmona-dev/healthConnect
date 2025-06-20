@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.services.service;
 
 
 import com.medco.HealthConnectProvider.ui.request.auth.password.service.ServicelistRequest;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.service.ServicelistResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -19,7 +20,7 @@ public interface ServicelistService {
 
     ServicelistResponse getService(String serviceUuid);
 
-    List<ServicelistResponse> searchServices(String providerUuid, String searchKey, int page, int limit);
+    PagedResponse<ServicelistResponse> searchServices(String providerUuid, String searchKey, int page, int limit);
 
     ResponseEntity<?> exportServiceList(HttpServletResponse response, String providerUuid);
 

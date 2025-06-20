@@ -24,8 +24,13 @@ public class InsuredRequest {
 
     double premium;
 
-    private String title;
+    @Size(max = 50)
+    private String employeeId;
 
+    @Size(max = 50)
+    private String nationalId;
+
+    private String title;
 
     @NotBlank(message = " firstName must be null ")
     @Size(min = 2, max = 25)

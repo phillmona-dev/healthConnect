@@ -29,7 +29,6 @@ public class EligibilityCheckRequest {
                 UUID.fromString(serviceUuid);
                 this.serviceUuid = serviceUuid;
             } catch (IllegalArgumentException e) {
-                // If it's not a valid UUID, set it to null
                 this.serviceUuid = null;
             }
         } else {

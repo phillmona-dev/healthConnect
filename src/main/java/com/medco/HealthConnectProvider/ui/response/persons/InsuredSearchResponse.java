@@ -23,6 +23,7 @@ public class InsuredSearchResponse {
     private String employeeId;
     private String insuranceId;
     private String nationalId;
+    private String idNumber;
     private String payerName;
     private Status status;
     private Date birthDate;

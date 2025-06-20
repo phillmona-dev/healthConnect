@@ -257,13 +257,11 @@ public class InsuredController {
     }
 
     @GetMapping("/search")
-    @Operation(summary = "Search insured persons", description = "Searches for insured persons based on phone number, employeeId, insuranceId, or nationalId")
+    @Operation(summary = "Search insured persons",
+            description = "Searches for insured persons based on a single identifier (phone number, employeeId, insuranceId, or nationalId)")
     public ResponseEntity<List<InsuredSearchResponse>> searchInsuredPersons(
-            @RequestParam(required = false) String phone,
-            @RequestParam(required = false) String employeeId,
-            @RequestParam(required = false) String insuranceId,
-            @RequestParam(required = false) String nationalId) {
-        List<InsuredSearchResponse> results = insuredService.searchInsuredPersons(phone, employeeId, insuranceId, nationalId);
+            @RequestParam String identifier) {
+        List<InsuredSearchResponse> results = insuredService.searchInsuredPersons(identifier);
         return ResponseEntity.ok(results);
     }
 

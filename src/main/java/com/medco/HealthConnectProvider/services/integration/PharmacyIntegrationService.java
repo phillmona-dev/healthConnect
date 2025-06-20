@@ -2,9 +2,12 @@ package com.medco.HealthConnectProvider.services.integration;
 
 import com.medco.HealthConnectProvider.dto.PendingDispensingRecordDTO;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
+import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.MedicationDispensingRequest;
+import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
 
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 
@@ -12,13 +15,13 @@ import java.time.LocalDate;
 
 public interface PharmacyIntegrationService {
 
-    /**
-     * Records medications dispensed to a patient from an external pharmacy system
-     *
-     * @param request The dispensing details including medications, patient info, etc.
-     * @return Response with dispensing record ID and status
-     */
-    ResponseEntity<DispensingResponse> recordMedicationDispensing(MedicationDispensingRequest request);
+//    /**
+//     * Records medications dispensed to a patient from an external pharmacy system
+//     *
+//     * @param request The dispensing details including medications, patient info, etc.
+//     * @return Response with dispensing record ID and status
+//     */
+//    ResponseEntity<DispensingResponse> recordMedicationDispensing(MedicationDispensingRequest request);
 
     /**
      * Creates a new claim from selected dispensing records
@@ -38,15 +41,17 @@ public interface PharmacyIntegrationService {
 
     ResponseEntity<?> createClaimFromAuthorizedRecords(String providerUuid, String[] dispensingUuids);
 
-    ResponseEntity<?> reconcilePayment(String claimUuid);
+    ResponseEntity<ReconciliationResponse> reconcilePayment(String claimUuid);
 
-    ResponseEntity<Page<PendingDispensingRecordDTO>> getDispensingRecords(String providerUuid, String phone, String status,
-                                                                          LocalDate startDate, LocalDate endDate,
-                                                                          String medicationName, String patientName, int page, int size, String sortBy, String sortDirection);
-
+    
     ResponseEntity<?> updateDispensingRecordsStatus(String providerUuid, String newStatus, String[] dispensingUuids);
 
 
     ResponseEntity<?> addDispensingRecord(DispensingRecordRequest request);
+
+    ResponseEntity<DispensingResponse> recordMedicationDispensing(@Valid KenemaPharmacyDispensingRequest request);
+
+    ResponseEntity<Page<PendingDispensingRecordDTO>> getDispensingRecords(String providerUuid, String search, String status,
+                                                                          LocalDate startDate, LocalDate endDate, String payerUuid, int page, int size, String sortBy, String sortDirection);
 
 }

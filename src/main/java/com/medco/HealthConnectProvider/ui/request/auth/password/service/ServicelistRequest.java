@@ -21,7 +21,7 @@ public class ServicelistRequest {
 
     private String subCategory;
 
-    private String category;
+    private String serviceCategory;
 
     @NotNull(message = "Price is required")
     private Double price;

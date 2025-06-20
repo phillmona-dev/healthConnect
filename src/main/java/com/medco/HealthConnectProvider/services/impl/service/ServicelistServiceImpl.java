@@ -18,6 +18,7 @@ import com.medco.HealthConnectProvider.repository.service.ServicelistRepository;
 import com.medco.HealthConnectProvider.services.service.ServicelistService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.service.ServicelistRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.service.ServicelistResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.paginationUtils.Pagination;
@@ -68,15 +69,13 @@ public class ServicelistServiceImpl implements ServicelistService {
         var service = new Servicelist();
         BeanUtils.copyProperties(serviceRequest, service);
 
-        // Explicitly map fields from request to entity
         service.setServiceCode(serviceRequest.getServiceCode());
         service.setServiceName(serviceRequest.getServiceName());
-        service.setServiceCategory(serviceRequest.getCategory());
+        service.setServiceCategory(serviceRequest.getServiceCategory());
         service.setServiceSubCategory(serviceRequest.getSubCategory());
         service.setPrice(serviceRequest.getPrice());
         service.setServiceDescription(serviceRequest.getServiceDescription());
 
-        // Set status enum from string
         if (serviceRequest.getStatus() != null && !serviceRequest.getStatus().isEmpty()) {
             try {
                 service.setStatus(Status.valueOf(serviceRequest.getStatus().toUpperCase()));
@@ -93,7 +92,6 @@ public class ServicelistServiceImpl implements ServicelistService {
 
         var response = new ServicelistResponse();
 
-        // Explicitly set all fields in response
         response.setServiceUuid(serviceEntity.getServiceUuid());
         response.setServiceCode(serviceEntity.getServiceCode());
         response.setServiceName(serviceEntity.getServiceName());
@@ -172,13 +170,13 @@ public class ServicelistServiceImpl implements ServicelistService {
         return serviceResponse;
     }
 
+
     @Override
-    public List<ServicelistResponse> searchServices(String providerUuid, String searchKey, int page, int limit) {
+    public PagedResponse<ServicelistResponse> searchServices(String providerUuid, String searchKey, int page, int limit) {
         Pageable pageable = Pagination.paginateResource(page, limit, "id", "desc");
         Page<Servicelist> serviceLists = searchKey != null ? getServicesBySearch(searchKey, providerUuid, pageable) : getAllServices(providerUuid, pageable);
-        int totalPages = serviceLists.getTotalPages();
 
-        return serviceLists.getContent().stream()
+        List<ServicelistResponse> servicelistResponses = serviceLists.getContent().stream()
                 .map(servicelist -> {
                     var servicelistResponse = new ServicelistResponse();
                     BeanUtils.copyProperties(servicelist, servicelistResponse);
@@ -193,9 +191,17 @@ public class ServicelistServiceImpl implements ServicelistService {
                         servicelist.setUpdatedAt(servicelistResponse.getUpdatedAt().atZone(ZoneId.systemDefault()).toInstant());
                     }
 
-                    servicelistResponse.setTotalPages(totalPages);
                     return servicelistResponse;
                 }).collect(Collectors.toList());
+
+        return new PagedResponse<>(
+                servicelistResponses,
+                serviceLists.getNumber(),
+                serviceLists.getSize(),
+                serviceLists.getTotalElements(),
+                serviceLists.getTotalPages(),
+                serviceLists.isLast()
+        );
     }
 
     private Page<Servicelist> getAllServices(String providerUuid, Pageable pageable) {
@@ -292,6 +298,7 @@ public class ServicelistServiceImpl implements ServicelistService {
         }
 
         return ResponseEntity.ok(new MessageResponse("Successfully Exported!"));
+
     }
 
     @Override

@@ -71,6 +71,7 @@ public class ContractController {
                                             @RequestParam String status,
                                             @RequestParam String remark) {
         return contractService.payerAgreementResponse(payerProviderContractUuid,status,remark);
+
     }
 
     @DeleteMapping(path="/{contractUuid}")
@@ -158,8 +159,8 @@ public class ContractController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDateTo,
             @RequestParam(required = false) String preparedBy,
             @RequestParam(required = false) Boolean isDeleted,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size,
             @RequestParam(defaultValue = "startDate") String[] sort) {
 
         ContractFilterRequest filter = ContractFilterRequest.builder()
@@ -201,4 +202,5 @@ public class ContractController {
     private Sort.Direction getSortDirection(String direction) {
         return direction.equals("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
     }
+
 }

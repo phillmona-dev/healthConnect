@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -33,7 +32,6 @@ import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.*;
 import com.medco.HealthConnectProvider.utils.enums.Relationship;
 import com.medco.HealthConnectProvider.utils.enums.Status;
-import jakarta.validation.constraints.Size;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.poi.ss.usermodel.*;
@@ -94,15 +92,12 @@ public class InsuredServiceImpl implements InsuredService {
                         "Error: Mobile Phone is already in use!");
             }
 
-            // Create and populate insured person
             Insured insured = new Insured();
             BeanUtils.copyProperties(insuredRequest, insured);
 
-            // Set status
             insured.setStatus(insuredRequest.getStatus() != null ?
                     insuredRequest.getStatus() : Status.PENDING);
 
-            // Set payer
             Payer payer = payerRepository.findByPayerUuid(insuredRequest.getPayerUuid());
             if (payer == null) throw new BadRequestException("Institution not found");
             insured.setPayer(payer);
@@ -141,6 +136,9 @@ public class InsuredServiceImpl implements InsuredService {
 
             InsuredResponse response = new InsuredResponse();
             BeanUtils.copyProperties(savedInsured, response);
+            response.setInsuranceId(savedInsured.getInsuranceId());
+            response.setEmployeeId(savedInsured.getEmployeeId());
+            response.setNationalId(savedInsured.getNationalId());
             response.setProfilePicturePath(savedInsured.getProfilePicturePath());
 
             // Add base64 encoded photo to response if available
@@ -525,62 +523,62 @@ public class InsuredServiceImpl implements InsuredService {
     }
 
     @Override
-    public List<InsuredSearchResponse> searchInsuredPersons(String phone, String employeeId, String insuranceId, String nationalId) {
+    public List<InsuredSearchResponse> searchInsuredPersons(String identifier) {
+
+        log.info("Searching for insured person with identifier: {}", identifier);
+
         List<Insured> insuredList = new ArrayList<>();
 
-        // Prioritize exact matches
-        if (StringUtils.hasText(phone)) {
-            Insured insured = insuredRepository.findByPhone(phone);
-            if (insured != null) {
-                insuredList.add(insured);
-                return mapToInsuredSearchResponses(insuredList);
-            }
+        Insured insured = (Insured) insuredRepository.findByPhone(identifier);
+        if (insured != null) {
+            insuredList.add(insured);
+            return mapToInsuredSearchResponses(insuredList);
         }
 
-        if (StringUtils.hasText(employeeId)) {
-            Insured insured = insuredRepository.findByEmployeeId(employeeId);
-            if (insured != null) {
-                insuredList.add(insured);
-                return mapToInsuredSearchResponses(insuredList);
-            }
+         insured = (Insured) insuredRepository.findByIdNumber(identifier);
+        if (insured != null) {
+            insuredList.add(insured);
+            return mapToInsuredSearchResponses(insuredList);
         }
 
-        if (StringUtils.hasText(insuranceId)) {
-            Insured insured = insuredRepository.findByInsuranceId(insuranceId);
-            if (insured != null) {
-                insuredList.add(insured);
-                return mapToInsuredSearchResponses(insuredList);
-            }
+        insured = insuredRepository.findByEmployeeId(identifier);
+        if (insured != null) {
+            insuredList.add(insured);
+            return mapToInsuredSearchResponses(insuredList);
         }
 
-        if (StringUtils.hasText(nationalId)) {
-            Insured insured = insuredRepository.findByNationalId(nationalId);
-            if (insured != null) {
-                insuredList.add(insured);
-                return mapToInsuredSearchResponses(insuredList);
-            }
+        insured = insuredRepository.findByInsuranceId(identifier);
+        if (insured != null) {
+            insuredList.add(insured);
+            return mapToInsuredSearchResponses(insuredList);
         }
 
-        // If no exact matches found, perform a broader search
-        insuredList = insuredRepository.findByPhoneOrEmployeeIdOrInsuranceIdOrNationalId(phone, employeeId, insuranceId, nationalId);
+        insured = insuredRepository.findByNationalId(identifier);
+        if (insured != null) {
+            insuredList.add(insured);
+            return mapToInsuredSearchResponses(insuredList);
+        }
+
+        insuredList = insuredRepository.findByPhoneOrEmployeeIdOrInsuranceIdOrNationalId(
+                identifier, identifier, identifier, identifier);
 
         return mapToInsuredSearchResponses(insuredList);
     }
 
     private List<InsuredSearchResponse> mapToInsuredSearchResponses(List<Insured> insuredList) {
         return insuredList.stream().map(insured -> {
+
             InsuredSearchResponse response = new InsuredSearchResponse();
             BeanUtils.copyProperties(insured, response);
+            response.setIdNumber(insured.getIdNumber());
 
             Payer payer = payerRepository.findByPayerUuid(insured.getPayerUuid());
             if (payer != null) {
                 response.setPayerName(payer.getPayerName());
             }
 
-            // Set the isInsured field based on the insured person's status and policy dates
             response.setInsured(isPersonCurrentlyInsured(insured));
 
-            // Set the profile picture
             String profilePicturePath = insured.getProfilePicturePath();
             log.info("Profile picture path for insured {}: {}", insured.getInsuredUuid(), profilePicturePath);
             String profilePictureBase64 = getProfilePictureBase64(profilePicturePath);
@@ -588,7 +586,6 @@ public class InsuredServiceImpl implements InsuredService {
             log.info("Profile picture base64 for insured {}: {}", insured.getInsuredUuid(),
                     profilePictureBase64 != null ? "Set" : "Null");
 
-            // Add dependants if they exist
             if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
                 List<DependantResponse> dependantResponses = insured.getDependants().stream()
                         .map(this::mapToDependantResponse)
@@ -609,7 +606,7 @@ public class InsuredServiceImpl implements InsuredService {
         }
 
         try {
-            // Prepend the base directory to the filename
+
             Path fullPath = Paths.get(payerLogosDirectory, profilePicturePath);
             log.info("Attempting to read profile picture from: {}", fullPath);
 
@@ -621,10 +618,9 @@ public class InsuredServiceImpl implements InsuredService {
             byte[] fileContent = Files.readAllBytes(fullPath);
             String base64 = Base64.getEncoder().encodeToString(fileContent);
 
-            // Determine the content type
             String contentType = Files.probeContentType(fullPath);
             if (contentType == null) {
-                contentType = "application/octet-stream"; // Default to binary if type can't be determined
+                contentType = "application/octet-stream";
             }
 
             return "data:" + contentType + ";base64," + base64;

@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.ui.response.persons;
 
 import com.medco.HealthConnectProvider.utils.enums.Status;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.util.Date;
@@ -29,9 +30,11 @@ public class InsuredResponse {
 
     private String Gender;
 
+    private String employeeId;
+
+    private String nationalId;
 
     private Date birthDate;
-
 
     private String phone;
 
