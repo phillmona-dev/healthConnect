@@ -4,7 +4,6 @@ import com.medco.HealthConnectProvider.dto.BatchRecordDTO;
 import com.medco.HealthConnectProvider.entity.claims.BatchRecord;
 import com.medco.HealthConnectProvider.repository.claims.BatchRecordRepository;
 import com.medco.HealthConnectProvider.services.claims.BatchRecordService;
-import com.medco.HealthConnectProvider.ui.request.claims.BatchRecordSearchCriteria;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;

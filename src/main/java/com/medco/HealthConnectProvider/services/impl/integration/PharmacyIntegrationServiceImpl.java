@@ -6,6 +6,7 @@ import com.medco.HealthConnectProvider.entity.claims.BatchRecord;
 import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.entity.claims.ClaimItem;
 import com.medco.HealthConnectProvider.entity.claims.ClaimLogs;
+import com.medco.HealthConnectProvider.entity.drug.Drug;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensing;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensingItem;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
@@ -18,6 +19,7 @@ import com.medco.HealthConnectProvider.repository.claims.BatchRecordRepository;
 import com.medco.HealthConnectProvider.repository.claims.ClaimItemRepository;
 import com.medco.HealthConnectProvider.repository.claims.ClaimLogsRepository;
 import com.medco.HealthConnectProvider.repository.claims.ClaimRepository;
+import com.medco.HealthConnectProvider.repository.drug.DrugRepository;
 import com.medco.HealthConnectProvider.repository.integration.MedicationDispensingItemRepository;
 import com.medco.HealthConnectProvider.repository.integration.MedicationDispensingRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
@@ -27,6 +29,7 @@ import com.medco.HealthConnectProvider.repository.service.ServicelistRepository;
 import com.medco.HealthConnectProvider.services.eligibility.EligibilityService;
 import com.medco.HealthConnectProvider.services.integration.PharmacyIntegrationService;
 import com.medco.HealthConnectProvider.services.persons.InsuredService;
+import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.eligibility.EligibilityCheckRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
@@ -39,6 +42,7 @@ import com.medco.HealthConnectProvider.ui.response.integration.DispensingRecordR
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredSearchResponse;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
+import com.medco.HealthConnectProvider.utils.enums.ItemType;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import jakarta.persistence.criteria.Join;
@@ -116,13 +120,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Autowired
     private BatchRecordRepository batchRecordRepository;
 
-    private Insured findInsuredPersonByUuid(String insuredUuid) {
-        Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
-        if (insured == null) {
-            throw new ResourceNotFoundException("Insured", "insuredUuid", insuredUuid);
-        }
-        return insured;
-    }
+    @Autowired
+    private DrugRepository drugRepository;
 
     private Provider validateProvider(String providerUuid) {
         return providerRepository.findByProviderUuid(providerUuid)
@@ -137,171 +136,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return payer;
     }
 
-    private void validateUniqueTransaction(String pharmacyTransactionId) {
-        if (dispensingRepository.existsByPharmacyTransactionId(pharmacyTransactionId)) {
-            throw new BadRequestException("This transaction has already been recorded");
-        }
-    }
-
-    private EligibilityResponse checkEligibility(MedicationDispensingRequest request) {
-        EligibilityCheckRequest eligibilityRequest = createEligibilityRequest(request);
-
-        String identifier = getFirstNonNullIdentifier(request);
-
-        List<InsuredSearchResponse> insuredPersons = insuredService.searchInsuredPersons(identifier);
-
-        if (insuredPersons.isEmpty()) {
-            throw new ResourceNotFoundException("Insured Person", "provided identifiers", "Not found");
-        }
-
-        if (insuredPersons.size() > 1) {
-            throw new BadRequestException("Multiple insured persons found. Please provide more specific information.");
-        }
-
-        InsuredSearchResponse insured = insuredPersons.get(0);
-
-        if (!insured.isInsured()) {
-            throw new BadRequestException("The person is not currently insured.");
-        }
-
-        ResponseEntity<EligibilityResponse> eligibilityResponseEntity =
-                eligibilityService.checkEligibilityForInsured(request.getProviderUuid(), insured, eligibilityRequest.getServiceUuid());
-
-        EligibilityResponse eligibilityResponse = eligibilityResponseEntity.getBody();
-        if (eligibilityResponse == null) {
-            throw new BadRequestException("Failed to retrieve eligibility information");
-        }
-
-        if (!eligibilityResponse.isEligible()) {
-            throw new BadRequestException("Patient is not eligible for services: " + eligibilityResponse.getIneligibilityReason());
-        }
-
-        if (eligibilityResponse.getInsuredUuid() == null) {
-            eligibilityResponse.setInsuredUuid(insured.getInsuredUuid());
-        }
-
-        return eligibilityResponse;
-    }
-
-    private String getFirstNonNullIdentifier(MedicationDispensingRequest request) {
-        if (StringUtils.hasText(request.getPhone())) {
-            return request.getPhone();
-        }
-        if (StringUtils.hasText(request.getEmployeeId())) {
-            return request.getEmployeeId();
-        }
-        if (StringUtils.hasText(request.getInsuranceId())) {
-            return request.getInsuranceId();
-        }
-        if (StringUtils.hasText(request.getNationalId())) {
-            return request.getNationalId();
-        }
-        throw new IllegalArgumentException("At least one identifier (phone, employeeId, insuranceId, or nationalId) must be provided");
-    }
-
-    private EligibilityResponse processEligibilityResponse(ResponseEntity<EligibilityResponse> eligibilityResponseEntity) {
-        EligibilityResponse eligibilityResponse = eligibilityResponseEntity.getBody();
-        if (eligibilityResponse == null || !eligibilityResponse.isEligible()) {
-            throw new BadRequestException("Patient is not eligible for services: " +
-                    (eligibilityResponse != null ? eligibilityResponse.getIneligibilityReason() : "Unknown reason"));
-        }
-        return eligibilityResponse;
-    }
-
-    private InsuredSearchResponse selectInsuredPerson(List<InsuredSearchResponse> insuredPersons, String payerUuid) {
-        return insuredPersons.stream()
-                .filter(insured -> insured.getPayerUuid().equals(payerUuid))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private EligibilityCheckRequest createEligibilityRequest(MedicationDispensingRequest request) {
-        EligibilityCheckRequest eligibilityRequest = new EligibilityCheckRequest();
-        //eligibilityRequest.setPayerUuid(request.getPayerUuid());
-        eligibilityRequest.setEmployeeId(request.getEmployeeId());
-        eligibilityRequest.setInsuranceId(request.getInsuranceId());
-        eligibilityRequest.setNationalId(request.getNationalId());
-        eligibilityRequest.setPhoneNumber(request.getPhone());
-        return eligibilityRequest;
-    }
-
-    private MedicationDispensing createDispensingRecord(MedicationDispensingRequest request, Insured insured, EligibilityResponse eligibilityResponse) {
-        MedicationDispensing dispensing = new MedicationDispensing();
-
-        dispensing.setInvoiceNumber(generateInvoiceNumber());
-        dispensing.setDispensingUuid(UUID.randomUUID().toString());
-        dispensing.setProviderUuid(request.getProviderUuid());
-        dispensing.setPayerUuid(request.getPayerUuid());
-        dispensing.setInsuredUuid(insured.getInsuredUuid());
-        dispensing.setPrescriptionNumber(request.getPrescriptionNumber());
-        dispensing.setPharmacyTransactionId(request.getPharmacyTransactionId());
-        dispensing.setDispensingDate(request.getDispensingDate());
-        dispensing.setPrescribingPhysicianName(request.getPrescribingPhysicianName());
-        dispensing.setPrescribingPhysicianId(request.getPrescribingPhysicianId());
-        dispensing.setBranchName(request.getBranchName());
-        dispensing.setPharmacistNotes(request.getPharmacistNotes());
-        dispensing.setRecordedAt(LocalDate.now());
-        dispensing.setClaimStatus("DRAFT");
-
-        calculateTotals(dispensing, request, eligibilityResponse);
-
-        return dispensing;
-
-    }
-
-    private void calculateTotals(MedicationDispensing dispensing, Object request, EligibilityResponse eligibilityResponse) {
-        double totalAmount;
-        List<?> medicationItems;
-
-        if (request instanceof MedicationDispensingRequest) {
-            medicationItems = ((MedicationDispensingRequest) request).getMedicationItems();
-            totalAmount = ((MedicationDispensingRequest) request).getMedicationItems().stream()
-                    .mapToDouble(item -> ((MedicationDispensingRequest.MedicationItem) item).getTotalPrice())
-                    .sum();
-        } else if (request instanceof DispensingRecordRequest) {
-            medicationItems = ((DispensingRecordRequest) request).getMedicationItems();
-            totalAmount = ((DispensingRecordRequest) request).getMedicationItems().stream()
-                    .mapToDouble(item -> ((DispensingRecordRequest.DispensingItemRequest) item).getTotalPrice())
-                    .sum();
-        } else {
-            throw new IllegalArgumentException("Unsupported request type");
-        }
-
-        double coveragePercentage = 80.0; // Default coverage percentage
-        if (eligibilityResponse != null && eligibilityResponse.getRequestedService() != null) {
-            coveragePercentage = 100.0 - eligibilityResponse.getRequestedService().getCoPaymentPercentage();
-        }
-
-        double insuranceCoverage = totalAmount * (coveragePercentage / 100.0);
-        double patientResponsibility = totalAmount - insuranceCoverage;
-
-        dispensing.setTotalAmount(totalAmount);
-        dispensing.setPatientResponsibility(patientResponsibility);
-        dispensing.setInsuranceCoverage(insuranceCoverage);
-    }
-
-    private List<MedicationDispensingItem> createDispensingItems(MedicationDispensingRequest request, MedicationDispensing savedDispensing) {
-        return request.getMedicationItems().stream()
-                .map(item -> createDispensingItem(item, savedDispensing))
-                .collect(Collectors.toList());
-    }
-
-
-    private MedicationDispensingItem createDispensingItem(MedicationDispensingRequest.MedicationItem item, MedicationDispensing savedDispensing) {
-        MedicationDispensingItem dispensingItem = new MedicationDispensingItem();
-        dispensingItem.setItemUuid(UUID.randomUUID().toString());
-        dispensingItem.setDispensing(savedDispensing);
-        dispensingItem.setMedicationCode(item.getMedicationCode());
-        dispensingItem.setMedicationName(item.getMedicationName());
-        dispensingItem.setQuantity(item.getQuantity());
-        dispensingItem.setUnitOfMeasure(item.getUnitOfMeasure());
-        dispensingItem.setUnitPrice(item.getUnitPrice());
-        dispensingItem.setTotalPrice(item.getTotalPrice());
-        dispensingItem.setDosageInstructions(item.getDosageInstructions());
-        dispensingItem.setStrength(item.getStrength());
-        dispensingItem.setFormulation(item.getFormulation());
-        return dispensingItem;
-    }
 
     private DispensingResponse createDispensingResponse(MedicationDispensing savedDispensing) {
         DispensingResponse response = new DispensingResponse();
@@ -390,13 +224,154 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     @Override
     @Transactional
+    public ResponseEntity<?> addDrugDispensingRecord(DrugDispensingRecordRequest request) {
+        try {
+            Provider provider = validateProvider(request.getProviderUuid());
+            Payer payer = validatePayer(request.getPayerUuid());
+            Insured insured = findInsuredPersonFor(request);
+            log.info("Insured person found: {}", insured.getFirstName());
+
+            MedicationDispensing dispensingRecord = createDrugDispensingRecord(request, insured, payer, provider);
+
+            List<Drug> drugs = validateDrugs(provider.getProviderUuid(), request.getDrugItems());
+            List<MedicationDispensingItem> dispensingItems = createDrugDispensingItems(dispensingRecord, drugs, request.getDrugItems());
+
+            MedicationDispensing savedRecord = dispensingRepository.save(dispensingRecord);
+
+            dispensingItemRepository.saveAll(dispensingItems);
+
+            updateDispensingRecordTotals(savedRecord, dispensingItems);
+
+            savedRecord = dispensingRepository.save(savedRecord);
+
+            return ResponseEntity.ok(new DispensingRecordResponse(savedRecord));
+
+        } catch (ResourceNotFoundException e) {
+            log.error("Resource not found: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiErrorResponse(e.getMessage()));
+        } catch (BadRequestException e) {
+            log.error("Bad request: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiErrorResponse(e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation: {}", e.getMessage());
+            String errorMessage = "A conflict occurred while saving the record. ";
+            if (e.getCause() instanceof ConstraintViolationException) {
+                ConstraintViolationException cve = (ConstraintViolationException) e.getCause();
+                if (cve.getConstraintViolations().stream().anyMatch(v -> v.getPropertyPath().toString().equals("insurance_coverage"))) {
+                    errorMessage += "Insurance coverage cannot be null.";
+                } else {
+                    errorMessage += "Please check for duplicate entries or missing required fields.";
+                }
+            }
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiErrorResponse(errorMessage));
+        } catch (Exception e) {
+            log.error("Unexpected error in addDrugDispensingRecord: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiErrorResponse("An unexpected error occurred. Please try again later."));
+        }
+    }
+
+
+    private Insured findInsuredPersonFor(DrugDispensingRecordRequest request) {
+        String patientId = request.getPhone();
+
+        Insured insured = insuredRepository.findByInsuranceId(patientId);
+
+        if (insured == null) {
+            insured = insuredRepository.findByEmployeeId(patientId);
+        }
+
+        if (insured == null) {
+            insured = insuredRepository.findByNationalId(patientId);
+        }
+
+        if (insured == null) {
+            List<Insured> insuredList = (List<Insured>) insuredRepository.findByPhone(patientId);
+            if (!insuredList.isEmpty()) {
+                insured = insuredList.get(0);
+            }
+        }
+
+        if (insured == null) {
+            throw new ResourceNotFoundException("Insured", "patientId", patientId);
+        }
+
+        return insured;
+    }
+
+
+    private List<Drug> validateDrugs(String providerUuid, List<DrugDispensingRecordRequest.DrugDispensingItemRequest> drugItems) {
+        List<String> drugUuids = drugItems.stream().map(DrugDispensingRecordRequest.DrugDispensingItemRequest::getDrugUuid).collect(Collectors.toList());
+
+        List<Drug> drugs = drugRepository.findByDrugUuidIn(drugUuids);
+
+        if (drugs.size() != drugUuids.size()) {
+            throw new RuntimeException("One or more drugs not found");
+        }
+
+        drugs.forEach(drug -> {
+            if (!drug.getProvider().getProviderUuid().equals(providerUuid)) {
+                throw new BadRequestException("Drug " + drug.getDrugName() + " does not belong to the specified provider");
+            }
+        });
+
+        return drugs;
+    }
+
+    private MedicationDispensing createDrugDispensingRecord(DrugDispensingRecordRequest request, Insured insured, Payer payer, Provider provider) {
+        MedicationDispensing dispensing = new MedicationDispensing();
+        dispensing.setDispensingUuid(UUID.randomUUID().toString());
+        dispensing.setProviderUuid(provider.getProviderUuid());
+        dispensing.setPayerUuid(payer.getPayerUuid());
+        dispensing.setInsuredUuid(insured.getInsuredUuid());
+        dispensing.setDispensingDate(request.getDispensingDate());
+        dispensing.setPrescriptionNumber(request.getPrescriptionNumber());
+        dispensing.setPharmacyTransactionId(request.getPharmacyTransactionId());
+        dispensing.setClaimStatus("DRAFT");
+        dispensing.setInvoiceNumber(generateInvoiceNumber());
+
+        dispensing.setRecordedAt(LocalDate.now());
+        return dispensing;
+    }
+
+    private List<MedicationDispensingItem> createDrugDispensingItems(MedicationDispensing dispensingRecord, List<Drug> drugs, List<DrugDispensingRecordRequest.DrugDispensingItemRequest> drugItems) {
+        List<MedicationDispensingItem> dispensingItems = new ArrayList<>();
+        for (int i = 0; i < drugs.size(); i++) {
+            Drug drug = drugs.get(i);
+            DrugDispensingRecordRequest.DrugDispensingItemRequest item = drugItems.get(i);
+
+            MedicationDispensingItem dispensingItem = new MedicationDispensingItem();
+            dispensingItem.setItemUuid(UUID.randomUUID().toString());
+            dispensingItem.setDispensing(dispensingRecord);
+            dispensingItem.setMedicationCode(drug.getDrugCode());
+            dispensingItem.setMedicationName(drug.getDrugName());
+            dispensingItem.setQuantity(item.getQuantity());
+            dispensingItem.setTotalPrice(item.getTotalPrice());
+            dispensingItem.setFormulation(drug.getFormulation());
+            dispensingItem.setRoute(item.getRoute());
+            dispensingItem.setItemType(ItemType.DRUG);
+
+            String dosageInstructions = String.format("%s %s for %s", item.getDose(), item.getFrequency(), item.getDuration());
+            dispensingItem.setDosageInstructions(dosageInstructions);
+
+            dispensingItems.add(dispensingItem);
+        }
+        return dispensingItems;
+    }
+
+
+    @Override
+    @Transactional
     public ResponseEntity<?> updateDispensingRecordsStatus(String providerUuid, String newStatus, String[] dispensingUuids) {
         if (dispensingUuids == null || dispensingUuids.length == 0) {
             throw new BadRequestException("No dispensing records selected");
         }
 
-        if (!newStatus.equals("AUTHORIZED") && !newStatus.equals("SUBMITTED")) {
-            throw new BadRequestException("Invalid new status. Must be either AUTHORIZED or SUBMITTED");
+        if (!newStatus.equals("SUBMITTED") && !newStatus.equals("AUTHORIZED")) {
+            throw new BadRequestException("Invalid new status. Must be either SUBMITTED or AUTHORIZED");
         }
 
         Provider provider = providerRepository.findByProviderUuid(providerUuid)
@@ -408,62 +383,69 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             throw new RuntimeException("One or more dispensing records not found");
         }
 
-        String expectedCurrentStatus = newStatus.equals("AUTHORIZED") ? "DRAFT" : "AUTHORIZED";
-
-        for (MedicationDispensing record : dispensingRecords) {
-            if (!record.getClaimStatus().equals(expectedCurrentStatus)) {
-                throw new BadRequestException("Dispensing record " + record.getDispensingUuid() +
-                        " is not in " + expectedCurrentStatus + " status");
-            }
-        }
-
-        Claim claim = null;
         BatchRecord batchRecord = null;
+        String message = "";
+
         if (newStatus.equals("SUBMITTED")) {
+            // Validate all records are in DRAFT status
+            for (MedicationDispensing record : dispensingRecords) {
+                if (!record.getClaimStatus().equals("DRAFT")) {
+                    throw new BadRequestException("Dispensing record " + record.getDispensingUuid() +
+                            " is not in DRAFT status");
+                }
+            }
+
+            // Create batch record
             String payerUuid = dispensingRecords.get(0).getPayerUuid();
             Payer payer = payerRepository.findByPayerUuid(payerUuid);
             if (payer == null) {
                 throw new ResourceNotFoundException("Payer", "uuid", payerUuid);
             }
 
-            String insuredUuid = dispensingRecords.get(0).getInsuredUuid();
-            Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
-            if (insured == null) {
-                throw new ResourceNotFoundException("Insured", "uuid", insuredUuid);
-            }
-
-            claim = createClaim(provider, payer, insured, dispensingRecords);
-            claim = claimRepository.save(claim);
-
-            // Create batch record
-            batchRecord = createBatchRecord(payer, dispensingRecords, claim);
+            batchRecord = createBatchRecord(payer, dispensingRecords, null);
             batchRecord = batchRecordRepository.save(batchRecord);
-        }
 
-        for (MedicationDispensing record : dispensingRecords) {
-            record.setClaimStatus(newStatus);
-            if (claim != null) {
-                record.setClaimUuid(claim.getClaimUuid());
-            }
-            if (batchRecord != null) {
+            // Update dispensing records
+            for (MedicationDispensing record : dispensingRecords) {
+                record.setClaimStatus("SUBMITTED");
                 record.setBatchCode(batchRecord.getBatchCode());
             }
+
+            message = dispensingRecords.size() + " dispensing record(s) updated to SUBMITTED status. " +
+                    "Batch created with code: " + batchRecord.getBatchCode();
+
+        } else if (newStatus.equals("AUTHORIZED")) {
+            // Validate all records are in SUBMITTED status and belong to the same batch
+            String batchCode = null;
+            for (MedicationDispensing record : dispensingRecords) {
+                if (!record.getClaimStatus().equals("SUBMITTED")) {
+                    throw new BadRequestException("Dispensing record " + record.getDispensingUuid() +
+                            " is not in SUBMITTED status");
+                }
+                if (batchCode == null) {
+                    batchCode = record.getBatchCode();
+                } else if (!batchCode.equals(record.getBatchCode())) {
+                    throw new BadRequestException("All records must belong to the same batch");
+                }
+            }
+
+            // Update dispensing records
+            for (MedicationDispensing record : dispensingRecords) {
+                record.setClaimStatus("AUTHORIZED");
+            }
+
+            // Update batch record status
+            String finalBatchCode = batchCode;
+            batchRecord = batchRecordRepository.findByBatchCode(batchCode)
+                    .orElseThrow(() -> new ResourceNotFoundException("BatchRecord", "batchCode", finalBatchCode));
+            batchRecord.setStatus("AUTHORIZED");
+            batchRecordRepository.save(batchRecord);
+
+            message = dispensingRecords.size() + " dispensing record(s) updated to AUTHORIZED status. " +
+                    "Batch " + batchCode + " updated to AUTHORIZED status.";
         }
 
         dispensingRepository.saveAll(dispensingRecords);
-
-        if (claim != null) {
-            List<ClaimItem> claimItems = createClaimItems(dispensingRecords, claim);
-            claimItemRepository.saveAll(claimItems);
-        }
-
-        String message = dispensingRecords.size() + " dispensing record(s) updated to " + newStatus + " status";
-        if (claim != null) {
-            message += " and claim created with UUID: " + claim.getClaimUuid();
-        }
-        if (batchRecord != null) {
-            message += ". Batch created with code: " + batchRecord.getBatchCode();
-        }
 
         return ResponseEntity.ok(new MessageResponse(message));
     }
@@ -481,7 +463,13 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 .map(MedicationDispensing::getDispensingDate)
                 .max(LocalDate::compareTo)
                 .orElse(null));
-        batchRecord.setTotalAmount(claim.getTotalAmount());
+
+        // Calculate total amount from dispensing records
+        Double totalAmount = dispensingRecords.stream()
+                .mapToDouble(MedicationDispensing::getTotalAmount)
+                .sum();
+        batchRecord.setTotalAmount(BigDecimal.valueOf(totalAmount));
+
         batchRecord.setStatus("PENDING");
         return batchRecord;
     }
@@ -526,7 +514,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             logger.error("Data integrity violation: {}", e.getMessage());
             String errorMessage = "A conflict occurred while saving the record. ";
             if (e.getCause() instanceof ConstraintViolationException cve) {
-                if (cve.getConstraintViolations().contains("insurance_coverage")) {
+                if (cve.getConstraintViolations().stream()
+                        .anyMatch(v -> v.getPropertyPath().toString().equals("insurance_coverage"))) {
                     errorMessage += "Insurance coverage cannot be null.";
                 } else {
                     errorMessage += "Please check for duplicate entries or missing required fields.";
@@ -692,6 +681,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensingItem.setTotalPrice(item.getPrice() * item.getQuantity());
         dispensingItem.setDosageInstructions(item.getDosage() + " " + item.getFrequency() + " for " + item.getDuration());
         dispensingItem.setFormulation(item.getRoute());
+        dispensingItem.setItemType(ItemType.DRUG);
         return dispensingItem;
     }
 
@@ -790,32 +780,14 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         record.setInvoiceNumber(generateInvoiceNumber());
         record.setRecordedAt(LocalDate.now());
 
-        double totalAmount = calculateTotalAmount(request.getMedicationItems());
-        record.setTotalAmount(totalAmount);
+//        double totalAmount = calculateTotalAmount(request.getMedicationItems());
+//        record.setTotalAmount(totalAmount);
 
         calculateCoverageAndResponsibility(record, payer, insured);
 
         return record;
     }
 
-    private List<MedicationDispensingItem> createDispensingItems(DispensingRecordRequest request, MedicationDispensing dispensingRecord) {
-        List<MedicationDispensingItem> items = new ArrayList<>();
-        for (DispensingRecordRequest.DispensingItemRequest itemRequest : request.getMedicationItems()) {
-            Servicelist service = servicelistRepository.findByServiceUuid(itemRequest.getServiceUuid())
-                    .orElseThrow(() -> new ResourceNotFoundException("Service", "uuid", itemRequest.getServiceUuid()));
-
-            MedicationDispensingItem item = new MedicationDispensingItem();
-            item.setItemUuid(UUID.randomUUID().toString());
-            item.setDispensing(dispensingRecord);
-            item.setMedicationCode(service.getServiceCode());
-            item.setMedicationName(service.getServiceName());
-            item.setQuantity(itemRequest.getQuantity());
-            item.setUnitPrice(service.getPrice());
-            item.setTotalPrice(service.getPrice() * itemRequest.getQuantity());
-            items.add(item);
-        }
-        return items;
-    }
 
     private void updateDispensingRecordTotals(MedicationDispensing record, List<MedicationDispensingItem> items) {
         BigDecimal totalAmount = items.stream()
@@ -827,25 +799,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensingRepository.save(record);
     }
 
-
-    private Insured findInsuredPerson(MedicationDispensingRequest request) {
-
-        Insured insured = insuredRepository.findByInsuranceId(request.getInsuranceId());
-
-        if (insured == null && request.getEmployeeId() != null) {
-            insured = insuredRepository.findByEmployeeId(request.getEmployeeId());
-        }
-
-        if (insured == null && request.getNationalId() != null) {
-            insured = insuredRepository.findByNationalId(request.getNationalId());
-        }
-
-        if (insured == null && request.getPhone() != null) {
-            insured = (Insured) insuredRepository.findByPhone(request.getPhone());
-        }
-
-        return insured;
-    }
 
     private List<Servicelist> validateServices(String providerUuid, List<?> items) {
         List<Servicelist> services = new ArrayList<>();
@@ -868,83 +821,29 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return services;
     }
 
-    private MedicationDispensing createDispensingRecord(Provider provider, Payer payer, Insured insured, MedicationDispensingRequest request) {
-        MedicationDispensing dispensing = new MedicationDispensing();
-        dispensing.setDispensingUuid(UUID.randomUUID().toString());
-        dispensing.setProviderUuid(provider.getProviderUuid());
-        dispensing.setPayerUuid(payer.getPayerUuid());
-        dispensing.setInsuredUuid(insured.getInsuredUuid());
-        dispensing.setDispensingDate(request.getDispensingDate());
-        dispensing.setPrescriptionNumber(request.getPrescriptionNumber());
-        dispensing.setPharmacyTransactionId(request.getPharmacyTransactionId());
-        dispensing.setTotalAmount(calculateTotalAmount(request.getMedicationItems()));
-        dispensing.setClaimStatus("DRAFT");
-
-        return dispensing;
-    }
-
-
-    private List<MedicationDispensingItem> createDispensingItems(MedicationDispensing dispensing, List<Servicelist> services, List<?> items) {
+    private List<MedicationDispensingItem> createDispensingItems(MedicationDispensing dispensingRecord, List<Servicelist> services, List<DispensingRecordRequest.DispensingItemRequest> itemRequests) {
         List<MedicationDispensingItem> dispensingItems = new ArrayList<>();
         for (int i = 0; i < services.size(); i++) {
             Servicelist service = services.get(i);
-            Object item = items.get(i);
+            DispensingRecordRequest.DispensingItemRequest itemRequest = itemRequests.get(i);
 
-            MedicationDispensingItem dispensingItem = new MedicationDispensingItem();
-            dispensingItem.setItemUuid(UUID.randomUUID().toString());
-            dispensingItem.setDispensing(dispensing);
-            dispensingItem.setMedicationCode(service.getServiceCode());
-            dispensingItem.setMedicationName(service.getServiceName());
 
-            if (item instanceof MedicationDispensingRequest.MedicationItem) {
-                MedicationDispensingRequest.MedicationItem medicationItem = (MedicationDispensingRequest.MedicationItem) item;
-                dispensingItem.setQuantity(medicationItem.getQuantity());
-                dispensingItem.setDosageInstructions(medicationItem.getDosageInstructions());
-                dispensingItem.setStrength(medicationItem.getStrength());
-                dispensingItem.setFormulation(medicationItem.getFormulation());
-            } else if (item instanceof DispensingRecordRequest.DispensingItemRequest) {
-                DispensingRecordRequest.DispensingItemRequest dispensingItemRequest = (DispensingRecordRequest.DispensingItemRequest) item;
-                dispensingItem.setQuantity(dispensingItemRequest.getQuantity());
+            MedicationDispensingItem item = new MedicationDispensingItem();
+            item.setItemUuid(UUID.randomUUID().toString());
+            item.setDispensing(dispensingRecord);
+            item.setMedicationCode(service.getServiceCode());
+            item.setMedicationName(service.getServiceName());
+            item.setPrimaryDiagnosis(itemRequest.getPrimaryDiagnosis());
+            item.setSecondaryDiagnosis(itemRequest.getSecondaryDiagnosis());
+            item.setUnitPrice(service.getPrice());
+            item.setTotalPrice(service.getPrice());
+            item.setItemType(ItemType.SERVICE);
 
-            } else {
-                throw new IllegalArgumentException("Unsupported item type");
-            }
-
-            if (dispensingItem.getQuantity() == null) {
-                throw new IllegalArgumentException("Quantity cannot be null for medication item: " + dispensingItem.getMedicationName());
-            }
-
-            dispensingItem.setUnitOfMeasure(service.getUnitOfMeasure());
-            dispensingItem.setUnitPrice(service.getPrice());
-            dispensingItem.setTotalPrice(dispensingItem.getQuantity() * service.getPrice());
-            dispensingItems.add(dispensingItem);
+            dispensingItems.add(item);
         }
         return dispensingItems;
     }
 
-    private double calculateTotalAmount(List<?> items) {
-        return items.stream()
-                .mapToDouble(item -> {
-                    String serviceUuid;
-                    double quantity;
-                    if (item instanceof MedicationDispensingRequest.MedicationItem) {
-                        MedicationDispensingRequest.MedicationItem medicationItem = (MedicationDispensingRequest.MedicationItem) item;
-                        serviceUuid = medicationItem.getServiceUuid();
-                        quantity = medicationItem.getQuantity();
-                    } else if (item instanceof DispensingRecordRequest.DispensingItemRequest) {
-                        DispensingRecordRequest.DispensingItemRequest dispensingItem = (DispensingRecordRequest.DispensingItemRequest) item;
-                        serviceUuid = dispensingItem.getServiceUuid();
-                        quantity = dispensingItem.getQuantity();
-                    } else {
-                        throw new IllegalArgumentException("Unsupported item type");
-                    }
-
-                    Servicelist service = servicelistRepository.findByServiceUuid(serviceUuid)
-                            .orElseThrow(() -> new ResourceNotFoundException("Service", "uuid", serviceUuid));
-                    return service.getPrice() * quantity;
-                })
-                .sum();
-    }
 
     private PendingDispensingRecordDTO convertToDTO(MedicationDispensing dispensing) {
         PendingDispensingRecordDTO dto = new PendingDispensingRecordDTO();
@@ -996,25 +895,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         itemDTO.setUnitPrice(item.getUnitPrice());
         itemDTO.setTotalPrice(item.getTotalPrice());
         return itemDTO;
-    }
-
-    private Insured findInsuredPerson(String patientId) {
-
-        Insured insured = insuredRepository.findByInsuranceId(patientId);
-
-        if (insured == null) {
-            insured = insuredRepository.findByEmployeeId(patientId);
-        }
-
-        if (insured == null) {
-            insured = insuredRepository.findByNationalId(patientId);
-        }
-
-        if (insured == null) {
-            insured = (Insured) insuredRepository.findByPhone(patientId);
-        }
-
-        return insured;
     }
 
     @Override
@@ -1161,43 +1041,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
     }
 
-    /**
-     * Helper method to find an insured person based on the provided identifiers
-     */
-    private Insured findInsuredPerson(MedicationDispensingRequest request, Payer payer) {
-        Insured insured = null;
-
-        if (request.getInsuranceId() != null && !request.getInsuranceId().isEmpty()) {
-            insured = insuredRepository.findByInsuranceId(request.getInsuranceId());
-        }
-
-        if (insured == null && request.getEmployeeId() != null && !request.getEmployeeId().isEmpty()) {
-            insured = insuredRepository.findByEmployeeId(request.getEmployeeId());
-        }
-
-        if (insured == null && request.getNationalId() != null && !request.getNationalId().isEmpty()) {
-            insured = insuredRepository.findByNationalId(request.getNationalId());
-        }
-
-        if (insured == null && request.getPhone() != null && !request.getPhone().isEmpty()) {
-            insured = (Insured) insuredRepository.findByPhone(request.getPhone());
-        }
-
-        if (insured == null) {
-            throw new ResourceNotFoundException("Insured Person", "identifiers",
-                    "Insurance ID: " + request.getInsuranceId() +
-                            ", Employee ID: " + request.getEmployeeId() +
-                            ", National ID: " + request.getNationalId() +
-                            ", Phone: " + request.getPhone());
-        }
-
-        if (!insured.getPayerUuid().equals(payer.getPayerUuid())) {
-            throw new BadRequestException("Insured person does not belong to the specified payer");
-        }
-
-        return insured;
-    }
-
     //New
 
     @Override
@@ -1281,7 +1124,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         List<MedicationDispensing> dispensingRecords = fetchAndValidateDispensingRecords(providerUuid, dispensingUuids);
 
-        // Ensure all records are in AUTHORIZED status
         for (MedicationDispensing record : dispensingRecords) {
             if (!"AUTHORIZED".equals(record.getClaimStatus())) {
                 throw new BadRequestException("Dispensing record " + record.getDispensingUuid() +
@@ -1306,6 +1148,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensingRepository.saveAll(dispensingRecords);
 
         return ResponseEntity.ok(savedClaim);
+
     }
 
     @Override

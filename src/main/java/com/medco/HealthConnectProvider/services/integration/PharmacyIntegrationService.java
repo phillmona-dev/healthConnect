@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.services.integration;
 
 import com.medco.HealthConnectProvider.dto.PendingDispensingRecordDTO;
+import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.MedicationDispensingRequest;
@@ -53,5 +54,7 @@ public interface PharmacyIntegrationService {
 
     ResponseEntity<Page<PendingDispensingRecordDTO>> getDispensingRecords(String providerUuid, String search, String status,
                                                                           LocalDate startDate, LocalDate endDate, String payerUuid, int page, int size, String sortBy, String sortDirection);
+
+    ResponseEntity<?> addDrugDispensingRecord(DrugDispensingRecordRequest request);
 
 }

@@ -57,11 +57,6 @@ public class PayerController {
         return payerService.updatePayer(payerUuid, payerRequest, logo);
     }
 
-    @PutMapping(path="/set-institution-insurance-number/{institutionUuid}")
-    @Operation(summary = "Set payer insurance number", description = "Sets the insurance number for a payer")
-    public ResponseEntity<?> setInstitutionInsuranceNumber(@PathVariable String payerUuid, @Valid @RequestParam String payerInsuranceNumber) {
-        return payerService.setPayerInsuranceNumber(payerUuid, payerInsuranceNumber);
-    }
 
     @PutMapping(path="/updateInstitutionStatus/{payerUuid}")
     @Operation(summary = "Update payer status", description = "Updates the status of a payer")
@@ -97,6 +92,29 @@ public class PayerController {
         return payerService.getPayersWithFilters(searchKey, page, limit, status, category,
                 payerName, tinNumber, level, sortBy, sortDir);
 
+    }
+
+
+    @GetMapping("/list/without_logo")
+    @Operation(
+            summary = "List payers",
+            description = "Retrieves a list of Payers with out logo with pagination, search, and advanced filtering options"
+    )
+    public ResponseEntity<PagedResponse<PayerResponse>> getPayersWithOutLogo(
+            @RequestParam(value = "search", required = false) String searchKey,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "limit", defaultValue = "25") int limit,
+            @RequestParam(value = "status", required = false) Status status,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "payerName", required = false) String payerName,
+            @RequestParam(value = "tinNumber", required = false) Long tinNumber,
+            @RequestParam(value = "level", required = false) String level,
+            @RequestParam(value = "sortBy", defaultValue = "id", required = false) String sortBy,
+            @RequestParam(value = "sortDir", defaultValue = "desc", required = false) String sortDir) {
+
+        PagedResponse<PayerResponse> response = payerService.getPayersWithFiltersWithOutLogo(
+                searchKey, page, limit, status, category, payerName, tinNumber, level, sortBy, sortDir);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/policy-holders/list")

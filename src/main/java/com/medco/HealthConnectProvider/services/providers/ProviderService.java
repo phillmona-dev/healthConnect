@@ -31,7 +31,9 @@ public interface ProviderService {
 
     ResponseEntity<ByteArrayResource> getProviderLogo(String providerUuid);
 
-    PagedResponse<ProviderResponse> getProvidersWithFilters(String searchKey, int page, int limit, Status status, String category, String providerName, String tinNumber, String level, String sortBy, String sortDir);
+    PagedResponse<ProviderResponse> getProvidersWithFilters(String searchKey, int page, int limit, Status status,
+                                                            String category, String providerName,
+                                                            String tinNumber, String level, String sortBy, String sortDir);
 
     /**
      * Updates the status of a provider
@@ -41,4 +43,5 @@ public interface ProviderService {
      */
     ResponseEntity<?> updateProviderStatus(String providerUuid, Status status);
 
+    PagedResponse<ProviderResponse> getProvidersWithFiltersWithOutLogo(String searchKey, int page, int limit, Status status, String category, String providerName, String tinNumber, String level, String sortBy, String sortDir);
 }

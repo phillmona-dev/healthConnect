@@ -6,6 +6,7 @@ import com.medco.HealthConnectProvider.services.claims.BatchRecordService;
 import com.medco.HealthConnectProvider.services.eligibility.EligibilityService;
 import com.medco.HealthConnectProvider.services.integration.PharmacyIntegrationService;
 import com.medco.HealthConnectProvider.ui.request.claims.BatchRecordSearchCriteria;
+import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.eligibility.EligibilityCheckRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
@@ -82,7 +83,7 @@ public class PharmacyIntegrationController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(required = false) String payerUuid,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "25") int size,
             @RequestParam(defaultValue = "dispensingDate") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDirection) {
 
@@ -136,7 +137,7 @@ public class PharmacyIntegrationController {
 
     @PutMapping("/dispensing/update-status/{providerUuid}")
     @Operation(summary = "Update status of dispensing records",
-            description = "Changes the status of one or more dispensing records to either AUTHORIZED or SUBMITTED")
+            description = "Changes the status of one or more dispensing records to either SUBMITTED or AUTHORIZED")
     public ResponseEntity<?> updateDispensingRecordsStatus(
             @PathVariable String providerUuid,
             @RequestParam String newStatus,
@@ -169,7 +170,6 @@ public class PharmacyIntegrationController {
             description = "Retrieves a paginated list of batch records based on the provided search criteria, with options for sorting and pagination."
     )
     public ResponseEntity<Page<BatchRecordDTO>> searchBatchRecords(
-
             @Parameter(description = "Search term for batch code, payer name, total amount, status, or claim UUID")
             @RequestParam(required = false) String search,
 
@@ -185,8 +185,8 @@ public class PharmacyIntegrationController {
             @Parameter(description = "End date for claim dating range")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate claimDatingTo,
 
-            @Parameter(description = "Page number (0-based)")
-            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page number (1-based)")
+            @RequestParam(defaultValue = "1") int page,
 
             @Parameter(description = "Number of records per page")
             @RequestParam(defaultValue = "25") int size,
@@ -197,11 +197,22 @@ public class PharmacyIntegrationController {
             @Parameter(description = "Sort direction ('asc' for ascending, 'desc' for descending)")
             @RequestParam(defaultValue = "desc") String sortDirection
     ) {
+
         Page<BatchRecordDTO> results = batchRecordService.searchBatchRecords(
                 search, requestedOnStart, requestedOnEnd, claimDatingFrom, claimDatingTo,
-                page, size, sortBy, sortDirection
+                page - 1, size, sortBy, sortDirection
         );
         return ResponseEntity.ok(results);
+    }
+
+
+    //new apis TODO
+
+
+    @PostMapping(value = "/drug-dispensing-records", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Add a new drug dispensing record", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<?> addDrugDispensingRecord(@RequestBody DrugDispensingRecordRequest request) {
+        return pharmacyIntegrationService.addDrugDispensingRecord(request);
     }
 
 }

@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.entity.integration;
 
+import com.medco.HealthConnectProvider.utils.enums.ItemType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -36,6 +37,9 @@ public class MedicationDispensingItem {
     @Column
     private Double quantity;
 
+    private String primaryDiagnosis;
+    private String secondaryDiagnosis;
+
     @Column
     private String unitOfMeasure;
 
@@ -51,8 +55,14 @@ public class MedicationDispensingItem {
     @Column
     private String strength;
 
+    private String route;
+
     @Column
     private String formulation;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ItemType itemType;
 
     @Column(columnDefinition = "boolean default false")
     private boolean deleted = false;

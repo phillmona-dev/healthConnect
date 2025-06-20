@@ -30,7 +30,6 @@ public interface PayerService {
      */
     PayerResponse updatePayer(String payerUuid, @Valid PayerRequest payerRequest, MultipartFile logo);
 
-    ResponseEntity<?> setPayerInsuranceNumber(String payerUuid, @Valid String payerInsuranceNumber);
 
     ResponseEntity<?> updatePayerStatus(String payerUuid, Status payerStatus);
 
@@ -54,4 +53,5 @@ public interface PayerService {
 
     ResponseEntity<?> reviewClaim(String claimUuid, ClaimReviewRequest reviewRequest);
 
+    PagedResponse<PayerResponse> getPayersWithFiltersWithOutLogo(String searchKey, int page, int limit, Status status, String category, String payerName, Long tinNumber, String level, String sortBy, String sortDir);
 }

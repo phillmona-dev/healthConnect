@@ -88,6 +88,29 @@ public class ProviderController {
                 providerName, tinNumber, level, sortBy, sortDir);
     }
 
+    @GetMapping("/list/withOutLogo")
+    @Operation(
+            summary = "List providers",
+            description = "Retrieves a list of healthcare providers with out their logo with pagination, search, and advanced filtering options"
+    )
+    public ResponseEntity<PagedResponse<ProviderResponse>> getProvidersWithOutLogo(
+            @RequestParam(value = "search", required = false) String searchKey,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "limit", defaultValue = "25") int limit,
+            @RequestParam(value = "status", required = false) Status status,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "providerName", required = false) String providerName,
+            @RequestParam(value = "tinNumber", required = false) String tinNumber,
+            @RequestParam(value = "level", required = false) String level,
+            @RequestParam(value = "sortBy", defaultValue = "id", required = false) String sortBy,
+            @RequestParam(value = "sortDir", defaultValue = "desc", required = false) String sortDir) {
+
+        PagedResponse<ProviderResponse> response = providerService.getProvidersWithFiltersWithOutLogo(
+                searchKey, page, limit, status, category, providerName, tinNumber, level, sortBy, sortDir);
+        return ResponseEntity.ok(response);
+    }
+
+
     @DeleteMapping(path = "/{providerUuid}")
     @Operation(summary = "Delete provider", description = "Deletes a healthcare provider by UUID")
     public ResponseEntity<?> deleteProvider(@PathVariable String providerUuid) {

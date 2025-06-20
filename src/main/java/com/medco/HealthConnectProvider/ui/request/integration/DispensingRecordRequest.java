@@ -29,8 +29,8 @@ public class DispensingRecordRequest {
     @NoArgsConstructor
     public static class DispensingItemRequest {
         private String serviceUuid;
-        private Double quantity;
-        private Double totalPrice;
+        private String primaryDiagnosis;
+        private String secondaryDiagnosis;
     }
 
 }

@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.ui.request.integration;
 
+import com.medco.HealthConnectProvider.utils.enums.ItemType;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -74,6 +75,8 @@ public class MedicationDispensingRequest {
         private String formulation;
 
         private String serviceUuid;
+
+        private ItemType itemType;
 
     }
 }

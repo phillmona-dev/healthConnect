@@ -42,4 +42,5 @@ public interface DrugRepository extends JpaRepository<Drug, Long> {
 
     Page<Drug> findAllByProviderProviderUuidAndIsDeletedFalse(String providerUuid, Pageable pageable);
 
+    List<Drug> findByDrugUuidIn(List<String> drugUuids);
 }

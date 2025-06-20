@@ -338,18 +338,6 @@ public class PayerServiceImpl implements PayerService {
         return getPayerResponse(payer);
     }
 
-    @Override
-    public ResponseEntity<?> setPayerInsuranceNumber(String payerUuid, String payerInsuranceNumber) {
-
-            Payer payer = payerRepository.findByPayerUuid(payerUuid);
-
-            if (payer == null)
-                throw new ResourceNotFoundException("Institution", "payerUuid", payerUuid);
-
-        payer.setPayerInsuranceNumber(payerInsuranceNumber);
-            payerRepository.save(payer);
-            return ResponseEntity.ok(new MessageResponse("Policy Issued successfully!"));
-    }
 
     @Override
     public ResponseEntity<?> updatePayerStatus(String payerUuid, Status payerStatus) {
@@ -711,6 +699,78 @@ public class PayerServiceImpl implements PayerService {
         // TODO: Implement notification to provider about claim review result
 
         return ResponseEntity.ok(new MessageResponse("Claim reviewed successfully"));
+    }
+
+    @Override
+    public PagedResponse<PayerResponse> getPayersWithFiltersWithOutLogo(String searchKey, int page, int limit,
+                                                             Status status, String category, String payerName, Long tinNumber, String level,
+                                                             String sortBy, String sortDir) {
+
+        if (page > 0) {
+            page = page - 1;
+        }
+
+        String validatedSortBy = SortUtils.validatePayerSortField(sortBy);
+        String validatedSortDir = SortUtils.validateSortDirection(sortDir);
+
+        Sort sort = validatedSortDir.equalsIgnoreCase("asc") ?
+                Sort.by(validatedSortBy).ascending() :
+                Sort.by(validatedSortBy).descending();
+
+        Pageable pageable = PageRequest.of(page, limit, sort);
+
+        Specification<Payer> spec = Specification.where(PayerSpecifications.isNotDeleted());
+
+        if (searchKey != null && !searchKey.isEmpty()) {
+            spec = spec.and(PayerSpecifications.containsSearchKey(searchKey));
+        }
+
+        if (status != null) {
+            spec = spec.and(PayerSpecifications.hasStatus(status));
+        }
+
+        if (category != null && !category.isEmpty()) {
+            spec = spec.and(PayerSpecifications.hasCategory(category));
+        }
+
+        if (payerName != null && !payerName.isEmpty()) {
+            spec = spec.and(PayerSpecifications.hasPayerName(payerName));
+        }
+
+        if (tinNumber != null) {
+            spec = spec.and(PayerSpecifications.hasTinNumber(tinNumber));
+        }
+
+        if (level != null && !level.isEmpty()) {
+            spec = spec.and(PayerSpecifications.hasLevel(level));
+        }
+
+        Page<Payer> payerPage = payerRepository.findAll(spec, pageable);
+        List<Payer> payerList = payerPage.getContent();
+
+        List<PayerResponse> payerResponses = new ArrayList<>();
+        for (Payer payer : payerList) {
+            PayerResponse response = new PayerResponse();
+            BeanUtils.copyProperties(payer, response);
+            response.setStatus(payer.getStatus());
+
+            Long contractCount = contractRepository.countByPayerPayerUuidAndIsDeleted(
+                    payer.getPayerUuid(), false);
+            response.setTotalContracts(contractCount);
+
+            payerResponses.add(response);
+        }
+
+        PagedResponse<PayerResponse> pagedResponse = new PagedResponse<>();
+        pagedResponse.setContent(payerResponses);
+        pagedResponse.setPage(payerPage.getNumber() + 1);
+        pagedResponse.setPerPage(payerPage.getSize());
+        pagedResponse.setTotalElements(payerPage.getTotalElements());
+        pagedResponse.setTotalPages(payerPage.getTotalPages());
+        pagedResponse.setHasNext(payerPage.hasNext());
+        pagedResponse.setHasPrevious(payerPage.hasPrevious());
+
+        return pagedResponse;
     }
 
     private ClaimResponse mapClaimToClaimResponse(Claim claim) {

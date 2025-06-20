@@ -218,6 +218,81 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         return ResponseEntity.ok(new MessageResponse(message));
     }
 
+    @Override
+    public PagedResponse<ProviderResponse> getProvidersWithFiltersWithOutLogo(String searchKey, int page, int limit,
+                                                                   Status status, String category,
+                                                                   String providerName, String tinNumber, String level,
+                                                                   String sortBy, String sortDir) {
+
+        if (page > 0) {
+            page = page - 1;
+        }
+
+        String validatedSortBy = SortUtils.validateProviderSortField(sortBy);
+        String validatedSortDir = SortUtils.validateSortDirection(sortDir);
+
+        Sort sort = validatedSortDir.equalsIgnoreCase("asc") ?
+                Sort.by(validatedSortBy).ascending() :
+                Sort.by(validatedSortBy).descending();
+
+        Pageable pageable = PageRequest.of(page, limit, sort);
+
+        Specification<Provider> spec = Specification.where(ProviderSpecifications.isNotDeleted());
+
+        if (searchKey != null && !searchKey.isEmpty()) {
+            spec = spec.and(ProviderSpecifications.containsSearchKey(searchKey));
+        }
+
+        if (status != null) {
+            spec = spec.and(ProviderSpecifications.hasStatus(status));
+        }
+
+        if (category != null && !category.isEmpty()) {
+            spec = spec.and(ProviderSpecifications.hasCategory(category));
+        }
+
+        if (providerName != null && !providerName.isEmpty()) {
+            spec = spec.and(ProviderSpecifications.hasProviderName(providerName));
+        }
+
+        if (tinNumber != null && !tinNumber.isEmpty()) {
+            spec = spec.and(ProviderSpecifications.hasTinNumber(tinNumber));
+        }
+
+        if (level != null && !level.isEmpty()) {
+            spec = spec.and(ProviderSpecifications.hasLevel(level));
+        }
+
+        Page<Provider> providerPage = providerRepository.findAll(spec, pageable);
+        List<Provider> providerList = providerPage.getContent();
+
+        // Map to response objects
+        List<ProviderResponse> providerResponses = new ArrayList<>();
+        for (Provider provider : providerList) {
+            ProviderResponse response = new ProviderResponse();
+
+            BeanUtils.copyProperties(provider, response);
+            response.setStatus(String.valueOf(provider.getStatus()));
+
+            Long contractCount = contractRepository.countByProviderProviderUuidAndIsDeleted(
+                    provider.getProviderUuid(), false);
+            response.setTotalContracts(contractCount);
+
+            providerResponses.add(response);
+        }
+
+        PagedResponse<ProviderResponse> pagedResponse = new PagedResponse<>();
+        pagedResponse.setContent(providerResponses);
+        pagedResponse.setPage(providerPage.getNumber() + 1);
+        pagedResponse.setPerPage(providerPage.getSize());
+        pagedResponse.setTotalElements(providerPage.getTotalElements());
+        pagedResponse.setTotalPages(providerPage.getTotalPages());
+        pagedResponse.setHasNext(providerPage.hasNext());
+        pagedResponse.setHasPrevious(providerPage.hasPrevious());
+
+        return pagedResponse;
+    }
+
     private ResponseEntity<ByteArrayResource> serveDefaultLogo() {
         try {
 
@@ -299,7 +374,6 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         Page<Provider> providerPage = providerRepository.findAll(spec, pageable);
         List<Provider> providerList = providerPage.getContent();
 
-        // Map to response objects
         List<ProviderResponse> providerResponses = new ArrayList<>();
         for (Provider provider : providerList) {
             ProviderResponse response = new ProviderResponse();
