@@ -519,7 +519,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 .orElse(null));
 
         // Calculate total amount from dispensing records
-        Double totalAmount = dispensingRecords.stream()
+        double totalAmount = dispensingRecords.stream()
                 .mapToDouble(MedicationDispensing::getTotalAmount)
                 .sum();
         batchRecord.setTotalAmount(BigDecimal.valueOf(totalAmount));
