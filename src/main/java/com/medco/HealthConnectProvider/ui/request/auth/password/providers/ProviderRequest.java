@@ -56,4 +56,6 @@ public class ProviderRequest {
     @Size(min = 3, max = 15)
     private String status;
 
+    private String branch;
+
 }

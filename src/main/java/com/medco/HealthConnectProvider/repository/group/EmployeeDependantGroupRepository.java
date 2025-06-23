@@ -30,9 +30,6 @@ public interface EmployeeDependantGroupRepository extends JpaRepository<Employee
      */
     List<EmployeeDependantGroup> findByPayerUuid(String payerUuid);
 
-
-    // Add these methods to your existing repository
-
     /**
      * Check if a group with the given name exists for a specific payer
      * @param groupName The name of the group
@@ -54,8 +51,6 @@ public interface EmployeeDependantGroupRepository extends JpaRepository<Employee
     //NEW
 
     List<EmployeeDependantGroup> findByInsured_InsuredUuidAndIsDeleted(String employeeInsuredUuid, boolean isDeleted);
-
-    //new from dependant group
 
     Long countByGroupUuid(String groupUuid);
 

@@ -46,6 +46,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 @Service
@@ -116,6 +117,7 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+
     @Override
     public UserResponse createUser(SignUpRequest signUpRequest) {
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
@@ -127,20 +129,63 @@ public class UserServiceImpl implements UserService {
         }
 
         Role role = roleRepository.findByRoleUuid(signUpRequest.getRoleUuid());
-        if (role == null){
+        if (role == null) {
             throw new BadRequestException("Can't Assign Role To User");
         }
 
         var user = new User();
         BeanUtils.copyProperties(signUpRequest, user);
-        user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
+
+        // Generate a random password
+        String randomPassword = generateRandomPassword();
+        user.setPassword(passwordEncoder.encode(randomPassword));
+
         user.setRole(role);
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        // Determine the institution name (payer or provider)
+        String institutionName = determineInstitutionName(role);
+
+        // Send welcome email
+        String loginUrl = frontendUrl + "/login?newUser=true&email=" + savedUser.getEmail();
+        try {
+            emailService.sendWelcomeEmail(
+                    savedUser.getEmail(),
+                    savedUser.getFirstName(),
+                    randomPassword,
+                    institutionName,
+                    loginUrl
+            );
+        } catch (Exception e) {
+            // Log the error, but don't throw an exception as the user has been created
+            log.error("Failed to send welcome email to user {}: {}", savedUser.getEmail(), e.getMessage());
+        }
 
         var userResponse = new UserResponse();
-        BeanUtils.copyProperties(user, userResponse);
+        BeanUtils.copyProperties(savedUser, userResponse);
 
         return userResponse;
+    }
+
+    private String generateRandomPassword() {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
+        StringBuilder sb = new StringBuilder();
+        Random random = new Random();
+        for (int i = 0; i < 12; i++) {
+            int index = random.nextInt(chars.length());
+            sb.append(chars.charAt(index));
+        }
+        return sb.toString();
+    }
+
+    private String determineInstitutionName(Role role) {
+        // This method should determine the institution name based on the role
+        // You might need to adjust this based on your role naming convention
+        if (role.getRoleName().endsWith("_Manager")) {
+            return role.getRoleName().replace("_Manager", "");
+        }
+        // Default case if we can't determine the institution name
+        return "HealthConnect";
     }
 
     @Override

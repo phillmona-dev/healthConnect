@@ -101,6 +101,8 @@ public class Provider extends Audit implements Serializable {
 
     private String zipCode;
 
+    private String branch;
+
     private String licenseInformation;
 
     private String taxIdentification;

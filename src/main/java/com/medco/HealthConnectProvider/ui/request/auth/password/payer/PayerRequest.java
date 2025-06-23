@@ -56,4 +56,7 @@ public class PayerRequest {
     private String referredBy;
 
     private Status status;
+
+    private boolean dependantCoverage;
+
 }

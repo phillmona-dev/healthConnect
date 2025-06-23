@@ -92,20 +92,18 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
 
     @Override
     public ResponseEntity<ProviderResponse> createProvider(ProviderRequest providerRequest, MultipartFile logo) {
-
-        if (providerRepository.existsByEmail(providerRequest.getEmail())){
+        // Existing validation checks
+        if (providerRepository.existsByEmail(providerRequest.getEmail())) {
             ProviderResponse response = new ProviderResponse();
             response.setStatus("Error: Email is already in use!");
             return ResponseEntity.badRequest().body(response);
         }
-
-        if (providerRepository.existsByProviderName(providerRequest.getProviderName())){
+        if (providerRepository.existsByProviderName(providerRequest.getProviderName())) {
             ProviderResponse response = new ProviderResponse();
             response.setStatus("Error: Provider name is already in use!");
             return ResponseEntity.badRequest().body(response);
         }
-
-        if (providerRepository.existsByTelephone(providerRequest.getTelephone())){
+        if (providerRepository.existsByTelephone(providerRequest.getTelephone())) {
             ProviderResponse response = new ProviderResponse();
             response.setStatus("Error: Phone number is already in use!");
             return ResponseEntity.badRequest().body(response);
@@ -115,9 +113,9 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         BeanUtils.copyProperties(providerRequest, provider);
         provider.setStatus(Status.valueOf(providerRequest.getStatus()));
 
+        String logoFileName = null;
         if (logo != null && !logo.isEmpty()) {
             try {
-
                 File directory = new File(providerLogosDirectory);
                 if (!directory.exists()) {
                     directory.mkdirs();
@@ -127,14 +125,14 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
                 String fileName = logo.getOriginalFilename();
                 assert fileName != null;
                 String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
-                String newFileName = "logo_" + UUID.randomUUID().toString() + "." + extension;
+                logoFileName = "logo_" + UUID.randomUUID().toString() + "." + extension;
 
-                Path logoPath = Paths.get(providerLogosDirectory + "/" + newFileName);
+                Path logoPath = Paths.get(providerLogosDirectory + "/" + logoFileName);
                 log.info("Saving new logo to: {}", logoPath);
                 Files.write(logoPath, logo.getBytes());
 
-                provider.setLogoPath(newFileName);
-                log.info("Set provider logo path to: {}", newFileName);
+                provider.setLogoPath(logoFileName);
+                log.info("Set provider logo path to: {}", logoFileName);
             } catch (IOException e) {
                 log.error("Error uploading logo: {}", e.getMessage(), e);
                 ProviderResponse response = new ProviderResponse();
@@ -147,25 +145,40 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         log.info("Provider created with UUID: {}, status: {}", savedProvider.getProviderUuid(), savedProvider.getStatus());
 
         Role role = new Role();
-        // Truncate the provider name if it's too long to fit in role name
-        String providerNameForRole = providerRequest.getProviderName();
-        if (providerNameForRole.length() > 40) {
-            providerNameForRole = providerNameForRole.substring(0, 40);
-        }
-
+        String providerNameForRole = providerRequest.getProviderName().length() > 40
+                ? providerRequest.getProviderName().substring(0, 40)
+                : providerRequest.getProviderName();
         role.setRoleName(providerNameForRole + "_Manager");
         role.setProviderUuid(savedProvider.getProviderUuid());
         role.setRoleDescription("Manages the system for " + providerRequest.getProviderName());
         Role savedRole = roleRepository.save(role);
 
-        createProviderManager(providerRequest, savedRole, savedProvider);
-
         ProviderResponse providerResponse = new ProviderResponse();
         BeanUtils.copyProperties(savedProvider, providerResponse);
         providerResponse.setStatus(String.valueOf(savedProvider.getStatus()));
         providerResponse.setProviderUuid(savedProvider.getProviderUuid());
+        providerResponse.setRoleUuid(savedRole.getRoleUuid());
+
+        // Set logo base64
+        if (logoFileName != null) {
+            try {
+                Path path = Paths.get(providerLogosDirectory + "/" + logoFileName);
+                byte[] fileContent = Files.readAllBytes(path);
+                String base64Logo = Base64.getEncoder().encodeToString(fileContent);
+                providerResponse.setLogoBase64("data:image/" + getFileExtension(logoFileName) + ";base64," + base64Logo);
+            } catch (IOException e) {
+                log.warn("Could not read logo for provider {}: {}", savedProvider.getProviderUuid(), e.getMessage());
+                providerResponse.setLogoBase64("");
+            }
+        } else {
+            providerResponse.setLogoBase64("");
+        }
 
         return ResponseEntity.ok(providerResponse);
+    }
+
+    private String getFileExtension(String fileName) {
+        return fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
     }
 
     @Override

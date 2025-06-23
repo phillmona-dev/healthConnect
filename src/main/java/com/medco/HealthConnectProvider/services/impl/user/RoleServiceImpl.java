@@ -7,10 +7,12 @@ import com.medco.HealthConnectProvider.repository.user.PrivilegeRepository;
 import com.medco.HealthConnectProvider.repository.user.RoleRepository;
 import com.medco.HealthConnectProvider.services.user.RoleService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.RoleRequest;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.PrivilegeResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.RoleResponse;
 import com.medco.HealthConnectProvider.utils.paginationUtils.Pagination;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,7 +33,7 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
-    public ResponseEntity<RoleResponse> createRole(RoleRequest roleRequest) {
+    public ResponseEntity<PagedResponse<RoleResponse>> createRole(RoleRequest roleRequest) {
         var role = new Role();
         BeanUtils.copyProperties(roleRequest, role);
 
@@ -64,7 +66,16 @@ public class RoleServiceImpl implements RoleService {
 
         roleResponse.setPrivilegeList(privilegeResponses);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(roleResponse);
+        PagedResponse<RoleResponse> pagedResponse = new PagedResponse<>(
+                List.of(roleResponse),
+                1,
+                1,
+                1,
+                1,
+                true
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(pagedResponse);
     }
 
     @Override
@@ -96,9 +107,42 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
-    public List<RoleResponse> getAllRoles(String search, int page, int limit) {
-        Pageable pageable = Pagination.paginateResource(page,limit,"id","desc");
-        return search != null ? getAllRolesBySearch(search,pageable) : getAllWithOutSearch(pageable);
+    public PagedResponse<RoleResponse> getAllRoles(String search, int page, int limit) {
+        Pageable pageable = Pagination.paginateResource(page, limit, "id", "desc");
+        Page<Role> rolePage = search != null ?
+                (Page<Role>) roleRepository.findAllByRoleNameContaining(search, pageable) :
+                roleRepository.findAll(pageable);
+
+        List<RoleResponse> roleResponses = rolePage.getContent().stream()
+                .map(this::mapRoleToResponse)
+                .collect(Collectors.toList());
+
+        return new PagedResponse<>(
+                roleResponses,
+                rolePage.getNumber(),
+                rolePage.getSize(),
+                rolePage.getTotalElements(),
+                rolePage.getTotalPages(),
+                rolePage.isLast()
+        );
+    }
+
+    private RoleResponse mapRoleToResponse(Role role) {
+        List<PrivilegeResponse> privilegeResponses = role.getPrivileges().stream()
+                .map(privilege -> new PrivilegeResponse(
+                        privilege.getPrivilegeUuid(),
+                        privilege.getPrivilegeName(),
+                        privilege.getPrivilegeDescription(),
+                        privilege.getPrivilegeCategory()
+                ))
+                .collect(Collectors.toList());
+
+        return new RoleResponse(
+                role.getRoleUuid(),
+                role.getRoleName(),
+                role.getRoleDescription(),
+                privilegeResponses
+        );
     }
 
     @Override

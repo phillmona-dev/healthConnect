@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.controller.users;
 
 import com.medco.HealthConnectProvider.services.user.RoleService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.RoleRequest;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.RoleResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -30,7 +31,7 @@ public class RoleController {
     @PostMapping
     //@PreAuthorize("hasRole('Create_Role')")
     @Operation(summary = "Create role", description = "Creates a new role with associated privileges")
-    public ResponseEntity<RoleResponse> createRole(@Valid @RequestBody RoleRequest roleRequest) {
+    public ResponseEntity<PagedResponse<RoleResponse>> createRole(@Valid @RequestBody RoleRequest roleRequest) {
         return roleService.createRole(roleRequest);
     }
 
@@ -42,12 +43,13 @@ public class RoleController {
 
     @GetMapping("/all")
     @Operation(summary = "List roles", description = "Retrieves a list of roles with pagination and search capabilities")
-    public List<RoleResponse> getAllRoles(
+    public ResponseEntity<PagedResponse<RoleResponse>> getAllRoles(
             @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "limit", defaultValue = "25") int limit
-    ){
-        return roleService.getAllRoles(search,page,limit);
+    ) {
+        PagedResponse<RoleResponse> pagedResponse = roleService.getAllRoles(search, page, limit);
+        return ResponseEntity.ok(pagedResponse);
     }
 
     @PutMapping(path="/{roleUuid}")

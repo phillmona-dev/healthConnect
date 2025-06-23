@@ -26,6 +26,10 @@ public class PayerResponse {
     private String referralType;
     private String referredBy;
 
+    private String roleUuid;
+
+    private String dependantCoverage;
+
     private Status status;
     private long totalPages;
 

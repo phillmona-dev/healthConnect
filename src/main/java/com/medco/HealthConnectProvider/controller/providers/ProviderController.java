@@ -67,7 +67,7 @@ public class ProviderController {
     }
 
     @GetMapping("/list")
-//@PreAuthorize("hasRole('Read-Providers')")
+    //@PreAuthorize("hasRole('Read-Providers')")
     @Operation(
             summary = "List providers",
             description = "Retrieves a list of healthcare providers with pagination, search, and advanced filtering options"
@@ -94,6 +94,7 @@ public class ProviderController {
             description = "Retrieves a list of healthcare providers with out their logo with pagination, search, and advanced filtering options"
     )
     public ResponseEntity<PagedResponse<ProviderResponse>> getProvidersWithOutLogo(
+
             @RequestParam(value = "search", required = false) String searchKey,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "limit", defaultValue = "25") int limit,
@@ -128,6 +129,7 @@ public class ProviderController {
     @GetMapping("/payer/available-providers")
     @Operation(summary = "Get available providers for payer", description = "Retrieves a list of providers that are not currently in contract with a specific payer")
     public List<ProviderResponse> getAvailableProvidersForPayerNotInContract(
+
             @RequestParam(value = "payerUuid", required = true) String payerUuid,
             @RequestParam(value = "search", required = false) String searchKey,
             @RequestParam(value = "page", defaultValue = "1") int page,

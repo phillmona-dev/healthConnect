@@ -2,13 +2,11 @@ package com.medco.HealthConnectProvider.services.payer;
 
 import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimReviewRequest;
-import com.medco.HealthConnectProvider.ui.request.search.PayerSearchRequest;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
-import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.Valid;
 import org.springframework.core.io.ByteArrayResource;
@@ -19,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 public interface PayerService {
+
     PayerResponse createPayer(@Valid PayerRequest payerRequest, MultipartFile logo);
 
     /**
@@ -46,7 +45,8 @@ public interface PayerService {
 
     ResponseEntity<ByteArrayResource> getPayerLogo(String payerUuid);
 
-    PagedResponse<PayerResponse> getPayersWithFilters(String searchKey, int page, int limit, Status status, String category, String payerName, Long tinNumber, String level, String sortBy, String sortDir);
+    PagedResponse<PayerResponse> getPayersWithFilters(String searchKey, int page, int limit, Status status, String category,
+                                                      String payerName, Long tinNumber, String level, String sortBy, String sortDir);
 
 
     Page<ClaimResponse> getClaimsForReview(int page, int size);

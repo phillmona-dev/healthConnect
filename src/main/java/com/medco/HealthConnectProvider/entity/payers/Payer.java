@@ -91,6 +91,8 @@ public class Payer extends Audit {
     @Size(max = 500)
     private String description;
 
+    private boolean dependantCoverage;
+
     @Size(max = 255)
     private String logoPath;
 
