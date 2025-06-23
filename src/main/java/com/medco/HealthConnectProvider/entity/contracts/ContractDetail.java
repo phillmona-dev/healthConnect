@@ -81,11 +81,11 @@ public class ContractDetail extends Audit implements Serializable {
     )
     @Builder.Default
     private Set<EmployeeDependantGroup> employeeDependantGroups = new HashSet<>();
-
-    @OneToMany(mappedBy = "contractDetail", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
-    @JsonManagedReference(value = "contract-detail-provided-services")
-    @Builder.Default
-    private List<ProvidedService> providedServices = new ArrayList<>();
+//
+//    @OneToMany(mappedBy = "contractDetail", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
+//    @JsonManagedReference(value = "contract-detail-provided-services")
+//    @Builder.Default
+//    private List<ProvidedService> providedServices = new ArrayList<>();
 
     @PrePersist
     public void prePersist() {
@@ -104,17 +104,17 @@ public class ContractDetail extends Audit implements Serializable {
         employeeDependantGroups.remove(group);
         group.getContractDetails().remove(this);
     }
-
-    // Helper methods for ProvidedService
-    public void addProvidedService(ProvidedService providedService) {
-        providedServices.add(providedService);
-        providedService.setContractDetail(this);
-    }
-
-    public void removeProvidedService(ProvidedService providedService) {
-        providedServices.remove(providedService);
-        providedService.setContractDetail(null);
-    }
+//
+//    // Helper methods for ProvidedService
+//    public void addProvidedService(ProvidedService providedService) {
+//        providedServices.add(providedService);
+//        providedService.setContractDetail(this);
+//    }
+//
+//    public void removeProvidedService(ProvidedService providedService) {
+//        providedServices.remove(providedService);
+//        providedService.setContractDetail(null);
+//    }
 
     @OneToMany(mappedBy = "contractDetail", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonManagedReference(value = "contract-detail-groups")

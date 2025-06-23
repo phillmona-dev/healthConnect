@@ -38,7 +38,9 @@ public class ClaimRequest {
     
     @Size(max = 500, message = "Provider comment cannot exceed 500 characters")
     private String providerComment;
-    
+
+
+
     // List of provided services included in this claim
     private List<String> providedServiceUuids;
 }

@@ -176,15 +176,15 @@ public class ClaimServiceImpl implements ClaimService {
         claim.setTotalAmount(BigDecimal.valueOf(claimRequest.getTotalAmount()));
         claim.setProviderComment(claimRequest.getProviderComment());
 
-        // Set entity relationships
-        claim.setContract(contract);
-        claim.setProvider(provider);
-        claim.setPayer(contract.getPayer());
-        claim.setInsuredPerson(insured);
-
-        if (dependant != null) {
-            claim.setDependant(dependant);
-        }
+//        // Set entity relationships
+//        claim.setContract(contract);
+//        claim.setProvider(provider);
+//        claim.setPayer(contract.getPayer());
+//        claim.setInsuredPerson(insured);
+//
+//        if (dependant != null) {
+//            claim.setDependant(dependant);
+//        }
 
         // Set claim status
         claim.setStatus(ClaimStatus.SUBMITTED);
@@ -250,28 +250,34 @@ public class ClaimServiceImpl implements ClaimService {
         BeanUtils.copyProperties(claim, response);
 
         // Set related entity data from relationships
-        response.setContractUuid(claim.getContractUuid());
-        response.setContractName(claim.getContractName());
-        response.setContractCode(claim.getContractCode());
 
-        response.setProviderUuid(claim.getProviderUuid());
-        response.setProviderName(claim.getProviderName());
-        response.setProviderCode(claim.getProviderCode());
+        response.setContractUuid(claim.getProvidedService().getContractDetail().getContractHeader().getContractHeaderUuid());
+        response.setContractName(claim.getProvidedService().getContractDetail().getContractHeader().getContractName());
+        response.setContractCode(claim.getProvidedService().getContractDetail().getContractHeader().getContractCode());
 
-        response.setPayerUuid(claim.getPayerUuid());
-        response.setPayerName(claim.getPayerName());
-        response.setPayerCode(claim.getPayerCode());
-
-        response.setInsuredPersonUuid(claim.getInsuredPersonUuid());
-        response.setInsuredPersonName(claim.getInsuredPersonName());
-        response.setInsuredPersonCode(claim.getInsuredPersonCode());
-        response.setInsuredPersonPhone(claim.getInsuredPersonPhone());
-        response.setInsuredPersonGender(claim.getInsuredPersonGender());
-
-        response.setDependantUuid(claim.getDependantUuid());
-        response.setDependantFullName(claim.getDependantFullName());
-        response.setDependantRelationship(claim.getDependantRelationship());
-
+        if (claim.getProvidedService().getContractDetail().getServicelist().getProvider()!=null) {
+            response.setProviderUuid(claim.getProviderUuid());
+            response.setProviderName(claim.getProvidedService().getContractDetail().getServicelist().getProvider().getProviderName());
+            response.setProviderCode(claim.getProvidedService().getContractDetail().getServicelist().getProvider().getProviderCode());
+        }
+        if (claim.getProvidedService().getInsured()!=null&&claim.getProvidedService().getInsured().getPayer()!=null) {
+            response.setPayerUuid(claim.getPayerUuid());
+            response.setPayerName(claim.getProvidedService().getInsured().getPayer().getPayerName());
+            response.setPayerCode(claim.getProvidedService().getInsured().getPayer().getPayerCode());
+        }
+        if (claim.getProvidedService().getInsured()!=null) {
+            response.setInsuredPersonUuid(claim.getProvidedService().getInsured().getInsuredUuid());
+            response.setInsuredPersonName(claim.getProvidedService().getInsured().getFirstName() + " " + claim.getProvidedService().getInsured().getFatherName());
+            response.setInsuredPersonCode(claim.getProvidedService().getInsured().getIdNumber());
+            response.setInsuredPersonPhone(claim.getProvidedService().getInsured().getPhone());
+            response.setInsuredPersonGender(claim.getProvidedService().getInsured().getGender());
+            response.setInsuredPersonUuid(claim.getProvidedService().getInsured().getInsuredUuid());
+        }
+        if (claim.getProvidedService().getDependant()!=null) {
+            response.setDependantUuid(claim.getProvidedService().getDependant().getDependantUuid());
+            response.setDependantFullName(claim.getProvidedService().getDependant().getFirstName());
+            response.setDependantRelationship(claim.getProvidedService().getDependant().getRelationship().toString());
+        }
         // Use the JPA relationships to get related collections
         // Get attachments - can use the relationship directly
         response.setAttachments(claim.getAttachments().stream()
@@ -291,9 +297,7 @@ public class ClaimServiceImpl implements ClaimService {
                 .collect(Collectors.toList()));
 
         // Get provided services - can use the relationship directly
-        response.setServices(claim.getProvidedServices().stream()
-                .map(this::mapToServiceResponse)
-                .collect(Collectors.toList()));
+        response.setService(mapToServiceResponse(claim.getProvidedService()));
 
         return response;
     }
@@ -949,7 +953,7 @@ public class ClaimServiceImpl implements ClaimService {
                 "Payment initiated through Chapa. Amount: " + paymentRequest.getAmount());
 
         // Notify the pharmacy
-        notificationService.notifyPharmacy(claim.getProvider(), "Payment initiated for claim " + claimUuid);
+        notificationService.notifyPharmacy(claim.getProvidedService().getContractDetail().getServicelist().getProvider(), "Payment initiated for claim " + claimUuid);
 
         return ResponseEntity.ok(new MessageResponse("Payment initiated successfully"));
     }
@@ -976,7 +980,7 @@ public class ClaimServiceImpl implements ClaimService {
                     "Payment verified successfully");
 
             // Notify the pharmacy
-            notificationService.notifyPharmacy(claim.getProvider(), "Payment confirmed for claim " + claimUuid);
+            notificationService.notifyPharmacy(claim.getProvidedService().getContractDetail().getServicelist().getProvider(), "Payment confirmed for claim " + claimUuid);
 
             return ResponseEntity.ok(new MessageResponse("Payment verified successfully"));
         } else {

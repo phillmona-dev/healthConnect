@@ -31,6 +31,7 @@ public class BatchRecord {
     private LocalDate claimDatingTo;
     private BigDecimal totalAmount;
     private String status;
+
     private String claimUuid;
 
     @OneToOne

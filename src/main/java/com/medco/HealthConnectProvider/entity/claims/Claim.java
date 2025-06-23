@@ -142,26 +142,26 @@ public class Claim extends Audit {
 
     @OneToOne(mappedBy = "claim")
     private BatchRecord batchRecord;
+//
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "contract_id", nullable = false)
+//    private ContractHeader contract;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "contract_id", nullable = false)
-    private ContractHeader contract;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "provider_id", nullable = false)
-    private Provider provider;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payer_id", nullable = false)
-    private Payer payer;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "insured_id", nullable = false)
-    private Insured insuredPerson;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dependant_id")
-    private Dependant dependant;
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "provider_id", nullable = false)
+//    private Provider provider;
+//
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "payer_id", nullable = false)
+//    private Payer payer;
+//
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "insured_id", nullable = false)
+//    private Insured insuredPerson;
+//
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "dependant_id")
+//    private Dependant dependant;
 
     @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ClaimAttachment> attachments = new ArrayList<>();
@@ -175,117 +175,126 @@ public class Claim extends Audit {
     @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ClaimPayment> payments = new ArrayList<>();
 
-    @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ProvidedService> providedServices = new ArrayList<>();
+//    @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
+//    private List<ProvidedService> providedServices = new ArrayList<>();
+
+
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "provided_service_id")
+    private ProvidedService providedService;
+
 
     @Column(nullable = false)
     @UpdateTimestamp
     private LocalDateTime lastUpdated;
 
-    @PrePersist
-    public void prePersist() {
-        if (status == null) {
-            status = ClaimStatus.SUBMITTED;
-        }
 
-        if (claimUuid == null) {
-            claimUuid = UUID.randomUUID().toString();
-        }
+//
+//    @PrePersist
+//    public void prePersist() {
+//        if (status == null) {
+//            status = ClaimStatus.SUBMITTED;
+//        }
+//
+//        if (claimUuid == null) {
+//            claimUuid = UUID.randomUUID().toString();
+//        }
+//
+//        if (providerUuid == null && provider != null) {
+//            providerUuid = provider.getProviderUuid();
+//        }
+//
+//        if (payerUuid == null && payer != null) {
+//            payerUuid = payer.getPayerUuid();
+//        }
+//
+//        if (reviewedAt == null) {
+//            reviewedAt = Instant.now();
+//        }
+//    }
 
-        if (providerUuid == null && provider != null) {
-            providerUuid = provider.getProviderUuid();
-        }
-
-        if (payerUuid == null && payer != null) {
-            payerUuid = payer.getPayerUuid();
-        }
-
-        if (reviewedAt == null) {
-            reviewedAt = Instant.now();
-        }
-    }
-
-    // Helper methods to get related entity UUIDs
-    public String getContractUuid() {
-        return contract != null ? contract.getContractHeaderUuid() : null;
-    }
-
-    public String getProviderUuid() {
-        return provider != null ? provider.getProviderUuid() : providerUuid;
-    }
-
-    public String getPayerUuid() {
-        return payer != null ? payer.getPayerUuid() : payerUuid;
-    }
-
-    public String getInsuredPersonUuid() {
-        return insuredPerson != null ? insuredPerson.getInsuredUuid() : null;
-    }
-
-    public String getDependantUuid() {
-        return dependant != null ? dependant.getDependantUuid() : null;
-    }
-
-    // Helper methods to get related entity names/details
-    public String getContractName() {
-        return contract != null ? contract.getContractName() : null;
-    }
-
-    public String getContractCode() {
-        return contract != null ? contract.getContractCode() : null;
-    }
-
-    public String getProviderName() {
-        return provider != null ? provider.getProviderName() : null;
-    }
-
-    public String getProviderCode() {
-        return provider != null ? provider.getProviderCode() : null;
-    }
-
-    public String getPayerName() {
-        return payer != null ? payer.getPayerName() : null;
-    }
-
-    public String getPayerCode() {
-        return payer != null ? payer.getPayerCode() : null;
-    }
-
-    public String getInsuredPersonName() {
-        return insuredPerson != null ? insuredPerson.getFirstName() + " " + insuredPerson.getFatherName() : null;
-    }
-
-    public String getInsuredPersonCode() {
-        return insuredPerson != null ? insuredPerson.getInsuranceId() : null;
-    }
-
-    public String getInsuredPersonPhone() {
-        return insuredPerson != null ? insuredPerson.getPhone() : null;
-    }
-
-    public String getInsuredPersonGender() {
-        return insuredPerson != null ? insuredPerson.getGender() : null;
-    }
-
-    public Date getInsuredBirthDate() {
-        return insuredPerson != null ? insuredPerson.getBirthDate() : null;
-    }
-
-    public String getDependantFullName() {
-        return dependant != null ? dependant.getFirstName() + " " + dependant.getFatherName() : null;
-    }
-
-    public String getDependantRelationship() {
-        return dependant != null ? dependant.getRelationship().toString() : null;
-    }
-
-    public String getDependantGender() {
-        return dependant != null ? dependant.getGender() : null;
-    }
-
-    public Date getDependantBirthDate() {
-        return dependant != null ? dependant.getBirthDate() : null;
-    }
+//    // Helper methods to get related entity UUIDs
+//    public String getContractUuid() {
+//        return contract != null ? contract.getContractHeaderUuid() : null;
+//    }
+//
+//    public String getProviderUuid() {
+//        return provider != null ? provider.getProviderUuid() : providerUuid;
+//    }
+//
+//    public String getPayerUuid() {
+//        return payer != null ? payer.getPayerUuid() : payerUuid;
+//    }
+//
+//    public String getInsuredPersonUuid() {
+//        return insuredPerson != null ? insuredPerson.getInsuredUuid() : null;
+//    }
+//
+//    public String getDependantUuid() {
+//        return dependant != null ? dependant.getDependantUuid() : null;
+//    }
+//
+//    // Helper methods to get related entity names/details
+//    public String getContractName() {
+//        return contract != null ? contract.getContractName() : null;
+//    }
+//
+//    public String getContractCode() {
+//        return contract != null ? contract.getContractCode() : null;
+//    }
+//
+//    public String getProviderName() {
+//        return provider != null ? provider.getProviderName() : null;
+//    }
+//
+//    public String getProviderCode() {
+//        return provider != null ? provider.getProviderCode() : null;
+//    }
+//
+//    public String getPayerName() {
+//        return payer != null ? payer.getPayerName() : null;
+//    }
+//
+//    public String getPayerCode() {
+//        return payer != null ? payer.getPayerCode() : null;
+//    }
+//
+//    public String getInsuredPersonName() {
+//        return insuredPerson != null ? insuredPerson.getFirstName() + " " + insuredPerson.getFatherName() : null;
+//    }
+//
+//    public String getInsuredPersonCode() {
+//        return insuredPerson != null ? insuredPerson.getInsuranceId() : null;
+//    }
+//
+//    public String getInsuredPersonPhone() {
+//        return insuredPerson != null ? insuredPerson.getPhone() : null;
+//    }
+//
+//    public String getInsuredPersonGender() {
+//        return insuredPerson != null ? insuredPerson.getGender() : null;
+//    }
+//
+//    public Date getInsuredBirthDate() {
+//        return insuredPerson != null ? insuredPerson.getBirthDate() : null;
+//    }
+//
+//    public String getDependantFullName() {
+//        return dependant != null ? dependant.getFirstName() + " " + dependant.getFatherName() : null;
+//    }
+//
+//    public String getDependantRelationship() {
+//        return dependant != null ? dependant.getRelationship().toString() : null;
+//    }
+//
+//    public String getDependantGender() {
+//        return dependant != null ? dependant.getGender() : null;
+//    }
+//
+//    public Date getDependantBirthDate() {
+//        return dependant != null ? dependant.getBirthDate() : null;
+//    }
 
     // Helper methods for bidirectional relationship management
     public void addAttachment(ClaimAttachment attachment) {
@@ -329,17 +338,17 @@ public class Claim extends Audit {
         payment.setClaim(null);
     }
 
-    public void addProvidedService(ProvidedService service) {
-        providedServices.add(service);
-        service.setClaim(this);
-        service.setClaimUuid(this.claimUuid);
-    }
-
-    public void removeProvidedService(ProvidedService service) {
-        providedServices.remove(service);
-        service.setClaim(null);
-        service.setClaimUuid(null);
-    }
+//    public void addProvidedService(ProvidedService service) {
+//        providedServices.add(service);
+//        service.setClaim(this);
+//        service.setClaimUuid(this.claimUuid);
+//    }
+//
+//    public void removeProvidedService(ProvidedService service) {
+//        providedServices.remove(service);
+//        service.setClaim(null);
+//        service.setClaimUuid(null);
+//    }
 
     @Override
     public boolean equals(Object o) {

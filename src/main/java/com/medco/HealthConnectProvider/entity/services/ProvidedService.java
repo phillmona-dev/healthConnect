@@ -59,9 +59,13 @@ public class ProvidedService extends Audit {
     @JsonBackReference(value = "dependant-provided-services")
     private Dependant dependant;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "claim_id")
-    @JsonBackReference
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "claim_id")
+//    @JsonBackReference
+//    private Claim claim;
+
+
+    @OneToOne(mappedBy = "providedService")
     private Claim claim;
 
 }

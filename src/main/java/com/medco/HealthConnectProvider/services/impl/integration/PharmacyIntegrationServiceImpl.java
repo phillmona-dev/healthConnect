@@ -31,7 +31,6 @@ import com.medco.HealthConnectProvider.services.eligibility.EligibilityService;
 import com.medco.HealthConnectProvider.services.integration.PharmacyIntegrationService;
 import com.medco.HealthConnectProvider.services.persons.InsuredService;
 import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
-import com.medco.HealthConnectProvider.ui.request.eligibility.EligibilityCheckRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.MedicationDispensingRequest;
@@ -53,6 +52,7 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -292,25 +292,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     private MedicationDispensingDTO convertToMedicationDispensingDTO(MedicationDispensing dispensing) {
         MedicationDispensingDTO dto = new MedicationDispensingDTO();
-        dto.setDispensingUuid(dispensing.getDispensingUuid());
-        dto.setInvoiceNumber(dispensing.getInvoiceNumber());
-        dto.setBatchCode(dispensing.getBatchCode());
-        dto.setProviderUuid(dispensing.getProviderUuid());
-        dto.setPayerUuid(dispensing.getPayerUuid());
-        dto.setInsuredUuid(dispensing.getInsuredUuid());
-        dto.setPrescriptionNumber(dispensing.getPrescriptionNumber());
-        dto.setPharmacyTransactionId(dispensing.getPharmacyTransactionId());
-        dto.setDispensingDate(dispensing.getDispensingDate());
-        dto.setPrescribingPhysicianName(dispensing.getPrescribingPhysicianName());
-        dto.setPrescribingPhysicianId(dispensing.getPrescribingPhysicianId());
-        dto.setRecordedAt(dispensing.getRecordedAt());
-        dto.setBranchName(dispensing.getBranchName());
-        dto.setClaimStatus(dispensing.getClaimStatus());
-        dto.setClaimUuid(dispensing.getClaimUuid());
-        dto.setTotalAmount(dispensing.getTotalAmount());
-        dto.setPatientResponsibility(dispensing.getPatientResponsibility());
-        dto.setInsuranceCoverage(dispensing.getInsuranceCoverage());
-        dto.setPharmacistNotes(dispensing.getPharmacistNotes());
+        BeanUtils.copyProperties(dispensing,dto);
+
 
         // Fetch additional information
         Optional<Provider> providerOptional = providerRepository.findByProviderUuid(dispensing.getProviderUuid());
@@ -338,19 +321,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     private MedicationDispensingDTO.MedicationItemDTO convertToMedicationItemDTO(MedicationDispensingItem item) {
         MedicationDispensingDTO.MedicationItemDTO itemDTO = new MedicationDispensingDTO.MedicationItemDTO();
-        itemDTO.setItemUuid(item.getItemUuid());
-        itemDTO.setMedicationCode(item.getMedicationCode());
-        itemDTO.setMedicationName(item.getMedicationName());
-        itemDTO.setQuantity(item.getQuantity());
-        itemDTO.setPrimaryDiagnosis(item.getPrimaryDiagnosis());
-        itemDTO.setSecondaryDiagnosis(item.getSecondaryDiagnosis());
-        itemDTO.setUnitOfMeasure(item.getUnitOfMeasure());
-        itemDTO.setUnitPrice(item.getUnitPrice());
-        itemDTO.setTotalPrice(item.getTotalPrice());
-        itemDTO.setDosageInstructions(item.getDosageInstructions());
-        itemDTO.setStrength(item.getStrength());
-        itemDTO.setRoute(item.getRoute());
-        itemDTO.setFormulation(item.getFormulation());
+        BeanUtils.copyProperties(item,itemDTO);
+
        // itemDTO.setItemType(item.getItemType().toString());
 
         return itemDTO;
@@ -497,8 +469,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             message = dispensingRecords.size() + " dispensing record(s) updated to SUBMITTED status. " +
                     "Batch created with code: " + batchRecord.getBatchCode();
 
-        } else if (newStatus.equals("AUTHORIZED")) {
-            // Validate all records are in SUBMITTED status and belong to the same batch
+        } else {
             String batchCode = null;
             for (MedicationDispensing record : dispensingRecords) {
                 if (!record.getClaimStatus().equals("SUBMITTED")) {
@@ -1049,9 +1020,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     private Claim createClaim(Provider provider, Payer payer, Insured insured, List<MedicationDispensing> dispensingRecords) {
         Claim claim = new Claim();
         claim.setClaimUuid(UUID.randomUUID().toString());
-        claim.setProvider(provider);
-        claim.setPayer(payer);
-        claim.setInsuredPerson(insured);
+
         claim.setSubmissionDate(LocalDateTime.now());
         claim.setStatus(ClaimStatus.SUBMITTED);
 
@@ -1240,7 +1209,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 
-        if (!claim.getStatus().equals(ClaimStatus.PAID.toString())) {
+        if (!claim.getStatus().equals(ClaimStatus.PAID)) {
             throw new BadRequestException("Only paid claims can be reconciled");
         }
 
@@ -1251,7 +1220,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         List<MedicationDispensing> dispensingRecords = dispensingRepository.findByClaimUuid(claimUuid);
 
         // Create batch record
-        BatchRecord batchRecord = createBatchRecord(claim.getPayer(), dispensingRecords, claim);
+        BatchRecord batchRecord = createBatchRecord(claim.getProvidedService().getInsured().getPayer(), dispensingRecords, claim);
         batchRecord.setStatus("RECONCILED");
         batchRecord.setClaim(claim);
         claim.setBatchRecord(batchRecord);
@@ -1264,13 +1233,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 "Claim reconciled by pharmacy");
 
         ReconciliationResponse response = new ReconciliationResponse();
-        response.setBatchCode(savedBatchRecord.getBatchCode());
-        response.setPayerName(savedBatchRecord.getPayerName());
-        response.setRequestedOn(savedBatchRecord.getRequestedOn());
-        response.setClaimDatingFrom(savedBatchRecord.getClaimDatingFrom());
-        response.setClaimDatingTo(savedBatchRecord.getClaimDatingTo());
-        response.setTotalAmount(savedBatchRecord.getTotalAmount());
-        response.setStatus(savedBatchRecord.getStatus());
+        BeanUtils.copyProperties(savedBatchRecord,response);
         response.setMessage("Claim reconciled successfully");
 
         return ResponseEntity.ok(response);

@@ -34,13 +34,16 @@ public class ClaimController {
 
     @Autowired
     private PharmacyIntegrationService pharmacyIntegrationService;
-    
+
+
     @PostMapping
     @Operation(summary = "Submit a new claim")
     public ResponseEntity<?> submitClaim(@Valid @RequestBody ClaimRequest claimRequest) {
         return claimService.submitClaim(claimRequest);
     }
-    
+
+
+
     @GetMapping("/{claimUuid}")
     @Operation(summary = "Get claim details by UUID")
     public ClaimDetailResponse getClaimByUuid(@PathVariable String claimUuid) {
