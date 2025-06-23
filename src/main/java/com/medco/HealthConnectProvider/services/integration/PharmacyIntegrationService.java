@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.services.integration;
 
+import com.medco.HealthConnectProvider.dto.MedicationDispensingDTO;
 import com.medco.HealthConnectProvider.dto.PendingDispensingRecordDTO;
 import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public interface PharmacyIntegrationService {
 
@@ -56,5 +58,7 @@ public interface PharmacyIntegrationService {
                                                                           LocalDate startDate, LocalDate endDate, String payerUuid, int page, int size, String sortBy, String sortDirection);
 
     ResponseEntity<?> addDrugDispensingRecord(DrugDispensingRecordRequest request);
+
+    ResponseEntity<List<MedicationDispensingDTO>> getMedicationsByBatchCode(String batchCode);
 
 }

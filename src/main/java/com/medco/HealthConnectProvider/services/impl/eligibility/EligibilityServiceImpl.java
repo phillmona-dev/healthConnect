@@ -3,9 +3,7 @@ package com.medco.HealthConnectProvider.services.impl.eligibility;
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.groups.ContractDetailEmployeeGroup;
-import com.medco.HealthConnectProvider.entity.groups.DependantGroup;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
-import com.medco.HealthConnectProvider.entity.groups.EmployeeInsuredGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
@@ -16,16 +14,13 @@ import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.contract.ContractDetailRepository;
 import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
 import com.medco.HealthConnectProvider.repository.group.ContractDetailEmployeeGroupRepository;
-import com.medco.HealthConnectProvider.repository.group.DependantGroupRepository;
 import com.medco.HealthConnectProvider.repository.group.EmployeeDependantGroupRepository;
-import com.medco.HealthConnectProvider.repository.group.EmployeeInsuredGroupRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
 import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
 import com.medco.HealthConnectProvider.repository.service.ServicelistRepository;
 import com.medco.HealthConnectProvider.services.eligibility.EligibilityService;
-import com.medco.HealthConnectProvider.services.payer.PayerService;
 import com.medco.HealthConnectProvider.services.persons.InsuredService;
 import com.medco.HealthConnectProvider.ui.request.eligibility.EligibilityCheckRequest;
 import com.medco.HealthConnectProvider.ui.response.eligibility.*;
@@ -73,13 +68,7 @@ public class EligibilityServiceImpl implements EligibilityService {
     private EmployeeDependantGroupRepository employeeDependantGroupRepository;
 
     @Autowired
-    private EmployeeInsuredGroupRepository employeeInsuredGroupRepository;
-
-    @Autowired
     private DependantRepository dependantRepository;
-
-    @Autowired
-    private DependantGroupRepository dependantGroupRepository;
 
     @Autowired
     private InsuredService insuredService;
@@ -87,26 +76,6 @@ public class EligibilityServiceImpl implements EligibilityService {
     @Autowired
     private ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository;
 
-//    @Override
-//    public ResponseEntity<?> checkEligibility(String providerUuid, EligibilityCheckRequest request) {
-//        Provider provider = providerRepository.findByProviderUuid(providerUuid)
-//                .orElseThrow(() -> new ResourceNotFoundException("Provider", "providerUuid", providerUuid));
-//
-//        List<InsuredSearchResponse> insuredList = insuredService.searchInsuredPersons(
-//                request.getPhoneNumber(), request.getEmployeeId(), request.getInsuranceId(), request.getNationalId());
-//
-//        if (insuredList.isEmpty()) {
-//            throw new ResourceNotFoundException("Insured Person", "provided identifiers", "Not found");
-//        }
-//
-//        if (insuredList.size() > 1) {
-//            // Return the list of insured persons for selection
-//            return ResponseEntity.ok(new MultipleInsuredResponse(insuredList));
-//        }
-//
-//        // If only one insured person is found, proceed with eligibility check
-//        return checkEligibilityForInsured(provider, insuredList.get(0), request.getServiceUuid());
-//    }
 
     @Override
     public ResponseEntity<EligibilityResponse> checkEligibilityForInsured(String providerUuid, InsuredSearchResponse insured, String serviceUuid) {
@@ -391,63 +360,24 @@ public class EligibilityServiceImpl implements EligibilityService {
 
     private List<GroupMembershipResponse> getInsuredGroups(Insured insured) {
         // Get all groups for this insured
-        List<EmployeeInsuredGroup> employeeGroups = employeeInsuredGroupRepository
-                .findByEmployeeInsuredUuidAndIsDeleted(insured.getInsuredUuid(), false);
+        List<EmployeeDependantGroup> employeeGroups = employeeDependantGroupRepository
+                .findByInsured_InsuredUuidAndIsDeleted(insured.getInsuredUuid(), false);
 
         return employeeGroups.stream()
-                .map(group -> {
-                    EmployeeDependantGroup employeeGroup = group.getEmployeeDependantGroup();
-
-                    GroupMembershipResponse response = new GroupMembershipResponse();
-                    response.setGroupUuid(employeeGroup.getGroupUuid());
-                    response.setGroupName(employeeGroup.getGroupName());
-                    response.setGroupDescription(employeeGroup.getGroupDescription());
-                    response.setGroupType(employeeGroup.getType() != null ? employeeGroup.getType().toString() : "Employee");
-                    response.setGroupStatus(employeeGroup.getStatus());
-
-                    return response;
-                })
+                .map(this::mapToGroupMembershipResponse)
                 .collect(Collectors.toList());
     }
 
-    private List<DependentEligibilityResponse> getDependentsEligibility(List<Dependant> dependants) {
-        return dependants.stream()
-                .map(dependant -> {
-                    DependentEligibilityResponse response = new DependentEligibilityResponse();
-                    response.setDependantUuid(dependant.getDependantUuid());
-                    response.setFirstName(dependant.getFirstName());
-                    response.setFatherName(dependant.getFatherName());
-                    response.setGrandFatherName(dependant.getGrandFatherName());
-                    response.setRelationship(dependant.getRelationship() != null ?
-                            Relationship.valueOf(dependant.getRelationship().toString()) : null);
-                    response.setStatus(dependant.getStatus());
-
-                    // Get groups for this dependant
-                    List<DependantGroup> dependantGroups = dependantGroupRepository
-                            .findByDependantUuidAndIsDeleted(dependant.getDependantUuid(), false);
-
-                    List<GroupMembershipResponse> groupResponses = dependantGroups.stream()
-                            .map(group -> {
-                                EmployeeDependantGroup employeeGroup = group.getEmployeeDependantGroup();
-
-                                GroupMembershipResponse groupResponse = new GroupMembershipResponse();
-                                groupResponse.setGroupUuid(employeeGroup.getGroupUuid());
-                                groupResponse.setGroupName(employeeGroup.getGroupName());
-                                groupResponse.setGroupDescription(employeeGroup.getGroupDescription());
-                                groupResponse.setGroupType(employeeGroup.getType() != null ?
-                                        employeeGroup.getType().toString() : "Dependant");
-                                groupResponse.setGroupStatus(employeeGroup.getStatus());
-
-                                return groupResponse;
-                            })
-                            .collect(Collectors.toList());
-
-                    response.setGroups(groupResponses);
-
-                    return response;
-                })
-                .collect(Collectors.toList());
+    private GroupMembershipResponse mapToGroupMembershipResponse(EmployeeDependantGroup group) {
+        GroupMembershipResponse response = new GroupMembershipResponse();
+        response.setGroupUuid(group.getGroupUuid());
+        response.setGroupName(group.getGroupName());
+        response.setGroupDescription(group.getGroupDescription());
+        response.setGroupType(group.getType() != null ? group.getType().toString() : "Employee");
+        response.setGroupStatus(group.getStatus());
+        return response;
     }
+
 
     private ServiceEligibilityResponse checkServiceEligibility(
             String serviceUuid,

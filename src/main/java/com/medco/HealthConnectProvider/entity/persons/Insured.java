@@ -3,7 +3,7 @@ package com.medco.HealthConnectProvider.entity.persons;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
-import com.medco.HealthConnectProvider.entity.groups.EmployeeInsuredGroup;
+import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.services.ProvidedService;
 import com.medco.HealthConnectProvider.utils.enums.Status;
@@ -46,7 +46,6 @@ public class Insured implements Serializable {
     @Size(min = 36, max = 40)
     private String payerUuid;
 
-    // Added for eligibility verification
     @Size(max = 50)
     private String employeeId;
 
@@ -56,7 +55,6 @@ public class Insured implements Serializable {
     @Size(max = 50)
     private String policyNumber;
 
-    // Policy dates using LocalDate for easier comparison
     private LocalDate policyStartDate;
     private LocalDate policyEndDate;
 
@@ -130,15 +128,15 @@ public class Insured implements Serializable {
     @OneToMany(mappedBy = "insured", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonManagedReference(value = "employee-insured-groups")
     @Builder.Default
-    private List<EmployeeInsuredGroup> employeeInsuredGroups = new ArrayList<>();
+    private List<EmployeeDependantGroup> employeeInsuredGroups = new ArrayList<>();
 
-    public void addEmployeeInsuredGroup(EmployeeInsuredGroup group) {
-        employeeInsuredGroups.add(group);
-        group.setInsured(this);
-        group.setEmployeeInsuredUuid(this.getInsuredUuid());
-    }
+//    public void addEmployeeInsuredGroup(EmployeeDependantGroup group) {
+//        employeeInsuredGroups.add(group);
+//        group.setInsured(this);
+//        group.setInsured(this.);
+//    }
 
-    public void removeEmployeeInsuredGroup(EmployeeInsuredGroup group) {
+    public void removeEmployeeInsuredGroup(EmployeeDependantGroup group) {
         employeeInsuredGroups.remove(group);
         group.setInsured(null);
     }

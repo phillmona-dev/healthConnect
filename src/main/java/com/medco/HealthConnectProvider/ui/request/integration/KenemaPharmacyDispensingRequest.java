@@ -27,6 +27,7 @@ public class KenemaPharmacyDispensingRequest {
     @Setter
     @Getter
     public static class PrescriptionDetail {
+
         private String description;
         private String outOfStock;
         private String medicationName;
@@ -37,5 +38,6 @@ public class KenemaPharmacyDispensingRequest {
         private String route;
         private String frequency;
         private String duration;
+
     }
 }

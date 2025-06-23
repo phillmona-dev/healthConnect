@@ -31,4 +31,7 @@ public interface MedicationDispensingRepository extends JpaRepository<Medication
     int updateClaimStatus(@Param("dispensingUuid") String dispensingUuid,
                           @Param("claimStatus") String claimStatus,
                           @Param("claimUuid") String claimUuid);
+
+    List<MedicationDispensing> findByBatchCode(String batchCode);
+
 }

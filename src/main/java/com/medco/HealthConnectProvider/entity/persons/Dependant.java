@@ -1,7 +1,6 @@
 package com.medco.HealthConnectProvider.entity.persons;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
-import com.medco.HealthConnectProvider.entity.groups.DependantGroup;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.services.ProvidedService;
 import com.medco.HealthConnectProvider.utils.enums.Relationship;
@@ -101,31 +100,6 @@ public class Dependant implements Serializable {
     @OneToMany(mappedBy = "dependant", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonManagedReference(value = "dependant-groups")
     @Builder.Default
-    private List<DependantGroup> dependantGroups = new ArrayList<>();
-
-    // Helper methods
-    public void addToGroup(EmployeeDependantGroup group) {
-        DependantGroup dependantGroup = DependantGroup.builder()
-                .dependant(this)
-                .employeeDependantGroup(group)
-                .dependantUuid(this.getDependantUuid())
-                .groupUuid(group.getGroupUuid())
-                .build();
-
-        this.dependantGroups.add(dependantGroup);
-        group.getDependantGroups().add(dependantGroup);
-    }
-
-    public void removeFromGroup(EmployeeDependantGroup group) {
-        this.dependantGroups.stream()
-                .filter(dg -> dg.getEmployeeDependantGroup().equals(group))
-                .findFirst()
-                .ifPresent(dg -> {
-                    this.dependantGroups.remove(dg);
-                    group.getDependantGroups().remove(dg);
-                    dg.setDependant(null);
-                    dg.setEmployeeDependantGroup(null);
-                });
-    }
+    private List<EmployeeDependantGroup> dependantGroups = new ArrayList<>();
 
 }

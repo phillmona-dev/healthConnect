@@ -1,18 +1,17 @@
 package com.medco.HealthConnectProvider.services.impl.group;
 
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserDetailsImpl;
-import com.medco.HealthConnectProvider.entity.groups.DependantGroup;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
-import com.medco.HealthConnectProvider.repository.group.DependantGroupRepository;
 import com.medco.HealthConnectProvider.repository.group.EmployeeDependantGroupRepository;
 import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
 import com.medco.HealthConnectProvider.services.group.DependantGroupService;
 import com.medco.HealthConnectProvider.ui.request.group.DependantGroupRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.DependantGroupResponse;
+import com.medco.HealthConnectProvider.utils.enums.GroupType;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -27,9 +26,6 @@ import java.util.stream.Collectors;
 
 @Service
 public class DependantGroupServiceImpl implements DependantGroupService {
-
-    @Autowired
-    private DependantGroupRepository dependantGroupRepository;
 
     @Autowired
     private EmployeeDependantGroupRepository employeeDependantGroupRepository;
@@ -57,7 +53,7 @@ public class DependantGroupServiceImpl implements DependantGroupService {
 
         // Validate dependant exists
         Dependant dependant = dependantRepository.findByDependantUuid(request.getDependantUuid());
-        if (dependant == null){
+        if (dependant == null) {
             throw new ResourceNotFoundException("Dependant", "dependantUuid", request.getDependantUuid());
         }
 
@@ -67,20 +63,26 @@ public class DependantGroupServiceImpl implements DependantGroupService {
         }
 
         // Check if association already exists
-        boolean exists = dependantGroupRepository.existsByDependantUuidAndGroupUuid(
-                request.getDependantUuid(), request.getGroupUuid());
-        if (exists) {
+        boolean associationExists = dependant.getDependantGroups().stream()
+                .anyMatch(g -> g.getGroupUuid().equals(group.getGroupUuid()));
+        if (associationExists) {
             throw new BadRequestException("Dependant is already in this group");
         }
 
-        // Create new association
-        DependantGroup association = new DependantGroup();
-        association.setDependant(dependant);
-        association.setEmployeeDependantGroup(group);
-        association.setDependantUuid(dependant.getDependantUuid());
-        association.setGroupUuid(group.getGroupUuid());
+        // Set the group type to DEPENDANT if not already set
+        if (group.getType() == null) {
+            group.setType(GroupType.DEPENDANT);
+        } else if (group.getType() != GroupType.DEPENDANT && group.getType() != GroupType.BOTH) {
+            throw new BadRequestException("This group is not for dependants");
+        }
 
-        dependantGroupRepository.save(association);
+        // Create new association
+        group.setDependant(dependant);
+        dependant.getDependantGroups().add(group);
+
+        // Save the changes
+        employeeDependantGroupRepository.save(group);
+        dependantRepository.save(dependant);
 
         return ResponseEntity.ok(new MessageResponse("Dependant added to group successfully"));
     }
@@ -93,7 +95,7 @@ public class DependantGroupServiceImpl implements DependantGroupService {
 
         // Validate dependant exists
         Dependant dependant = dependantRepository.findByDependantUuid(dependantUuid);
-        if (dependant == null){
+        if (dependant == null) {
             throw new ResourceNotFoundException("Dependant", "dependantUuid", dependantUuid);
         }
 
@@ -102,10 +104,12 @@ public class DependantGroupServiceImpl implements DependantGroupService {
             throw new BadRequestException("Dependant does not belong to this payer");
         }
 
-        List<DependantGroup> associations = dependantGroupRepository.findByDependantUuid(dependantUuid);
+        // Get all groups associated with this dependant
+        List<EmployeeDependantGroup> groups = dependant.getDependantGroups();
 
-        return associations.stream()
-                .filter(a -> !a.isDeleted())
+        // Filter out deleted groups and map to response
+        return groups.stream()
+                .filter(group -> !group.isDeleted())
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -127,11 +131,13 @@ public class DependantGroupServiceImpl implements DependantGroupService {
             throw new BadRequestException("Group does not belong to this payer");
         }
 
-        Page<DependantGroup> associations = dependantGroupRepository
-                .searchByGroupAndDependantName(groupUuid, search, pageable);
+        // Search for dependants in the group
+        Page<EmployeeDependantGroup> groupsWithDependants = employeeDependantGroupRepository
+                .searchByGroupUuidAndDependantName(groupUuid, search, pageable);
 
-        return associations.map(this::mapToResponse);
+        return groupsWithDependants.map(this::mapToResponse);
     }
+
 
     @Override
     @Transactional
@@ -141,19 +147,26 @@ public class DependantGroupServiceImpl implements DependantGroupService {
         String payerUuid = userDetails.getInstitutionUuid();
 
         // Validate association exists
-        DependantGroup association = dependantGroupRepository
-                .findByDependantUuidAndGroupUuid(dependantUuid, groupUuid)
-                .orElseThrow(() -> new ResourceNotFoundException("Association", "dependantUuid and groupUuid", 
+        EmployeeDependantGroup group = employeeDependantGroupRepository
+                .findByDependant_DependantUuidAndGroupUuid(dependantUuid, groupUuid)
+                .orElseThrow(() -> new ResourceNotFoundException("Association", "dependantUuid and groupUuid",
                         dependantUuid + " and " + groupUuid));
 
-        // Validate association belongs to payer
-        if (!association.getEmployeeDependantGroup().getPayerUuid().equals(payerUuid)) {
-            throw new BadRequestException("Association does not belong to this payer");
+        // Validate group belongs to payer
+        if (!group.getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("Group does not belong to this payer");
         }
 
-        // Soft delete
-        association.setDeleted(true);
-        dependantGroupRepository.save(association);
+        // Remove the dependant from the group
+        Dependant dependant = group.getDependant();
+        if (dependant != null) {
+            dependant.getDependantGroups().remove(group);
+            group.setDependant(null);
+        }
+
+        // Soft delete the group
+        group.setDeleted(true);
+        employeeDependantGroupRepository.save(group);
 
         return ResponseEntity.ok(new MessageResponse("Dependant removed from group successfully"));
     }
@@ -165,7 +178,6 @@ public class DependantGroupServiceImpl implements DependantGroupService {
         UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getInstitutionUuid();
 
-        List<DependantGroup> associations = new ArrayList<>();
         int addedCount = 0;
 
         for (DependantGroupRequest request : requests) {
@@ -182,7 +194,7 @@ public class DependantGroupServiceImpl implements DependantGroupService {
 
             // Validate dependant exists
             Dependant dependant = dependantRepository.findByDependantUuid(request.getDependantUuid());
-            if (dependant == null){
+            if (dependant == null) {
                 throw new ResourceNotFoundException("Dependant", "dependantUuid", request.getDependantUuid());
             }
 
@@ -192,23 +204,26 @@ public class DependantGroupServiceImpl implements DependantGroupService {
             }
 
             // Check if association already exists
-            boolean exists = dependantGroupRepository.existsByDependantUuidAndGroupUuid(
-                    request.getDependantUuid(), request.getGroupUuid());
-            if (!exists) {
-                // Create new association
-                DependantGroup association = new DependantGroup();
-                association.setDependant(dependant);
-                association.setEmployeeDependantGroup(group);
-                association.setDependantUuid(dependant.getDependantUuid());
-                association.setGroupUuid(group.getGroupUuid());
+            boolean associationExists = dependant.getDependantGroups().stream()
+                    .anyMatch(g -> g.getGroupUuid().equals(group.getGroupUuid()));
+            if (!associationExists) {
+                // Set the group type to DEPENDANT if not already set
+                if (group.getType() == null) {
+                    group.setType(GroupType.DEPENDANT);
+                } else if (group.getType() != GroupType.DEPENDANT && group.getType() != GroupType.BOTH) {
+                    throw new BadRequestException("This group is not for dependants");
+                }
 
-                associations.add(association);
+                // Create new association
+                group.setDependant(dependant);
+                dependant.getDependantGroups().add(group);
+
+                // Save the changes
+                employeeDependantGroupRepository.save(group);
+                dependantRepository.save(dependant);
+
                 addedCount++;
             }
-        }
-
-        if (!associations.isEmpty()) {
-            dependantGroupRepository.saveAll(associations);
         }
 
         return ResponseEntity.ok(new MessageResponse("Added " + addedCount + " dependants to groups"));
@@ -231,43 +246,38 @@ public class DependantGroupServiceImpl implements DependantGroupService {
             throw new BadRequestException("Group does not belong to this payer");
         }
 
-        return dependantGroupRepository.countByGroupUuid(groupUuid);
+        return employeeDependantGroupRepository.countByGroupUuid(groupUuid);
     }
 
-    private DependantGroupResponse mapToResponse(DependantGroup association) {
+    private DependantGroupResponse mapToResponse(EmployeeDependantGroup group) {
         DependantGroupResponse response = new DependantGroupResponse();
-        response.setId(association.getId());
-        response.setDependantUuid(association.getDependantUuid());
-        response.setGroupUuid(association.getGroupUuid());
-        
-        // Add dependant information
-        if (association.getDependant() != null) {
-            response.setFirstName(association.getDependant().getFirstName());
-            response.setFatherName(association.getDependant().getFatherName());
-            response.setGrandFatherName(association.getDependant().getGrandFatherName());
-            response.setRelationship(association.getDependant().getRelationship());
-            response.setGender(association.getDependant().getGender());
-            response.setStatus(association.getDependant().getStatus());
-            
-            // Add insured information if available
-            if (association.getDependant().getInsured() != null) {
-                response.setInsuredUuid(association.getDependant().getInsured().getInsuredUuid());
+        response.setId(group.getId());
+        response.setGroupUuid(group.getGroupUuid());
+        response.setGroupName(group.getGroupName());
+        response.setGroupDescription(group.getGroupDescription());
+        response.setGroupType(group.getType());
+
+        Dependant dependant = group.getDependant();
+        if (dependant != null) {
+            response.setDependantUuid(dependant.getDependantUuid());
+            response.setFirstName(dependant.getFirstName());
+            response.setFatherName(dependant.getFatherName());
+            response.setGrandFatherName(dependant.getGrandFatherName());
+            response.setRelationship(dependant.getRelationship());
+            response.setGender(dependant.getGender());
+            response.setStatus(dependant.getStatus());
+
+            if (dependant.getInsured() != null) {
+                response.setInsuredUuid(dependant.getInsured().getInsuredUuid());
                 response.setInsuredName(
-                    association.getDependant().getInsured().getFirstName() + " " +
-                    association.getDependant().getInsured().getFatherName() + " " +
-                    association.getDependant().getInsured().getGrandFatherName()
+                        dependant.getInsured().getFirstName() + " " +
+                                dependant.getInsured().getFatherName() + " " +
+                                dependant.getInsured().getGrandFatherName()
                 );
-                response.setInsuranceId(association.getDependant().getInsured().getInsuranceId());
+                response.setInsuranceId(dependant.getInsured().getInsuranceId());
             }
         }
-        
-        // Add group information
-        if (association.getEmployeeDependantGroup() != null) {
-            response.setGroupName(association.getEmployeeDependantGroup().getGroupName());
-            response.setGroupDescription(association.getEmployeeDependantGroup().getGroupDescription());
-            response.setGroupType(association.getEmployeeDependantGroup().getType());
-        }
-        
+
         return response;
     }
 }

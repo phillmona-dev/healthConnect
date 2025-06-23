@@ -1,25 +1,21 @@
 package com.medco.HealthConnectProvider.controller.integration;
 
 import com.medco.HealthConnectProvider.dto.BatchRecordDTO;
+import com.medco.HealthConnectProvider.dto.MedicationDispensingDTO;
 import com.medco.HealthConnectProvider.dto.PendingDispensingRecordDTO;
 import com.medco.HealthConnectProvider.services.claims.BatchRecordService;
 import com.medco.HealthConnectProvider.services.eligibility.EligibilityService;
 import com.medco.HealthConnectProvider.services.integration.PharmacyIntegrationService;
-import com.medco.HealthConnectProvider.ui.request.claims.BatchRecordSearchCriteria;
 import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
-import com.medco.HealthConnectProvider.ui.request.eligibility.EligibilityCheckRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
-import com.medco.HealthConnectProvider.ui.request.integration.MedicationDispensingRequest;
 import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/healthConnect/integration/pharmacy")
@@ -205,14 +202,21 @@ public class PharmacyIntegrationController {
         return ResponseEntity.ok(results);
     }
 
-
     //new apis TODO
-
 
     @PostMapping(value = "/drug-dispensing-records", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Add a new drug dispensing record", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<?> addDrugDispensingRecord(@RequestBody DrugDispensingRecordRequest request) {
         return pharmacyIntegrationService.addDrugDispensingRecord(request);
     }
+
+
+    @GetMapping("/medications/{batchCode}")
+    @Operation(summary = "Get medications by batch code",
+            description = "Retrieves a list of medications associated with a specific batch code")
+    public ResponseEntity<List<MedicationDispensingDTO>> getMedicationsByBatchCode(@PathVariable String batchCode) {
+        return pharmacyIntegrationService.getMedicationsByBatchCode(batchCode);
+    }
+
 
 }

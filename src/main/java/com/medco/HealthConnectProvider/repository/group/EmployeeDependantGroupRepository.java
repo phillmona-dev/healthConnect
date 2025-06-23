@@ -1,8 +1,8 @@
 package com.medco.HealthConnectProvider.repository.group;
 
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
-import com.medco.HealthConnectProvider.entity.payers.Payer;
-import com.medco.HealthConnectProvider.utils.enums.Status;
+import com.medco.HealthConnectProvider.entity.persons.Insured;
+import com.medco.HealthConnectProvider.utils.enums.GroupType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface EmployeeDependantGroupRepository extends JpaRepository<EmployeeDependantGroup, Long> {
@@ -23,41 +24,11 @@ public interface EmployeeDependantGroupRepository extends JpaRepository<Employee
     EmployeeDependantGroup findByGroupUuid(String groupUuid);
     
     /**
-     * Find all groups for a specific payer
-     * @param payer The payer
-     * @return List of groups
-     */
-    List<EmployeeDependantGroup> findByPayer(Payer payer);
-    
-    /**
      * Find all groups for a specific payer UUID
      * @param payerUuid The UUID of the payer
      * @return List of groups
      */
     List<EmployeeDependantGroup> findByPayerUuid(String payerUuid);
-    
-    /**
-     * Find all active groups for a specific payer
-     * @param payerUuid The UUID of the payer
-     * @param status The status of the groups
-     * @return List of groups
-     */
-    List<EmployeeDependantGroup> findByPayerUuidAndStatus(String payerUuid, Status status);
-    
-    /**
-     * Search for groups by name for a specific payer
-     * @param payerUuid The UUID of the payer
-     * @param search The search term
-     * @param pageable Pagination information
-     * @return Page of groups
-     */
-    @Query("SELECT g FROM EmployeeDependantGroup g WHERE g.payer.payerUuid = :payerUuid " +
-           "AND g.isDeleted = false " +
-           "AND (g.groupName LIKE %:search% OR g.groupDescription LIKE %:search%)")
-    Page<EmployeeDependantGroup> searchByPayerAndName(
-            @Param("payerUuid") String payerUuid,
-            @Param("search") String search,
-            Pageable pageable);
 
 
     // Add these methods to your existing repository
@@ -79,4 +50,45 @@ public interface EmployeeDependantGroupRepository extends JpaRepository<Employee
      */
     Page<EmployeeDependantGroup> findByPayerUuidAndGroupNameContainingIgnoreCase(
             String payerUuid, String search, Pageable pageable);
+
+    //NEW
+
+    List<EmployeeDependantGroup> findByInsured_InsuredUuidAndIsDeleted(String employeeInsuredUuid, boolean isDeleted);
+
+    //new from dependant group
+
+    Long countByGroupUuid(String groupUuid);
+
+    List<EmployeeDependantGroup> findByInsuredAndType(Insured insured, GroupType groupType);
+
+    @Query("SELECT edg FROM EmployeeDependantGroup edg " +
+            "WHERE edg.groupUuid = :groupUuid " +
+            "AND edg.type = 'EMPLOYEE' " +
+            "AND edg.insured IS NOT NULL " +
+            "AND (edg.insured.firstName LIKE %:search% " +
+            "OR edg.insured.fatherName LIKE %:search% " +
+            "OR edg.insured.grandFatherName LIKE %:search% " +
+            "OR edg.insured.insuranceId LIKE %:search%) " +
+            "AND edg.isDeleted = false")
+    Page<EmployeeDependantGroup> searchByGroupUuidAndInsuredName(
+            @Param("groupUuid") String groupUuid,
+            @Param("search") String search,
+            Pageable pageable
+    );
+
+    Long countByGroupUuidAndInsuredIsNotNull(String groupUuid);
+
+    @Query("SELECT edg FROM EmployeeDependantGroup edg " +
+            "JOIN edg.dependant d " +
+            "WHERE edg.groupUuid = :groupUuid " +
+            "AND (d.firstName LIKE %:search% OR d.fatherName LIKE %:search% OR d.grandFatherName LIKE %:search%) " +
+            "AND edg.isDeleted = false")
+    Page<EmployeeDependantGroup> searchByGroupUuidAndDependantName(
+            @Param("groupUuid") String groupUuid,
+            @Param("search") String search,
+            Pageable pageable
+    );
+
+    Optional<EmployeeDependantGroup> findByDependant_DependantUuidAndGroupUuid(String dependantUuid, String groupUuid);
+
 }

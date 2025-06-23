@@ -54,12 +54,10 @@ public class Servicelist extends Audit implements Serializable {
 
     private String unitOfMeasure;
 
-    // Many-to-One relationship with Provider
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "provider_id")
     private Provider provider;
 
-    // One-to-Many relationship with ContractDetail
     @OneToMany(mappedBy = "servicelist", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ContractDetail> contractDetails = new ArrayList<>();

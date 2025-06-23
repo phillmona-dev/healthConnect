@@ -59,37 +59,34 @@ public class EmployeeDependantGroup extends Audit implements Serializable {
     @Enumerated(EnumType.STRING)
     private Status status;
 
+    private String groupType;
+
     @Builder.Default
     private boolean isDeleted = false;
 
-    // Many-to-One relationship with Payer
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payer_id")
     @JsonBackReference(value = "payer-groups")
     private Payer payer;
 
-    // Many-to-Many relationship with ContractDetail
     @ManyToMany(mappedBy = "employeeDependantGroups")
     @Builder.Default
     private Set<ContractDetail> contractDetails = new HashSet<>();
 
-    // One-to-Many relationship with ContractDetailEmployeeGroup
     @OneToMany(mappedBy = "employeeDependantGroup", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonManagedReference(value = "employee-group-contracts")
     @Builder.Default
     private List<ContractDetailEmployeeGroup> contractDetailEmployeeGroups = new ArrayList<>();
 
-    // One-to-Many relationship with DependantGroup
-    @OneToMany(mappedBy = "employeeDependantGroup", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-    @JsonManagedReference(value = "group-dependants")
-    @Builder.Default
-    private List<DependantGroup> dependantGroups = new ArrayList<>();
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_insured_id")
+    @JsonBackReference(value = "employee-insured-groups")
+    private Insured insured;
 
-    // One-to-Many relationship with EmployeeInsuredGroup
-    @OneToMany(mappedBy = "employeeDependantGroup", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-    @JsonManagedReference(value = "group-employees")
-    @Builder.Default
-    private List<EmployeeInsuredGroup> employeeInsuredGroups = new ArrayList<>();
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dependant_id")
+    @JsonBackReference(value = "dependant-groups")
+    private Dependant dependant;
 
     @PrePersist
     public void prePersist() {
@@ -109,56 +106,6 @@ public class EmployeeDependantGroup extends Audit implements Serializable {
     public void removeContractDetailEmployeeGroup(ContractDetailEmployeeGroup group) {
         contractDetailEmployeeGroups.remove(group);
         group.setEmployeeDependantGroup(null);
-    }
-
-    // Helper methods for DependantGroup
-    public void addDependant(Dependant dependant) {
-        DependantGroup dependantGroup = DependantGroup.builder()
-                .dependant(dependant)
-                .employeeDependantGroup(this)
-                .dependantUuid(dependant.getDependantUuid())
-                .groupUuid(this.getGroupUuid())
-                .build();
-
-        this.dependantGroups.add(dependantGroup);
-        dependant.getDependantGroups().add(dependantGroup);
-    }
-
-    public void removeDependant(Dependant dependant) {
-        this.dependantGroups.stream()
-                .filter(dg -> dg.getDependant().equals(dependant))
-                .findFirst()
-                .ifPresent(dg -> {
-                    this.dependantGroups.remove(dg);
-                    dependant.getDependantGroups().remove(dg);
-                    dg.setDependant(null);
-                    dg.setEmployeeDependantGroup(null);
-                });
-    }
-
-    // Helper methods for EmployeeInsuredGroup
-    public void addEmployee(Insured employee) {
-        EmployeeInsuredGroup employeeGroup = EmployeeInsuredGroup.builder()
-                .insured(employee)
-                .employeeDependantGroup(this)
-                .employeeInsuredUuid(employee.getInsuredUuid())
-                .groupUuid(this.getGroupUuid())
-                .build();
-
-        this.employeeInsuredGroups.add(employeeGroup);
-        employee.getEmployeeInsuredGroups().add(employeeGroup);
-    }
-
-    public void removeEmployee(Insured employee) {
-        this.employeeInsuredGroups.stream()
-                .filter(eg -> eg.getInsured().equals(employee))
-                .findFirst()
-                .ifPresent(eg -> {
-                    this.employeeInsuredGroups.remove(eg);
-                    employee.getEmployeeInsuredGroups().remove(eg);
-                    eg.setInsured(null);
-                    eg.setEmployeeDependantGroup(null);
-                });
     }
 
 }

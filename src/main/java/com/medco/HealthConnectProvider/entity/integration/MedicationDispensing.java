@@ -1,6 +1,5 @@
 package com.medco.HealthConnectProvider.entity.integration;
 
-import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;

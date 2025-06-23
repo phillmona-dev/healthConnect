@@ -63,19 +63,16 @@ public class ContractDetail extends Audit implements Serializable {
     @Builder.Default
     private boolean isDeleted = false;
 
-    // Many-to-One relationship with ContractHeader
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contract_header_id")
     @JsonBackReference(value = "contract-header-details")
     private ContractHeader contractHeader;
 
-    // Many-to-One relationship with Service
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "service_id")
     @JsonBackReference(value = "service-details")
     private Servicelist servicelist;
 
-    // Many-to-Many relationship with EmployeeDependantGroup
     @ManyToMany
     @JoinTable(
             name = "contract_detail_employee_dependant_groups",
@@ -85,7 +82,6 @@ public class ContractDetail extends Audit implements Serializable {
     @Builder.Default
     private Set<EmployeeDependantGroup> employeeDependantGroups = new HashSet<>();
 
-    // One-to-Many relationship with ProvidedService
     @OneToMany(mappedBy = "contractDetail", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
     @JsonManagedReference(value = "contract-detail-provided-services")
     @Builder.Default

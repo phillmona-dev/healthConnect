@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.services.impl.integration;
 
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserDetailsImpl;
+import com.medco.HealthConnectProvider.dto.MedicationDispensingDTO;
 import com.medco.HealthConnectProvider.dto.PendingDispensingRecordDTO;
 import com.medco.HealthConnectProvider.entity.claims.BatchRecord;
 import com.medco.HealthConnectProvider.entity.claims.Claim;
@@ -274,6 +275,86 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
     }
 
+    @Override
+    public ResponseEntity<List<MedicationDispensingDTO>> getMedicationsByBatchCode(String batchCode) {
+        List<MedicationDispensing> dispensings = dispensingRepository.findByBatchCode(batchCode);
+
+        if (dispensings.isEmpty()) {
+            throw new ResourceNotFoundException("Medications", "batchCode", batchCode);
+        }
+
+        List<MedicationDispensingDTO> medicationDTOs = dispensings.stream()
+                .map(this::convertToMedicationDispensingDTO)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(medicationDTOs);
+    }
+
+    private MedicationDispensingDTO convertToMedicationDispensingDTO(MedicationDispensing dispensing) {
+        MedicationDispensingDTO dto = new MedicationDispensingDTO();
+        dto.setDispensingUuid(dispensing.getDispensingUuid());
+        dto.setInvoiceNumber(dispensing.getInvoiceNumber());
+        dto.setBatchCode(dispensing.getBatchCode());
+        dto.setProviderUuid(dispensing.getProviderUuid());
+        dto.setPayerUuid(dispensing.getPayerUuid());
+        dto.setInsuredUuid(dispensing.getInsuredUuid());
+        dto.setPrescriptionNumber(dispensing.getPrescriptionNumber());
+        dto.setPharmacyTransactionId(dispensing.getPharmacyTransactionId());
+        dto.setDispensingDate(dispensing.getDispensingDate());
+        dto.setPrescribingPhysicianName(dispensing.getPrescribingPhysicianName());
+        dto.setPrescribingPhysicianId(dispensing.getPrescribingPhysicianId());
+        dto.setRecordedAt(dispensing.getRecordedAt());
+        dto.setBranchName(dispensing.getBranchName());
+        dto.setClaimStatus(dispensing.getClaimStatus());
+        dto.setClaimUuid(dispensing.getClaimUuid());
+        dto.setTotalAmount(dispensing.getTotalAmount());
+        dto.setPatientResponsibility(dispensing.getPatientResponsibility());
+        dto.setInsuranceCoverage(dispensing.getInsuranceCoverage());
+        dto.setPharmacistNotes(dispensing.getPharmacistNotes());
+
+        // Fetch additional information
+        Optional<Provider> providerOptional = providerRepository.findByProviderUuid(dispensing.getProviderUuid());
+        providerOptional.ifPresent(provider -> dto.setProviderName(provider.getProviderName()));
+
+        Payer payer = payerRepository.findByPayerUuid(dispensing.getPayerUuid());
+        if (payer != null) {
+            dto.setPayerName(payer.getPayerName());
+        }
+
+        Insured insured = insuredRepository.findByInsuredUuid(dispensing.getInsuredUuid());
+        if (insured != null) {
+            dto.setInsuredName(insured.getFirstName() + " " + insured.getFatherName() + " " + insured.getGrandFatherName());
+            dto.setInsuranceId(insured.getInsuranceId());
+        }
+
+        List<MedicationDispensingDTO.MedicationItemDTO> itemDTOs = dispensing.getItems().stream()
+                .map(this::convertToMedicationItemDTO)
+                .collect(Collectors.toList());
+        dto.setMedicationItems(itemDTOs);
+
+        return dto;
+
+    }
+
+    private MedicationDispensingDTO.MedicationItemDTO convertToMedicationItemDTO(MedicationDispensingItem item) {
+        MedicationDispensingDTO.MedicationItemDTO itemDTO = new MedicationDispensingDTO.MedicationItemDTO();
+        itemDTO.setItemUuid(item.getItemUuid());
+        itemDTO.setMedicationCode(item.getMedicationCode());
+        itemDTO.setMedicationName(item.getMedicationName());
+        itemDTO.setQuantity(item.getQuantity());
+        itemDTO.setPrimaryDiagnosis(item.getPrimaryDiagnosis());
+        itemDTO.setSecondaryDiagnosis(item.getSecondaryDiagnosis());
+        itemDTO.setUnitOfMeasure(item.getUnitOfMeasure());
+        itemDTO.setUnitPrice(item.getUnitPrice());
+        itemDTO.setTotalPrice(item.getTotalPrice());
+        itemDTO.setDosageInstructions(item.getDosageInstructions());
+        itemDTO.setStrength(item.getStrength());
+        itemDTO.setRoute(item.getRoute());
+        itemDTO.setFormulation(item.getFormulation());
+       // itemDTO.setItemType(item.getItemType().toString());
+
+        return itemDTO;
+    }
 
     private Insured findInsuredPersonFor(DrugDispensingRecordRequest request) {
         String patientId = request.getPhone();
@@ -300,8 +381,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
 
         return insured;
-    }
 
+    }
 
     private List<Drug> validateDrugs(String providerUuid, List<DrugDispensingRecordRequest.DrugDispensingItemRequest> drugItems) {
         List<String> drugUuids = drugItems.stream().map(DrugDispensingRecordRequest.DrugDispensingItemRequest::getDrugUuid).collect(Collectors.toList());
@@ -335,9 +416,11 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         dispensing.setRecordedAt(LocalDate.now());
         return dispensing;
+
     }
 
     private List<MedicationDispensingItem> createDrugDispensingItems(MedicationDispensing dispensingRecord, List<Drug> drugs, List<DrugDispensingRecordRequest.DrugDispensingItemRequest> drugItems) {
+
         List<MedicationDispensingItem> dispensingItems = new ArrayList<>();
         for (int i = 0; i < drugs.size(); i++) {
             Drug drug = drugs.get(i);
@@ -827,7 +910,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             Servicelist service = services.get(i);
             DispensingRecordRequest.DispensingItemRequest itemRequest = itemRequests.get(i);
 
-
             MedicationDispensingItem item = new MedicationDispensingItem();
             item.setItemUuid(UUID.randomUUID().toString());
             item.setDispensing(dispensingRecord);
@@ -840,6 +922,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             item.setItemType(ItemType.SERVICE);
 
             dispensingItems.add(item);
+
         }
         return dispensingItems;
     }
@@ -884,7 +967,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     private String generateInvoiceNumber() {
         int randomNum = 100000000 + new Random().nextInt(900000000);
-        return "IN-" + randomNum;
+        return "CR-" + randomNum;
     }
 
     private PendingDispensingRecordDTO.MedicationItemDTO convertToItemDTO(MedicationDispensingItem item) {

@@ -553,7 +553,7 @@ public class ContractServiceImpl implements ContractService {
 
             // Process group assignments
             for (String groupUuid : assignment.getEmployeeGroupUuids()) {
-                EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
+                EmployeeDependantGroup group = (EmployeeDependantGroup) employeeDependantGroupRepository.findByGroupUuid(groupUuid);
                 if (group == null) {
                     throw new ResourceNotFoundException("Employee Group", "groupUuid", groupUuid);
                 }
@@ -622,7 +622,7 @@ public class ContractServiceImpl implements ContractService {
         // Add employee groups if provided
         if (detailRequest.getEmployeeGroupUuids() != null && !detailRequest.getEmployeeGroupUuids().isEmpty()) {
             for (String groupUuid : detailRequest.getEmployeeGroupUuids()) {
-                EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
+                EmployeeDependantGroup group = (EmployeeDependantGroup) employeeDependantGroupRepository.findByGroupUuid(groupUuid);
                 if (group != null) {
                     contractDetail.addEmployeeDependantGroup(group);
                 }
@@ -669,7 +669,7 @@ public class ContractServiceImpl implements ContractService {
 
             // Add new groups
             for (String groupUuid : detailRequest.getEmployeeGroupUuids()) {
-                EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
+                EmployeeDependantGroup group = (EmployeeDependantGroup) employeeDependantGroupRepository.findByGroupUuid(groupUuid);
                 if (group != null) {
                     contractDetail.addEmployeeDependantGroup(group);
                 }
