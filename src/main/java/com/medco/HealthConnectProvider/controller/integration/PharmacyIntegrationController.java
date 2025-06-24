@@ -98,7 +98,7 @@ public class PharmacyIntegrationController {
             @RequestBody String[] dispensingUuids) {
         return pharmacyIntegrationService.createClaimFromDispensingRecords(providerUuid, dispensingUuids);
     }
-
+//TODO THIS API AUTHORIZES A SINGLE DISPENSING MEDICATION
     @PostMapping("/dispensing/authorize/{dispensingUuid}")
     @Operation(summary = "Authorize single dispensing record",
             description = "Changes the status of a single dispensing record from PENDING to AUTHORIZED")

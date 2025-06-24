@@ -20,4 +20,5 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     Long countByProviderUuid(String providerUuid);
     Long countByPayerUuid(String payerUuid);
     Long countByStatus(String status);
+
 }
