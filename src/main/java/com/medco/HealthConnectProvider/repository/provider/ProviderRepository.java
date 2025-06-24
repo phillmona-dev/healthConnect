@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.repository.provider;
 
 import com.medco.HealthConnectProvider.entity.providers.Provider;
+import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;

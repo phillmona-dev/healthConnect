@@ -89,8 +89,11 @@ public class UserServiceImpl implements UserService {
         this.payerRepository = payerRepository;
     }
 
+
     @Override
     public ResponseEntity<?> authenticateUser(LoginRequest loginRequest) {
+        Logger logger = LoggerFactory.getLogger(this.getClass());
+
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
@@ -106,22 +109,25 @@ public class UserServiceImpl implements UserService {
                 User user = userRepository.findByEmail(loginRequest.getEmail())
                         .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + loginRequest.getEmail()));
 
+                logger.info("User found: {}", user.getEmail());
+
                 String jwt = JwtServiceImpl.generateToken(userDetails.getEmail());
 
-                String payerUuid = null;
-                String providerUuid = null;
-                if (user.getRole().getRoleName().toLowerCase().contains("payer")) {
-                    payerUuid = user.getPayer() != null ? user.getPayer().getPayerUuid() : null;
-                } else if (user.getRole().getRoleName().toLowerCase().contains("provider")) {
-                    providerUuid = user.getProvider() != null ? user.getProvider().getProviderUuid() : null;
-                }
+                // Directly access payerUuid and providerUuid from the User object
+                String payerUuid = user.getPayerUuid();
+                String providerUuid = user.getProviderUuid();
+
+                logger.info("PayerUuid from user: {}", payerUuid);
+                logger.info("ProviderUuid from user: {}", providerUuid);
 
                 // Convert authorities to set of privilege names
                 Set<String> authorities = userDetails.getAuthorities().stream()
                         .map(GrantedAuthority::getAuthority)
                         .collect(Collectors.toSet());
 
-                return ResponseEntity.ok(new JwtResponse(
+                logger.info("Authorities: {}", authorities);
+
+                JwtResponse response = new JwtResponse(
                         jwt,
                         refreshToken,
                         user.getUserUuid(),
@@ -133,13 +139,19 @@ public class UserServiceImpl implements UserService {
                         payerUuid,
                         providerUuid,
                         authorities
-                ));
+                );
+
+                logger.info("JwtResponse created: payerUuid={}, providerUuid={}", response.getPayerUuid(), response.getProviderUuid());
+
+                return ResponseEntity.ok(response);
             } else {
                 throw new BadRequestException("Your Token is Expired try to login Again");
             }
         } catch (UnauthorizedException | BadRequestException e) {
+            logger.error("Authentication failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid Username or password Provided! " + e.getMessage());
         } catch (Exception e) {
+            logger.error("Unexpected error during authentication", e);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         }
     }
