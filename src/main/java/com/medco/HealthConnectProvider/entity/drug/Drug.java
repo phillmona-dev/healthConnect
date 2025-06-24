@@ -25,7 +25,9 @@ public class Drug {
     @Column(unique = true)
     private String drugUuid = UUID.randomUUID().toString();
 
+    @Column(unique = true)
     private String drugCode;
+
     private String drugName;
     private String category;
     private String subCategory;

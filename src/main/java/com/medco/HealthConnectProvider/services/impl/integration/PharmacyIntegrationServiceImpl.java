@@ -43,6 +43,7 @@ import com.medco.HealthConnectProvider.ui.response.integration.DispensingRespons
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredSearchResponse;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import com.medco.HealthConnectProvider.utils.enums.ItemType;
+import com.medco.HealthConnectProvider.utils.enums.SourceType;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import jakarta.persistence.criteria.Join;
@@ -226,6 +227,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Override
     @Transactional
     public ResponseEntity<?> addDrugDispensingRecord(DrugDispensingRecordRequest request) {
+
         try {
             Provider provider = validateProvider(request.getProviderUuid());
             Payer payer = validatePayer(request.getPayerUuid());
@@ -384,6 +386,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensing.setPrescriptionNumber(request.getPrescriptionNumber());
         dispensing.setPharmacyTransactionId(request.getPharmacyTransactionId());
         dispensing.setClaimStatus("DRAFT");
+        dispensing.setSource(SourceType.INPUT);
         dispensing.setInvoiceNumber(generateInvoiceNumber());
 
         dispensing.setRecordedAt(LocalDate.now());
@@ -442,7 +445,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         String message = "";
 
         if (newStatus.equals("SUBMITTED")) {
-            // Validate all records are in DRAFT status
             for (MedicationDispensing record : dispensingRecords) {
                 if (!record.getClaimStatus().equals("DRAFT")) {
                     throw new BadRequestException("Dispensing record " + record.getDispensingUuid() +
@@ -695,6 +697,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensing.setPrescribingPhysicianName(request.getPhysicianFullName());
         dispensing.setBranchName(request.getProviderBranchName());
         dispensing.setRecordedAt(LocalDate.now());
+        dispensing.setSource(SourceType.SYSTEM);
         dispensing.setClaimStatus("DRAFT");
 
         calculateTotals(dispensing, request, eligibilityResponse);
@@ -831,6 +834,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         record.setPrescriptionNumber(request.getPrescriptionNumber());
         record.setPharmacyTransactionId(request.getPharmacyTransactionId());
         record.setClaimStatus("DRAFT");
+        record.setSource(SourceType.INPUT);
         record.setInvoiceNumber(generateInvoiceNumber());
         record.setRecordedAt(LocalDate.now());
 

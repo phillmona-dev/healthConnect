@@ -36,6 +36,11 @@ public class Provider extends Audit implements Serializable {
     @Size(min = 3)
     private String providerName;
 
+    @NotBlank
+    @Size(min = 3, max = 3)
+    @Column(unique = true)
+    private String threeDigitAcronym;
+
     @Size(min = 36, max = 40, message = "Provided Uuid Must be between 36 and 40")
     private String providerUuid = UUID.randomUUID().toString();
 

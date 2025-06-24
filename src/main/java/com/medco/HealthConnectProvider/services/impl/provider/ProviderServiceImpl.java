@@ -92,7 +92,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
 
     @Override
     public ResponseEntity<ProviderResponse> createProvider(ProviderRequest providerRequest, MultipartFile logo) {
-        // Existing validation checks
+
         if (providerRepository.existsByEmail(providerRequest.getEmail())) {
             ProviderResponse response = new ProviderResponse();
             response.setStatus("Error: Email is already in use!");

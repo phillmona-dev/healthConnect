@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.entity.integration;
 
+import com.medco.HealthConnectProvider.utils.enums.SourceType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -59,6 +60,9 @@ public class MedicationDispensing {
     private Double insuranceCoverage;
 
     private String pharmacistNotes;
+
+    @Enumerated(EnumType.STRING)
+    private SourceType source;
 
     @OneToMany(mappedBy = "dispensing", cascade = CascadeType.ALL)
     private List<MedicationDispensingItem> items;

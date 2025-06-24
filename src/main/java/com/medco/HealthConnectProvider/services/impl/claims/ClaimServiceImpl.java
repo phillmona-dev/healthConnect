@@ -168,7 +168,6 @@ public class ClaimServiceImpl implements ClaimService {
             }
         }
 
-        // Create new claim
         Claim claim = new Claim();
         claim.setClaimUuid(UUID.randomUUID().toString());
         claim.setMrnNumber(claimRequest.getMrnNumber());
@@ -304,7 +303,7 @@ public class ClaimServiceImpl implements ClaimService {
 
     @Override
     public List<ClaimResponse> getClaimsByProvider(String providerUuid, Pageable pageable) {
-        // Check if user has access to this provider
+
         UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
         if (userDetails.getProviderUuid() != null && !userDetails.getInstitutionUuid().equals(providerUuid)) {
             throw new BadRequestException("You don't have access to claims from this provider");
@@ -324,7 +323,7 @@ public class ClaimServiceImpl implements ClaimService {
 
     @Override
     public List<ClaimResponse> getClaimsByPayer(String payerUuid, Pageable pageable) {
-        // Check if user has access to this payer
+
         UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
         if (userDetails.getInstitutionUuid() != null && !userDetails.getInstitutionUuid().equals(payerUuid)) {
             throw new BadRequestException("You don't have access to claims from this payer");
@@ -362,12 +361,10 @@ public class ClaimServiceImpl implements ClaimService {
                 .collect(Collectors.toList());
     }
 
-    // Helper methods for mapping entities to responses
     private ClaimResponse mapToClaimResponse(Claim claim) {
         ClaimResponse response = new ClaimResponse();
         BeanUtils.copyProperties(claim, response);
 
-        // Count attachments and comments
         int attachmentsCount = claimAttachmentRepository.countByClaimClaimUuid(claim.getClaimUuid());
         int commentsCount = claimCommentRepository.countByClaimClaimUuid(claim.getClaimUuid());
 
@@ -399,7 +396,6 @@ public class ClaimServiceImpl implements ClaimService {
         ProvidedServiceResponse response = new ProvidedServiceResponse();
         BeanUtils.copyProperties(service, response);
 
-        // Set service details from contract detail's servicelist
         if (service.getContractDetail() != null && service.getContractDetail().getServicelist() != null) {
             Servicelist servicelist = service.getContractDetail().getServicelist();
             response.setServiceUuid(servicelist.getServiceUuid());
@@ -408,7 +404,6 @@ public class ClaimServiceImpl implements ClaimService {
             response.setServiceCategory(servicelist.getServiceCategory());
             response.setServiceSubCategory(servicelist.getServiceSubCategory());
 
-            // Set negotiated price from contract detail
             response.setNegotiatedPrice(service.getContractDetail().getNegotiatedPrice());
         }
 

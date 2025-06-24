@@ -5,9 +5,11 @@ import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.repository.user.PrivilegeRepository;
 import com.medco.HealthConnectProvider.services.user.PrivilegeService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.PrivilegeRequest;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.PrivilegeResponse;
 import org.springframework.beans.BeanUtils;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -25,18 +27,25 @@ public class PrivilegeServiceImpl implements PrivilegeService {
     }
 
     @Override
-    public PrivilegeResponse createPrivilege(PrivilegeRequest privilegeRequest) {
-
-        var response = new PrivilegeResponse();
+    public PagedResponse<PrivilegeResponse> createPrivilege(PrivilegeRequest privilegeRequest) {
         var privileges = new Privilege();
-        BeanUtils.copyProperties(privilegeRequest,privileges);
-        //privileges.setRole(null);
+        BeanUtils.copyProperties(privilegeRequest, privileges);
 
+        Privilege savedPrivilege = privilegeRepository.save(privileges);
 
-        Privilege privilege = privilegeRepository.save(privileges);
-        BeanUtils.copyProperties(privilege,response);
+        PrivilegeResponse response = new PrivilegeResponse();
+        BeanUtils.copyProperties(savedPrivilege, response);
 
-        return response;
+        List<PrivilegeResponse> content = List.of(response);
+
+        return new PagedResponse<>(
+                content,
+                0,
+                1,
+                1,
+                1,
+                true
+        );
     }
 
     @Override
@@ -48,8 +57,29 @@ public class PrivilegeServiceImpl implements PrivilegeService {
 
     @Override
     @Cacheable(value = "privilegeCache", key = "#search ?: 'default'")
-    public List<PrivilegeResponse> getAllPrivileges(String search, Pageable pageable) {
-        return search != null ? findAllPrivilegesBySearch(search,pageable) : getAllWithOutSearch(pageable);
+    public PagedResponse<PrivilegeResponse> getAllPrivileges(String search, Pageable pageable) {
+        Page<Privilege> privilegePage = search != null ?
+                (Page<Privilege>) privilegeRepository.findAllByPrivilegeNameContaining(search, pageable) :
+                privilegeRepository.findAll(pageable);
+
+        List<PrivilegeResponse> privilegeResponses = privilegePage.getContent().stream()
+                .map(this::mapPrivilegeToResponse)
+                .collect(Collectors.toList());
+
+        return new PagedResponse<>(
+                privilegeResponses,
+                privilegePage.getNumber(),
+                privilegePage.getSize(),
+                privilegePage.getTotalElements(),
+                privilegePage.getTotalPages(),
+                privilegePage.isLast()
+        );
+    }
+
+    private PrivilegeResponse mapPrivilegeToResponse(Privilege privilege) {
+        var response = new PrivilegeResponse();
+        BeanUtils.copyProperties(privilege, response);
+        return response;
     }
 
     @Override
@@ -72,6 +102,7 @@ public class PrivilegeServiceImpl implements PrivilegeService {
     }
 
     private List<PrivilegeResponse> getAllWithOutSearch(Pageable pageable) {
+
         return privilegeRepository.findAll(pageable)
                 .stream()
                 .map(privilege -> {
@@ -81,9 +112,11 @@ public class PrivilegeServiceImpl implements PrivilegeService {
                     return response;
                 })
                 .collect(Collectors.toList());
+
     }
 
     private List<PrivilegeResponse> findAllPrivilegesBySearch(String search, Pageable pageable) {
+
         return privilegeRepository.findAllByPrivilegeNameContaining(search, pageable)
                 .stream()
                 .map(privilege -> {
@@ -92,5 +125,6 @@ public class PrivilegeServiceImpl implements PrivilegeService {
 
                     return response;
                 }).collect(Collectors.toList());
+
     }
 }

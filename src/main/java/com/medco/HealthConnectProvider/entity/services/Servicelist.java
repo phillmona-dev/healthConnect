@@ -36,6 +36,7 @@ public class Servicelist extends Audit implements Serializable {
     @Column(nullable = false)
     private String serviceName;
 
+    @Column(unique = true)
     private String serviceCode;
 
     @Column(columnDefinition = "TEXT")

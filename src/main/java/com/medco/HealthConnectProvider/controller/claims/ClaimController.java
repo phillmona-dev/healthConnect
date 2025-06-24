@@ -42,8 +42,6 @@ public class ClaimController {
         return claimService.submitClaim(claimRequest);
     }
 
-
-
     @GetMapping("/{claimUuid}")
     @Operation(summary = "Get claim details by UUID")
     public ClaimDetailResponse getClaimByUuid(@PathVariable String claimUuid) {

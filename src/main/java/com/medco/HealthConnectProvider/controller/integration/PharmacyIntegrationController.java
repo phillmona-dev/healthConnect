@@ -50,7 +50,6 @@ public class PharmacyIntegrationController {
         this.batchRecordService = batchRecordService;
     }
 
-
     @GetMapping("/check")
     @Operation(summary = "check patient eligibility",
             description = "verifies if a patient is eligible based on their identifiers")
@@ -119,6 +118,7 @@ public class PharmacyIntegrationController {
 
             @PathVariable String providerUuid,
             @PathVariable String dispensingUuid) {
+
         return pharmacyIntegrationService.createClaimFromAuthorizedRecord(providerUuid, dispensingUuid);
 
     }
@@ -201,8 +201,6 @@ public class PharmacyIntegrationController {
         );
         return ResponseEntity.ok(results);
     }
-
-    //new apis TODO
 
     @PostMapping(value = "/drug-dispensing-records", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Add a new drug dispensing record", security = @SecurityRequirement(name = "bearerAuth"))

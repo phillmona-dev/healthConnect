@@ -10,7 +10,10 @@ import java.io.Serializable;
 @Setter
 public class ProviderResponse  implements Serializable {
 
+    private String threeDigitAcronym;
+
     private String providerUuid;
+
     private String email;
     private String providerName;
     private String description;
@@ -30,7 +33,9 @@ public class ProviderResponse  implements Serializable {
     private String roleUuid;
 
     private String logoPath;
+
     private String logoBase64;
+
     private Long totalContracts;
 
 }

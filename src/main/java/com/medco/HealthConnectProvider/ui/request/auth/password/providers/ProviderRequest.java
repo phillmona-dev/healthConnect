@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.ui.request.auth.password.providers;
 
+import jakarta.persistence.Column;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -9,6 +10,11 @@ import lombok.Setter;
 @Getter
 @Setter
 public class ProviderRequest {
+
+    @NotBlank
+    @Size(min = 3, max = 3)
+    @Column(unique = true)
+    private String threeDigitAcronym;
 
     @NotBlank
     @Size(min = 3, max = 50)
