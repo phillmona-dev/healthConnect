@@ -40,7 +40,6 @@ public class PharmacyIntegrationController {
 
     private final PharmacyIntegrationService pharmacyIntegrationService;
 
-
     private final EligibilityService eligibilityService;
 
     private final BatchRecordService batchRecordService;
