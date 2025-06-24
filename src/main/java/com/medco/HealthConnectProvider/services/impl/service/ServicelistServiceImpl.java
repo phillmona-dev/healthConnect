@@ -63,8 +63,10 @@ public class ServicelistServiceImpl implements ServicelistService {
 
     @Override
     public ResponseEntity<ServicelistResponse> createService(String providerUuid, ServicelistRequest serviceRequest) {
-        Provider provider = providerRepository.findByProviderUuid(providerUuid)
-                .orElseThrow(() -> new BadRequestException("can't find provider with the provided Id"));
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider == null){
+            throw new BadRequestException("can't find provider with the provided Id");
+        }
 
         var service = new Servicelist();
         BeanUtils.copyProperties(serviceRequest, service);
@@ -308,8 +310,10 @@ public class ServicelistServiceImpl implements ServicelistService {
         Workbook workbook = WorkbookFactory.create(file);
         Sheet sheet = workbook.getSheetAt(0);
 
-        Optional<Provider> provider = Optional.ofNullable(providerRepository.findByProviderUuid(providerUuid)
-                .orElseThrow(() -> new BadRequestException("Can't find Provider With the Provided Id")));
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider == null){
+            throw new BadRequestException("Can't find Provider With the Provided Id");
+        }
 
         int i = 0;
         List<Servicelist> servicelistList= new ArrayList<>();
@@ -332,7 +336,7 @@ public class ServicelistServiceImpl implements ServicelistService {
                 }
             } else {
 
-                servicelist.setProvider(provider.get());
+                servicelist.setProvider(provider);
                 servicelist.setServiceCode(row.getCell(0).getStringCellValue());
                 servicelist.setServiceName(row.getCell(1).getStringCellValue());
                 servicelist.setServiceCategory(row.getCell(2).getStringCellValue());

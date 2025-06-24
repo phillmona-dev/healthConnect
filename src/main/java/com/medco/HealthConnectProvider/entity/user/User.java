@@ -95,4 +95,14 @@ public class User extends UserDateAudit {
     @JoinColumn(name = "provider_id")
     private Provider provider;
 
+    public void setPayer(Payer payer) {
+        this.payer = payer;
+        this.payerUuid = payer != null ? payer.getPayerUuid() : null;
+    }
+
+    public void setProvider(Provider provider) {
+        this.provider = provider;
+        this.providerUuid = provider != null ? provider.getProviderUuid() : null;
+    }
+
 }

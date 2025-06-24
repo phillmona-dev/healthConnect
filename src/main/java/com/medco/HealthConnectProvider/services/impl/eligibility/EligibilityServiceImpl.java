@@ -88,8 +88,10 @@ public class EligibilityServiceImpl implements EligibilityService {
         request.setServiceUuid(serviceUuid);
 
         // Perform the eligibility check
-        Provider provider = providerRepository.findByProviderUuid(providerUuid)
-                .orElseThrow(() -> new ResourceNotFoundException("Provider", "providerUuid", providerUuid));
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider == null){
+            throw new ResourceNotFoundException("Provider", "providerUuid", providerUuid);
+        }
 
         Payer payer = payerRepository.findByPayerUuid(insured.getPayerUuid());
         if (payer == null) {

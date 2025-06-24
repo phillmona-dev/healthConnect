@@ -115,8 +115,10 @@ public class ClaimServiceImpl implements ClaimService {
         }
 
         // Validate provider has access to this contract
-        Provider provider = providerRepository.findByProviderUuid(providerUuid)
-                .orElseThrow(() -> new ResourceNotFoundException("Provider", "providerUuid", providerUuid));
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider == null){
+            throw new ResourceNotFoundException("Provider", "providerUuid", providerUuid);
+        }
 
         if (!contract.getProvider().getProviderUuid().equals(providerUuid)) {
             throw new BadRequestException("Contract does not belong to this provider");

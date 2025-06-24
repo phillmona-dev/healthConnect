@@ -37,7 +37,19 @@ public class Role {
     @JsonManagedReference
     private List<Privilege> privileges;
 
+    @Column(name = "payer_uuid")
     private String payerUuid;
+
+    @Column(name = "provider_uuid")
     private String providerUuid;
+
+    // Add these methods to help identify the role type
+    public boolean isPayerRole() {
+        return this.roleName.toLowerCase().contains("payer");
+    }
+
+    public boolean isProviderRole() {
+        return this.roleName.toLowerCase().contains("provider");
+    }
 
 }

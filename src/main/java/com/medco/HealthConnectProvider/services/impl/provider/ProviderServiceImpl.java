@@ -91,19 +91,24 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
     private String providerLogosDirectory;
 
     @Override
+    @Transactional
     public ResponseEntity<ProviderResponse> createProvider(ProviderRequest providerRequest, MultipartFile logo) {
+        log.info("Starting provider creation process for: {}", providerRequest.getProviderName());
 
         if (providerRepository.existsByEmail(providerRequest.getEmail())) {
+            log.warn("Duplicate provider email: {}", providerRequest.getEmail());
             ProviderResponse response = new ProviderResponse();
             response.setStatus("Error: Email is already in use!");
             return ResponseEntity.badRequest().body(response);
         }
         if (providerRepository.existsByProviderName(providerRequest.getProviderName())) {
+            log.warn("Duplicate provider name: {}", providerRequest.getProviderName());
             ProviderResponse response = new ProviderResponse();
             response.setStatus("Error: Provider name is already in use!");
             return ResponseEntity.badRequest().body(response);
         }
         if (providerRepository.existsByTelephone(providerRequest.getTelephone())) {
+            log.warn("Duplicate provider phone number: {}", providerRequest.getTelephone());
             ProviderResponse response = new ProviderResponse();
             response.setStatus("Error: Phone number is already in use!");
             return ResponseEntity.badRequest().body(response);
@@ -112,6 +117,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         Provider provider = new Provider();
         BeanUtils.copyProperties(providerRequest, provider);
         provider.setStatus(Status.valueOf(providerRequest.getStatus()));
+        provider.setProviderUuid(UUID.randomUUID().toString());
 
         String logoFileName = null;
         if (logo != null && !logo.isEmpty()) {
@@ -144,14 +150,17 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         Provider savedProvider = providerRepository.save(provider);
         log.info("Provider created with UUID: {}, status: {}", savedProvider.getProviderUuid(), savedProvider.getStatus());
 
+        // Create role with "PR_" prefix
         Role role = new Role();
-        String providerNameForRole = providerRequest.getProviderName().length() > 40
-                ? providerRequest.getProviderName().substring(0, 40)
-                : providerRequest.getProviderName();
-        role.setRoleName(providerNameForRole + "_Manager");
+        String providerNameForRole = providerRequest.getProviderName();
+        if (providerNameForRole.length() > 35) {  // Reduced to 35 to accommodate "PR_" prefix
+            providerNameForRole = providerNameForRole.substring(0, 35);
+        }
+        role.setRoleName("PR_" + providerNameForRole + "_Manager");
         role.setProviderUuid(savedProvider.getProviderUuid());
         role.setRoleDescription("Manages the system for " + providerRequest.getProviderName());
         Role savedRole = roleRepository.save(role);
+        log.info("Created role: {} with UUID: {}", savedRole.getRoleName(), savedRole.getRoleUuid());
 
         ProviderResponse providerResponse = new ProviderResponse();
         BeanUtils.copyProperties(savedProvider, providerResponse);
@@ -174,6 +183,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
             providerResponse.setLogoBase64("");
         }
 
+        log.info("Provider creation process completed for: {}", savedProvider.getProviderName());
         return ResponseEntity.ok(providerResponse);
     }
 
@@ -184,13 +194,13 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
     @Override
     public ResponseEntity<ByteArrayResource> getProviderLogo(String providerUuid) {
         try {
-            Optional<Provider> providerOpt = providerRepository.findByProviderUuid(providerUuid);
-            if (providerOpt.isEmpty() || providerOpt.get().getLogoPath() == null || providerOpt.get().getLogoPath().isEmpty()) {
+            Provider providerOpt = providerRepository.findByProviderUuid(providerUuid);
+            if (providerOpt == null || providerOpt.getLogoPath() == null || providerOpt.getLogoPath().isEmpty()) {
                 log.warn("Provider logo not found for UUID: {}", providerUuid);
                 return serveDefaultLogo();
             }
 
-            Provider provider = providerOpt.get();
+            Provider provider = providerOpt;
             String logoPath = providerLogosDirectory + "/" + provider.getLogoPath();
             log.debug("Attempting to load logo from path: {}", logoPath);
 
@@ -218,8 +228,10 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
     @Override
     @Transactional
     public ResponseEntity<?> updateProviderStatus(String providerUuid, Status status) {
-        Provider provider = providerRepository.findByProviderUuid(providerUuid)
-                .orElseThrow(() -> new ResourceNotFoundException("Provider", "providerUuid", providerUuid));
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider == null){
+            throw new ResourceNotFoundException("Provider", "providerUuid", providerUuid);
+        }
 
         log.info("Updating provider status: {} from {} to {}",
                 provider.getProviderName(), provider.getStatus(), status);
@@ -512,8 +524,10 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
 
     @Override
     public ResponseEntity<?> updateProvider(String providerUuid, ProviderRequest providerRequest, MultipartFile logo) {
-        Provider provider = providerRepository.findByProviderUuid(providerUuid)
-                .orElseThrow(() -> new BadRequestException("Can't find Provider with the provided UUID"));
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider == null){
+            throw new BadRequestException("Can't find Provider with the provided UUID");
+        }
 
         if (!provider.getProviderName().equals(providerRequest.getProviderName()) &&
                 providerRepository.existsByProviderName(providerRequest.getProviderName())) {
@@ -573,8 +587,10 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
 
     @Override
     public ProviderResponse getProvider(String providerUuid) {
-        Provider provider = providerRepository.findByProviderUuid(providerUuid)
-                .orElseThrow(() -> new RuntimeException("provider not found with UUID:" + providerUuid));
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider == null){
+            throw new RuntimeException("provider not found with UUID:" + providerUuid);
+        }
 
         ProviderResponse providerResponse = new ProviderResponse();
         BeanUtils.copyProperties(provider, providerResponse);
@@ -635,11 +651,13 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
 
     @Override
     public ResponseEntity<?> deleteProvider(String providerUuid) {
-        Optional<Provider> provider = Optional.ofNullable(providerRepository.findByProviderUuid(providerUuid)
-                .orElseThrow(() -> new BadRequestException("can't find Hospital with the provided Id")));
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider == null){
+            throw new BadRequestException("can't find Hospital with the provided Id");
+        }
 
-        provider.get().setDeleted(true);
-        providerRepository.save(provider.get());
+        provider.setDeleted(true);
+        providerRepository.save(provider);
         return ResponseEntity.ok(new MessageResponse("Provider soft deleted successfully!"));
     }
 

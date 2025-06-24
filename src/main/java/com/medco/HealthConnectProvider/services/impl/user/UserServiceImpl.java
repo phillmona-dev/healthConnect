@@ -4,12 +4,14 @@ import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.U
 import com.medco.HealthConnectProvider.config.securityConfig.jwtTokenService.JwtService;
 import com.medco.HealthConnectProvider.dto.PayerAdminDto;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
+import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.entity.token.RefreshToken;
 import com.medco.HealthConnectProvider.entity.user.Role;
 import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.UnauthorizedException;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
+import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
 import com.medco.HealthConnectProvider.repository.user.RoleRepository;
 import com.medco.HealthConnectProvider.repository.user.UserRepository;
 import com.medco.HealthConnectProvider.services.mail.EmailService;
@@ -39,14 +41,18 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -70,6 +76,8 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private ProviderRepository providerRepository;
 
     public UserServiceImpl(UserRepository userRepository, AuthenticationManager authenticationManager, JwtService jwtServiceImpl, PasswordEncoder passwordEncoder, TokenService tokenService, RoleRepository roleRepository, PayerRepository payerRepository) {
         this.userRepository = userRepository;
@@ -89,62 +97,124 @@ public class UserServiceImpl implements UserService {
             );
 
             if(authentication.isAuthenticated()) {
-
                 RefreshToken refreshTokenEntity = tokenService.createRefreshToken(loginRequest.getEmail());
-
                 String refreshToken = refreshTokenEntity.getToken();
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
                 UserPrincipal userDetails = (UserPrincipal) authentication.getPrincipal();
 
-                List<String> roles = userDetails.getAuthorities().stream().map(item -> item.getAuthority())
-                        .collect(Collectors.toList());
+                User user = userRepository.findByEmail(loginRequest.getEmail())
+                        .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + loginRequest.getEmail()));
 
                 String jwt = JwtServiceImpl.generateToken(userDetails.getEmail());
 
+                String payerUuid = null;
+                String providerUuid = null;
+                if (user.getRole().getRoleName().toLowerCase().contains("payer")) {
+                    payerUuid = user.getPayer() != null ? user.getPayer().getPayerUuid() : null;
+                } else if (user.getRole().getRoleName().toLowerCase().contains("provider")) {
+                    providerUuid = user.getProvider() != null ? user.getProvider().getProviderUuid() : null;
+                }
 
-                return ResponseEntity.ok(new JwtResponse(jwt,refreshToken ,userDetails.getUserUuid(), userDetails.getEmail(),
-                        userDetails.getFirstName(),userDetails.getFatherName(),userDetails.getGrandFatherName(),
-                        userDetails.getMobilePhone(),userDetails.getPayerUuid(),userDetails.getProviderUuid(),userDetails.getAuthorities()));
-            }else{
+                // Convert authorities to set of privilege names
+                Set<String> authorities = userDetails.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .collect(Collectors.toSet());
+
+                return ResponseEntity.ok(new JwtResponse(
+                        jwt,
+                        refreshToken,
+                        user.getUserUuid(),
+                        user.getEmail(),
+                        user.getFirstName(),
+                        user.getFatherName(),
+                        user.getGrandFatherName(),
+                        user.getMobilePhone(),
+                        payerUuid,
+                        providerUuid,
+                        authorities
+                ));
+            } else {
                 throw new BadRequestException("Your Token is Expired try to login Again");
             }
-
-        }catch (UnauthorizedException | BadRequestException e) {
+        } catch (UnauthorizedException | BadRequestException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid Username or password Provided! " + e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         }
     }
 
-
     @Override
+    @Transactional
     public UserResponse createUser(SignUpRequest signUpRequest) {
+        log.info("Starting user creation process for email: {}", signUpRequest.getEmail());
+
+        // Validate email and mobile phone
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
+            log.warn("Email already in use: {}", signUpRequest.getEmail());
             throw new BadRequestException("Email is already in use!");
         }
-
         if (userRepository.existsByMobilePhone(signUpRequest.getMobilePhone())) {
+            log.warn("Mobile phone already in use: {}", signUpRequest.getMobilePhone());
             throw new BadRequestException("Mobile Phone is already in use!");
         }
 
+        // Find the role
         Role role = roleRepository.findByRoleUuid(signUpRequest.getRoleUuid());
         if (role == null) {
+            log.error("Role not found for UUID: {}", signUpRequest.getRoleUuid());
             throw new BadRequestException("Can't Assign Role To User");
         }
+        log.info("Role found: {}", role.getRoleName());
 
-        var user = new User();
+        // Create and populate user object
+        User user = new User();
         BeanUtils.copyProperties(signUpRequest, user);
+        log.info("User object created and populated");
 
         // Generate a random password
         String randomPassword = generateRandomPassword();
         user.setPassword(passwordEncoder.encode(randomPassword));
-
         user.setRole(role);
-        User savedUser = userRepository.save(user);
 
-        // Determine the institution name (payer or provider)
-        String institutionName = determineInstitutionName(role);
+        // Set user status if not provided
+        if (user.getUserStatus() == null) {
+            user.setUserStatus(Status.ACTIVE);
+        }
+        log.info("User status set to: {}", user.getUserStatus());
+
+        // Determine the institution type and set Payer or Provider
+        String institutionName = "your institution";
+        if (role.getRoleName().startsWith("PA_")) {
+            log.info("Processing payer role");
+            Payer payer = payerRepository.findByPayerUuid(role.getPayerUuid());
+            if (payer == null) {
+                log.error("No payer found for UUID: {}", role.getPayerUuid());
+                throw new BadRequestException("No payer found for the given role");
+            }
+            user.setPayerUuid(payer.getPayerUuid());
+            institutionName = payer.getPayerName();
+            log.info("User associated with payer: {}", payer.getPayerName());
+        } else if (role.getRoleName().startsWith("PR_")) {
+            log.info("Processing provider role");
+            Provider provider = providerRepository.findByProviderUuid(role.getProviderUuid());
+            if (provider == null) {
+                log.error("No provider found for UUID: {}", role.getProviderUuid());
+                throw new BadRequestException("No provider found for the given role");
+            }
+            user.setProviderUuid(provider.getProviderUuid());
+            institutionName = provider.getProviderName();
+            log.info("User associated with provider: {}", provider.getProviderName());
+        } else {
+            log.warn("Role is neither payer nor provider: {}", role.getRoleName());
+        }
+
+        // Save the user
+        User savedUser = userRepository.save(user);
+        log.info("User saved to database with ID: {}", savedUser.getId());
+
+        // Log the saved user details
+        log.info("Saved user details - PayerUuid: {}, ProviderUuid: {}", savedUser.getPayerUuid(), savedUser.getProviderUuid());
 
         // Send welcome email
         String loginUrl = frontendUrl + "/login?newUser=true&email=" + savedUser.getEmail();
@@ -156,14 +226,19 @@ public class UserServiceImpl implements UserService {
                     institutionName,
                     loginUrl
             );
+            log.info("Welcome email sent to: {}", savedUser.getEmail());
         } catch (Exception e) {
-            // Log the error, but don't throw an exception as the user has been created
             log.error("Failed to send welcome email to user {}: {}", savedUser.getEmail(), e.getMessage());
         }
 
-        var userResponse = new UserResponse();
+        // Prepare and return the response
+        UserResponse userResponse = new UserResponse();
         BeanUtils.copyProperties(savedUser, userResponse);
+        userResponse.setPayerUuid(savedUser.getPayerUuid());
+        userResponse.setProviderUuid(savedUser.getProviderUuid());
+        userResponse.setRoleName(role.getRoleName());
 
+        log.info("User creation process completed for email: {}", savedUser.getEmail());
         return userResponse;
     }
 

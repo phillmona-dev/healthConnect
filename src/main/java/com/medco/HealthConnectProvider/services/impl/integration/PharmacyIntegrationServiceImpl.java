@@ -127,9 +127,13 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     private DrugRepository drugRepository;
 
     private Provider validateProvider(String providerUuid) {
-        return providerRepository.findByProviderUuid(providerUuid)
-                .orElseThrow(() -> new ResourceNotFoundException("Provider", "providerUuid", providerUuid));
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider==null){
+            throw new ResourceNotFoundException("Provider", "providerUuid", providerUuid);
+        }
+        return provider;
     }
+
 
     private Payer validatePayer(String payerUuid) {
         Payer payer = payerRepository.findByPayerUuid(payerUuid);
@@ -160,8 +164,10 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         log.info("Fetching dispensing records with advanced search for provider: {}", providerUuid);
 
         try {
-            providerRepository.findByProviderUuid(providerUuid)
-                    .orElseThrow(() -> new ResourceNotFoundException("Provider", "providerUuid", providerUuid));
+           Provider provider = providerRepository.findByProviderUuid(providerUuid);
+           if (provider == null){
+               throw new ResourceNotFoundException("Provider", "providerUuid", providerUuid);
+           }
 
             Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.fromString(sortDirection), sortBy));
 
@@ -299,8 +305,10 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
 
         // Fetch additional information
-        Optional<Provider> providerOptional = providerRepository.findByProviderUuid(dispensing.getProviderUuid());
-        providerOptional.ifPresent(provider -> dto.setProviderName(provider.getProviderName()));
+        Provider providerOptional = providerRepository.findByProviderUuid(dispensing.getProviderUuid());
+        if (providerOptional!=null){
+            dto.setProviderName(providerOptional.getProviderName());
+        }
 
         Payer payer = payerRepository.findByPayerUuid(dispensing.getPayerUuid());
         if (payer != null) {
@@ -433,8 +441,10 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             throw new BadRequestException("Invalid new status. Must be either SUBMITTED or AUTHORIZED");
         }
 
-        Provider provider = providerRepository.findByProviderUuid(providerUuid)
-                .orElseThrow(() -> new ResourceNotFoundException("Provider", "uuid", providerUuid));
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider==null){
+            throw new ResourceNotFoundException("Provider", "uuid", providerUuid);
+        }
 
         List<MedicationDispensing> dispensingRecords = dispensingRepository.findByDispensingUuidIn(dispensingUuids);
 

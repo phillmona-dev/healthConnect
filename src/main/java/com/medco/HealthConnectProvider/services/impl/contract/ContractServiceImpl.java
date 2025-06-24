@@ -99,9 +99,10 @@ public class ContractServiceImpl implements ContractService {
     @Override
     public ResponseEntity<ContractResponse> createContract(ContractRequest contractRequest) {
         // Fetch provider and payer
-        Provider provider = providerRepository.findByProviderUuid(contractRequest.getProviderUuid())
-                .orElseThrow(() -> new RuntimeException(
-                        "Provider not found with uuid: " + contractRequest.getProviderUuid()));
+        Provider provider = providerRepository.findByProviderUuid(contractRequest.getProviderUuid());
+        if (provider == null){
+            throw new RuntimeException("Provider not found with uuid: " + contractRequest.getProviderUuid());
+        }
 
         Payer payer = payerRepository.findByPayerUuid(contractRequest.getPayerUuid());
         if (payer == null){
@@ -451,7 +452,7 @@ public class ContractServiceImpl implements ContractService {
     @Override
     public ResponseEntity<?> getAvailableServicesForProvider(String providerUuid, String searchKey, Pageable pageable) {
         // Validate provider exists
-        Optional<Provider> provider = providerRepository.findByProviderUuid(providerUuid);
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
         if (provider == null) {
             throw new ResourceNotFoundException("Provider", "providerUuid", providerUuid);
         }
@@ -459,9 +460,9 @@ public class ContractServiceImpl implements ContractService {
         // Find services for this provider
         Page<Servicelist> services;
         if (searchKey != null && !searchKey.isEmpty()) {
-            services = servicelistRepository.findByProviderAndNameContaining(provider, searchKey, pageable);
+            services = servicelistRepository.findByProviderAndNameContaining(Optional.of(provider), searchKey, pageable);
         } else {
-            services = servicelistRepository.findByProvider(provider, pageable);
+            services = servicelistRepository.findByProvider(Optional.of(provider), pageable);
         }
 
         // Map to response DTOs

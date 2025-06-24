@@ -52,8 +52,10 @@ public class DrugServiceImpl implements DrugService {
 
     @Override
     public ResponseEntity<DrugResponse> createDrug(String providerUuid, DrugRequest drugRequest) {
-        Provider provider = providerRepository.findByProviderUuid(providerUuid)
-                .orElseThrow(() -> new BadRequestException("Can't find provider with the provided Id"));
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider == null){
+            throw new BadRequestException("Can't find provider with the provided Id");
+        }
 
         if (drugRepository.existsByDrugName(drugRequest.getDrugName())) {
             throw new BadRequestException("Drug with this name already exists");
@@ -218,8 +220,10 @@ public class DrugServiceImpl implements DrugService {
     @Override
     @Transactional
     public ResponseEntity<?> importDrugListData(File file, String providerUuid) throws IOException {
-        Provider provider = providerRepository.findByProviderUuid(providerUuid)
-                .orElseThrow(() -> new BadRequestException("Provider not found"));
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider == null){
+            throw new BadRequestException("Provider not found");
+        }
 
         List<Drug> importedDrugs = new ArrayList<>();
         int totalRows = 0;
