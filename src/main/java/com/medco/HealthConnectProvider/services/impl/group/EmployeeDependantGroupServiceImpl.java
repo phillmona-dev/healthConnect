@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.services.impl.group;
 
-import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserDetailsImpl;
+
+import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
@@ -37,8 +38,8 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
     @Transactional
     public ResponseEntity<EmployeeDependantGroupResponse> createGroup(EmployeeDependantGroupRequest request) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         // Validate payer exists
         Payer payer = payerRepository.findByPayerUuid(payerUuid);
@@ -74,8 +75,8 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
     @Override
     public EmployeeDependantGroupResponse getGroupByUuid(String groupUuid) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         // Find group
         EmployeeDependantGroup group = groupRepository.findByGroupUuid(groupUuid);
@@ -95,8 +96,8 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
     @Override
     public Page<EmployeeDependantGroupResponse> listGroups(String search, Pageable pageable) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         // Get groups with search
         Page<EmployeeDependantGroup> groups = groupRepository.findByPayerUuidAndGroupNameContainingIgnoreCase(
@@ -110,8 +111,8 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
     @Transactional
     public ResponseEntity<EmployeeDependantGroupResponse> updateGroup(String groupUuid, EmployeeDependantGroupRequest request) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         // Find group
         EmployeeDependantGroup group = groupRepository.findByGroupUuid(groupUuid);
@@ -154,8 +155,8 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
     @Transactional
     public ResponseEntity<?> deleteGroup(String groupUuid) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         // Find group
         EmployeeDependantGroup group = groupRepository.findByGroupUuid(groupUuid);

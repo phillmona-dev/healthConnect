@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.entity.integration;
 
+import com.medco.HealthConnectProvider.entity.claims.BatchRecord;
 import com.medco.HealthConnectProvider.utils.enums.SourceType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -66,6 +67,9 @@ public class MedicationDispensing {
 
     @OneToMany(mappedBy = "dispensing", cascade = CascadeType.ALL)
     private List<MedicationDispensingItem> items;
+    @ManyToOne
+    @JoinColumn(name = "batch_id")
+    private BatchRecord batchRecord;
 
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean deleted = false;

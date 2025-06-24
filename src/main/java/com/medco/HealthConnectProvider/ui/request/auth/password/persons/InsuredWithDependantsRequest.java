@@ -25,7 +25,7 @@ public class InsuredWithDependantsRequest {
     private String address1;
     private String address2;
     private String address3;
-    private String institutionUuid;
+    private String payerUuid;
 
     // Dependants list
     @Valid

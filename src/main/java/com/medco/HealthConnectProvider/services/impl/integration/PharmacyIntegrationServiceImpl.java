@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.services.impl.integration;
 
-import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserDetailsImpl;
+
+import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.dto.MedicationDispensingDTO;
 import com.medco.HealthConnectProvider.dto.PendingDispensingRecordDTO;
 import com.medco.HealthConnectProvider.entity.claims.BatchRecord;
@@ -1253,7 +1254,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return ResponseEntity.ok(response);
     }
 
-    private void createClaimLog(Claim claim, UserDetailsImpl user, ClaimStatus previousStatus, ClaimStatus newStatus, String comment) {
+    private void createClaimLog(Claim claim, UserPrincipal user, ClaimStatus previousStatus, ClaimStatus newStatus, String comment) {
         ClaimLogs log = new ClaimLogs();
         log.setLogUuid(UUID.randomUUID().toString());
         log.setClaim(claim);

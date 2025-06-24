@@ -877,11 +877,11 @@ public class InsuredServiceImpl implements InsuredService {
             else
                 insured.setStatus(Status.PENDING);
 
-            if (insuredRequest.getInstitutionUuid() != null && !insuredRequest.getInstitutionUuid().isEmpty()) {
-                Payer payer = payerRepository.findByPayerUuid(insuredRequest.getInstitutionUuid());
+            if (insuredRequest.getPayerUuid() != null && !insuredRequest.getPayerUuid().isEmpty()) {
+                Payer payer = payerRepository.findByPayerUuid(insuredRequest.getPayerUuid());
                 if (payer != null) {
                     insured.setPayer(payer);
-                    insured.setPayerUuid(insuredRequest.getInstitutionUuid());
+                    insured.setPayerUuid(insuredRequest.getPayerUuid());
                 }
             }
 

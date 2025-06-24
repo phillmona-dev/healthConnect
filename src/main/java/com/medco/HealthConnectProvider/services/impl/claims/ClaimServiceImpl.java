@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.services.impl.claims;
 
-import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserDetailsImpl;
+
+import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.entity.claims.ClaimAttachment;
 import com.medco.HealthConnectProvider.entity.claims.ClaimComment;
@@ -100,8 +101,8 @@ public class ClaimServiceImpl implements ClaimService {
     @Transactional
     public ResponseEntity<?> submitClaim(ClaimRequest claimRequest) {
         // Get authenticated user
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String providerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String providerUuid = userDetails.getPayerUuid();
 
         // Validate contract exists and is active
         ContractHeader contract = contractRepository.findByContractHeaderUuid(claimRequest.getContractUuid());
@@ -233,8 +234,8 @@ public class ClaimServiceImpl implements ClaimService {
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 
         // Check if user has access to this claim
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String institutionUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String institutionUuid = userDetails.getPayerUuid();
 
         // If user is from provider, check if claim belongs to this provider
         if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(institutionUuid)) {
@@ -242,7 +243,7 @@ public class ClaimServiceImpl implements ClaimService {
         }
 
         // If user is from payer, check if claim belongs to this payer
-        if (userDetails.getInstitutionUuid() != null && !claim.getPayerUuid().equals(institutionUuid)) {
+        if (userDetails.getPayerUuid() != null && !claim.getPayerUuid().equals(institutionUuid)) {
             throw new BadRequestException("You don't have access to this claim");
         }
 
@@ -306,8 +307,8 @@ public class ClaimServiceImpl implements ClaimService {
     @Override
     public List<ClaimResponse> getClaimsByProvider(String providerUuid, Pageable pageable) {
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        if (userDetails.getProviderUuid() != null && !userDetails.getInstitutionUuid().equals(providerUuid)) {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        if (userDetails.getProviderUuid() != null && !userDetails.getPayerUuid().equals(providerUuid)) {
             throw new BadRequestException("You don't have access to claims from this provider");
         }
 
@@ -326,8 +327,8 @@ public class ClaimServiceImpl implements ClaimService {
     @Override
     public List<ClaimResponse> getClaimsByPayer(String payerUuid, Pageable pageable) {
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        if (userDetails.getInstitutionUuid() != null && !userDetails.getInstitutionUuid().equals(payerUuid)) {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        if (userDetails.getPayerUuid() != null && !userDetails.getPayerUuid().equals(payerUuid)) {
             throw new BadRequestException("You don't have access to claims from this payer");
         }
 
@@ -345,12 +346,12 @@ public class ClaimServiceImpl implements ClaimService {
 
     @Override
     public List<ClaimResponse> getClaimsByStatus(ClaimStatus status, Pageable pageable) {
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String institutionUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String institutionUuid = userDetails.getPayerUuid();
 
         var claimsPage = userDetails.getProviderUuid() != null ?
-                claimRepository.findByProviderUuidAndStatus(institutionUuid, status.toString(), pageable) :
-                claimRepository.findByPayerUuidAndStatus(institutionUuid, status.toString(), pageable);
+                claimRepository.findByProviderUuidAndStatus(institutionUuid, status, pageable) :
+                claimRepository.findByPayerUuidAndStatus(institutionUuid, status, pageable);
 
         int totalPages = claimsPage.getTotalPages();
 
@@ -418,7 +419,7 @@ public class ClaimServiceImpl implements ClaimService {
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         ClaimStatus previousStatus = claim.getStatus();
 
         // Validate status transition
@@ -445,17 +446,17 @@ public class ClaimServiceImpl implements ClaimService {
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         ClaimStatus previousStatus = claim.getStatus();
         ClaimStatus newStatus;
 
         // Determine if this is a provider review or payer review
         boolean isProviderReview = userDetails.getProviderUuid() != null;
-        boolean isPayerReview = userDetails.getInstitutionUuid() != null;
+        boolean isPayerReview = userDetails.getPayerUuid() != null;
 
         if (isProviderReview) {
             // Provider review
-            if (!claim.getProviderUuid().equals(userDetails.getInstitutionUuid())) {
+            if (!claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
                 throw new BadRequestException("You don't have access to review this claim");
             }
 
@@ -474,7 +475,7 @@ public class ClaimServiceImpl implements ClaimService {
             }
         } else if (isPayerReview) {
             // Payer review
-            if (!claim.getPayerUuid().equals(userDetails.getInstitutionUuid())) {
+            if (!claim.getPayerUuid().equals(userDetails.getPayerUuid())) {
                 throw new BadRequestException("You don't have access to review this claim");
             }
 
@@ -555,7 +556,7 @@ public class ClaimServiceImpl implements ClaimService {
         }
     }
 
-    private void updateStatusSpecificFields(Claim claim, ClaimStatus newStatus, UserDetailsImpl userDetails) {
+    private void updateStatusSpecificFields(Claim claim, ClaimStatus newStatus, UserPrincipal userDetails) {
         switch (newStatus) {
             case SUBMITTED:
                 claim.setPreparedByProviderUuid(userDetails.getUserUuid());
@@ -587,7 +588,7 @@ public class ClaimServiceImpl implements ClaimService {
         }
     }
 
-    private void createClaimLog(Claim claim, UserDetailsImpl userDetails, ClaimStatus previousStatus, ClaimStatus newStatus, String comment) {
+    private void createClaimLog(Claim claim, UserPrincipal userDetails, ClaimStatus previousStatus, ClaimStatus newStatus, String comment) {
         ClaimLogs log = new ClaimLogs();
         log.setLogUuid(UUID.randomUUID().toString());
         log.setClaimUuid(claim.getClaimUuid());
@@ -610,14 +611,14 @@ public class ClaimServiceImpl implements ClaimService {
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
         // Check if user has access to this claim
-        if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(userDetails.getInstitutionUuid())) {
+        if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("You don't have access to add attachments to this claim");
         }
 
-        if (userDetails.getInstitutionUuid() != null && !claim.getPayerUuid().equals(userDetails.getInstitutionUuid())) {
+        if (userDetails.getPayerUuid() != null && !claim.getPayerUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("You don't have access to add attachments to this claim");
         }
 
@@ -678,15 +679,15 @@ public class ClaimServiceImpl implements ClaimService {
         ClaimAttachment attachment = claimAttachmentRepository.findByAttachmentUuid(attachmentUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Attachment", "attachmentUuid", attachmentUuid));
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
         // Check if user has access to this attachment
         Claim claim = attachment.getClaim();
-        if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(userDetails.getInstitutionUuid())) {
+        if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("You don't have access to delete this attachment");
         }
 
-        if (userDetails.getInstitutionUuid() != null && !claim.getPayerUuid().equals(userDetails.getInstitutionUuid())) {
+        if (userDetails.getPayerUuid() != null && !claim.getPayerUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("You don't have access to delete this attachment");
         }
 
@@ -741,14 +742,14 @@ public class ClaimServiceImpl implements ClaimService {
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
         // Check if user has access to this claim
-        if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(userDetails.getInstitutionUuid())) {
+        if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("You don't have access to add comments to this claim");
         }
 
-        if (userDetails.getInstitutionUuid() != null && !claim.getPayerUuid().equals(userDetails.getInstitutionUuid())) {
+        if (userDetails.getPayerUuid() != null && !claim.getPayerUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("You don't have access to add comments to this claim");
         }
 
@@ -782,10 +783,10 @@ public class ClaimServiceImpl implements ClaimService {
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
         // Check if user has access to this claim
-        if (userDetails.getProviderUuid() == null || !claim.getProviderUuid().equals(userDetails.getInstitutionUuid())) {
+        if (userDetails.getProviderUuid() == null || !claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("Only provider users can request payment for claims");
         }
 
@@ -815,10 +816,10 @@ public class ClaimServiceImpl implements ClaimService {
 //        Claim claim = claimRepository.findByClaimUuid(claimUuid)
 //                .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 //
-//        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+//        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 //
 //        // Check if user has access to this claim
-//        if (userDetails.getInstitutionUuid() == null || !claim.getPayerUuid().equals(userDetails.getInstitutionUuid())) {
+//        if (userDetails.getPayerUuid() == null || !claim.getPayerUuid().equals(userDetails.getPayerUuid())) {
 //            throw new BadRequestException("Only payer users can process payments for claims");
 //        }
 //
@@ -879,14 +880,14 @@ public class ClaimServiceImpl implements ClaimService {
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
         // Check if user has access to this claim
-        if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(userDetails.getInstitutionUuid())) {
+        if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("You don't have access to view logs for this claim");
         }
 
-        if (userDetails.getInstitutionUuid() != null && !claim.getPayerUuid().equals(userDetails.getInstitutionUuid())) {
+        if (userDetails.getPayerUuid() != null && !claim.getPayerUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("You don't have access to view logs for this claim");
         }
 
@@ -905,10 +906,10 @@ public class ClaimServiceImpl implements ClaimService {
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
         // Check if user has access to this claim
-        if (userDetails.getInstitutionUuid() == null || !claim.getPayerUuid().equals(userDetails.getInstitutionUuid())) {
+        if (userDetails.getPayerUuid() == null || !claim.getPayerUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("Only payer users can process payments for claims");
         }
 

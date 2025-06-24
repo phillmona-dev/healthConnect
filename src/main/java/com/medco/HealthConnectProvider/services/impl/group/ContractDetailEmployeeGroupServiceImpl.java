@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.services.impl.group;
 
-import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserDetailsImpl;
+
+import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.groups.ContractDetailEmployeeGroup;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
@@ -41,8 +42,8 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
     @Transactional
     public ResponseEntity<?> createContractDetailEmployeeGroup(ContractDetailEmployeeGroupRequest request) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         // Validate contract detail exists
         ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(request.getContractDetailUuid());
@@ -88,8 +89,8 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
     @Override
     public List<ContractDetailEmployeeGroupResponse> getContractDetailEmployeeGroupsByContract(String contractUuid) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         List<ContractDetailEmployeeGroup> associations = contractDetailEmployeeGroupRepository.findByContractUuid(contractUuid);
 
@@ -102,8 +103,8 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
     @Override
     public List<ContractDetailEmployeeGroupResponse> getContractDetailEmployeeGroupsByContractDetail(String contractDetailUuid) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         List<ContractDetailEmployeeGroup> associations = contractDetailEmployeeGroupRepository.findByContractDetailUuid(contractDetailUuid);
 
@@ -116,8 +117,8 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
     @Override
     public List<ContractDetailEmployeeGroupResponse> getContractDetailEmployeeGroupsByEmployeeGroup(String employeeGroupUuid) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         // Validate employee group belongs to payer
         EmployeeDependantGroup employeeGroup = employeeDependantGroupRepository.findByGroupUuid(employeeGroupUuid);
@@ -140,8 +141,8 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
     public Page<ContractDetailEmployeeGroupResponse> searchContractDetailEmployeeGroups(
             String contractUuid, String search, Pageable pageable) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         Page<ContractDetailEmployeeGroup> associations = contractDetailEmployeeGroupRepository
                 .searchByContractAndGroupName(contractUuid, search, pageable);
@@ -153,8 +154,8 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
     @Transactional
     public ResponseEntity<?> deleteContractDetailEmployeeGroup(String contractDetailUuid, String employeeGroupUuid) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         // Validate association exists
         ContractDetailEmployeeGroup association = contractDetailEmployeeGroupRepository
@@ -177,8 +178,8 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
     @Transactional
     public ResponseEntity<?> batchCreateContractDetailEmployeeGroups(List<ContractDetailEmployeeGroupRequest> requests) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         List<ContractDetailEmployeeGroup> associations = new ArrayList<>();
         int createdCount = 0;

@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.entity.claims;
 
+import com.medco.HealthConnectProvider.entity.integration.MedicationDispensing;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -9,6 +10,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 
 @Setter
@@ -42,5 +44,9 @@ public class BatchRecord {
     @OneToOne
     @JoinColumn(name = "claim_id", referencedColumnName = "id")
     private Claim claim;
+
+
+    @OneToMany(mappedBy = "batchRecord", cascade = CascadeType.ALL)
+    private List<MedicationDispensing> medicationDispensing;
 
 }

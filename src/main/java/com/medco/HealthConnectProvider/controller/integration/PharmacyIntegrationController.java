@@ -37,16 +37,18 @@ public class PharmacyIntegrationController {
 
     private static final Logger logger = LoggerFactory.getLogger(PharmacyIntegrationController.class);
 
-    @Autowired
-    private PharmacyIntegrationService pharmacyIntegrationService;
 
-    @Autowired
-    private EligibilityService eligibilityService;
+    private final PharmacyIntegrationService pharmacyIntegrationService;
+
+
+    private final EligibilityService eligibilityService;
 
     private final BatchRecordService batchRecordService;
 
 
-    public PharmacyIntegrationController(BatchRecordService batchRecordService) {
+    public PharmacyIntegrationController(PharmacyIntegrationService pharmacyIntegrationService, EligibilityService eligibilityService, BatchRecordService batchRecordService) {
+        this.pharmacyIntegrationService = pharmacyIntegrationService;
+        this.eligibilityService = eligibilityService;
         this.batchRecordService = batchRecordService;
     }
 
