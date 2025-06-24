@@ -26,10 +26,15 @@ public class BatchRecord {
     private String batchCode;
 
     private String payerName;
+
     private LocalDateTime requestedOn;
+
     private LocalDate claimDatingFrom;
+
     private LocalDate claimDatingTo;
+
     private BigDecimal totalAmount;
+
     private String status;
 
     private String claimUuid;

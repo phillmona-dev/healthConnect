@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.repository.payer;
 
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.utils.enums.Status;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -57,7 +58,7 @@ public interface PayerRepository extends JpaRepository<Payer, Long>, JpaSpecific
             Pageable pageable);
 
 
-    boolean existsByPayerUuid(String payerUuid);
-
     Payer findByPayerName(String payerName);
+
+
 }

@@ -38,6 +38,7 @@ public class MedicationDispensingItem {
     private Double quantity;
 
     private String primaryDiagnosis;
+
     private String secondaryDiagnosis;
 
     @Column
@@ -72,4 +73,5 @@ public class MedicationDispensingItem {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
 }

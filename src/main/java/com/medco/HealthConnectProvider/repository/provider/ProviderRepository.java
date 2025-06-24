@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.repository.provider;
 
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.utils.enums.Status;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,9 +22,7 @@ public interface ProviderRepository extends JpaRepository<Provider, Long>, JpaSp
 
     boolean existsByProviderName(String name);
 
-    Optional<Provider> findByProviderUuid(String providerUuid);
-
-    List<Provider> findAllByProviderName(String name);
+    Provider findByProviderUuid(String providerUuid);
 
     Page<Provider> findAllByProviderNameContaining(String searchKey, Pageable pageRequest);
 
@@ -93,4 +92,5 @@ public interface ProviderRepository extends JpaRepository<Provider, Long>, JpaSp
             Pageable pageable);
 
     Optional<Object> findByProviderName(String providerName);
+
 }

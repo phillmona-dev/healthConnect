@@ -123,4 +123,10 @@ public class Provider extends Audit implements Serializable {
 
     private Long totalContract;
 
+    // Add this method to help set the user's provider
+    public void addUser(User user) {
+        users.add(user);
+        user.setProvider(this);
+    }
+
 }

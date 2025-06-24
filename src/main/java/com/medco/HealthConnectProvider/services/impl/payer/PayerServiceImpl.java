@@ -108,18 +108,22 @@ public class PayerServiceImpl implements PayerService {
     @Transactional
     @Override
     public PayerResponse createPayer(@Valid PayerRequest payerRequest, MultipartFile logo) {
+        log.info("Starting payer creation process for: {}", payerRequest.getPayerName());
 
         if (payerRepository.existsByEmail(payerRequest.getEmail())) {
+            log.warn("Duplicate payer email: {}", payerRequest.getEmail());
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Error: Duplicated Payer Email is not allowed.");
         }
 
         if (payerRepository.existsByTelephone(payerRequest.getTelephone())) {
+            log.warn("Duplicate payer telephone: {}", payerRequest.getTelephone());
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Error: Duplicated Payer Telephone is not allowed.");
         }
 
         if (payerRepository.existsByPayerName(payerRequest.getPayerName())) {
+            log.warn("Duplicate payer name: {}", payerRequest.getPayerName());
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Error: Duplicated Payer Name is not allowed.");
         }
@@ -135,7 +139,7 @@ public class PayerServiceImpl implements PayerService {
                 File directory = new File(payerLogosDirectory);
                 if (!directory.exists()) {
                     directory.mkdirs();
-                    logger.info("Created directory: {}", payerLogosDirectory);
+                    log.info("Created directory: {}", payerLogosDirectory);
                 }
 
                 String fileName = logo.getOriginalFilename();
@@ -144,10 +148,11 @@ public class PayerServiceImpl implements PayerService {
 
                 Path path = Paths.get(payerLogosDirectory + "/" + newFileName);
                 Files.write(path, logo.getBytes());
-                logger.info("Saved logo to: {}", path);
+                log.info("Saved logo to: {}", path);
 
                 payer.setLogoPath(newFileName);
             } catch (IOException e) {
+                log.error("Error uploading logo: {}", e.getMessage());
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                         "Error uploading logo: " + e.getMessage());
             }
@@ -156,15 +161,17 @@ public class PayerServiceImpl implements PayerService {
         Payer savedPayer = payerRepository.save(payer);
         log.info("Payer created with UUID: {}, status: {}", savedPayer.getPayerUuid(), savedPayer.getStatus());
 
+        // Create role with "PA_" prefix
         Role role = new Role();
         String payerNameForRole = payerRequest.getPayerName();
-        if (payerNameForRole.length() > 40) {
-            payerNameForRole = payerNameForRole.substring(0, 40);
+        if (payerNameForRole.length() > 35) {  // Reduced to 35 to accommodate "PA_" prefix
+            payerNameForRole = payerNameForRole.substring(0, 35);
         }
-        role.setRoleName(payerNameForRole + "_Manager");
-        role.setProviderUuid(savedPayer.getPayerUuid());
+        role.setRoleName("PA_" + payerNameForRole + "_Manager");
+        role.setPayerUuid(savedPayer.getPayerUuid());
         role.setRoleDescription("Manages the system for " + payerRequest.getPayerName());
         Role savedRole = roleRepository.save(role);
+        log.info("Created role: {} with UUID: {}", savedRole.getRoleName(), savedRole.getRoleUuid());
 
         PayerResponse payerResponse = getPayerResponse(savedPayer);
         payerResponse.setRoleUuid(savedRole.getRoleUuid());
@@ -183,6 +190,7 @@ public class PayerServiceImpl implements PayerService {
             payerResponse.setLogoBase64("");
         }
 
+        log.info("Payer creation process completed for: {}", savedPayer.getPayerName());
         return payerResponse;
     }
 

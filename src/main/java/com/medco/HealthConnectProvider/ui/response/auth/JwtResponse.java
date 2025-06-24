@@ -4,17 +4,14 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.springframework.security.core.GrantedAuthority;
 
-import java.util.Collection;
-import java.util.List;
+import java.util.Set;
 
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
 public class JwtResponse {
-
     private String token;
     private String refreshToken;
     private String userUuid;
@@ -25,7 +22,5 @@ public class JwtResponse {
     private String mobilePhone;
     private String payerUuid;
     private String providerUuid;
-    private Collection<? extends GrantedAuthority> authorities;
-
-
+    private Set<String> authorities;
 }
