@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.repository.payer;
 
 import com.medco.HealthConnectProvider.entity.payers.Payer;
+import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;
@@ -59,6 +60,5 @@ public interface PayerRepository extends JpaRepository<Payer, Long>, JpaSpecific
 
 
     Payer findByPayerName(String payerName);
-
 
 }
