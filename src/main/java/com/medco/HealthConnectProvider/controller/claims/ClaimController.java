@@ -29,11 +29,15 @@ import java.util.List;
 @Tag(name = "Claims", description = "Claim management APIs")
 public class ClaimController {
 
-    @Autowired
-    private ClaimService claimService;
+    private final ClaimService claimService;
 
-    @Autowired
-    private PharmacyIntegrationService pharmacyIntegrationService;
+
+    private final PharmacyIntegrationService pharmacyIntegrationService;
+
+    public ClaimController(ClaimService claimService, PharmacyIntegrationService pharmacyIntegrationService) {
+        this.claimService = claimService;
+        this.pharmacyIntegrationService = pharmacyIntegrationService;
+    }
 
 
     @PostMapping
@@ -67,7 +71,8 @@ public class ClaimController {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return claimService.getClaimsByPayer(payerUuid, pageable);
     }
-    
+
+
     @GetMapping("/status/{status}")
     @Operation(summary = "Get claims by status")
     public List<ClaimResponse> getClaimsByStatus(

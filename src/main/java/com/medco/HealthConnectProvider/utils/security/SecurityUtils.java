@@ -1,6 +1,6 @@
 package com.medco.HealthConnectProvider.utils.security;
 
-import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserDetailsImpl;
+
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -27,7 +27,7 @@ public class SecurityUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(SecurityUtils.class);
 
-    public static UserDetailsImpl getAuthenticatedUser() {
+    public static UserPrincipal getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || !authentication.isAuthenticated()
@@ -35,8 +35,9 @@ public class SecurityUtils {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Error: Login to get authorized.");
         }
 
-        return (UserDetailsImpl) authentication.getPrincipal();
+        return (UserPrincipal) authentication.getPrincipal();
     }
+
 
     public String getAuthenticatedUserProviderUuid() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.services.impl.contract;
 
-import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserDetailsImpl;
+
+import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.groups.ContractDetailEmployeeGroup;
@@ -155,7 +156,7 @@ public class ContractServiceImpl implements ContractService {
         if (contract == null)
             throw new ResourceNotFoundException("Payer Provider Contract", "contractUuid", contractUuid);
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String preparedBy = userDetails.getUserUuid();
 
         BeanUtils.copyProperties(contractRequest, contract);
@@ -242,10 +243,10 @@ public class ContractServiceImpl implements ContractService {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Error: Contract is already Active.");
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
 
-//		String payerUuid = userDetails.getInstitutionUuid();
+//		String payerUuid = userDetails.getPayerUuid();
         String approver = userDetails.getUserUuid();
         String fullName = userDetails.getFirstName() + " " + userDetails.getFatherName();
 
@@ -303,8 +304,8 @@ public class ContractServiceImpl implements ContractService {
 //		}
 //
 //		// 2. Get User Context
-//		UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-//		String payerUuid = userDetails.getInstitutionUuid();
+//		UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+//		String payerUuid = userDetails.getPayerUuid();
 //		String approverName = String.format("%s %s",
 //				userDetails.getFirstName(),
 //				userDetails.getFatherName());
@@ -323,7 +324,7 @@ public class ContractServiceImpl implements ContractService {
 //					contract.getContractCode(),
 //					contract.getBeginDate(),
 //					contract.getEndDate(),
-//					contract.getInstitutionUuid(),
+//					contract.getPayerUuid(),
 //					approverName,
 //					contract.getProviderUuid()
 //			);
@@ -411,8 +412,8 @@ public class ContractServiceImpl implements ContractService {
 
     @Override
     public ResponseEntity<?> getAvailableProvidersForContract(String searchKey, Pageable pageable) {
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         if (payerUuid == null) {
             throw new BadRequestException("User is not associated with any payer");
@@ -486,8 +487,8 @@ public class ContractServiceImpl implements ContractService {
     @Transactional
     public ResponseEntity<?> addEmployeeGroupsToContract(String contractUuid, List<EmployeeGroupRequest> groups) {
         // Validate contract exists and belongs to the payer
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
         if (contract == null) {
@@ -524,8 +525,8 @@ public class ContractServiceImpl implements ContractService {
     public ResponseEntity<?> assignServicesToEmployeeGroups(String contractUuid,
                                                             List<ContractServiceGroupAssignmentRequest> assignments) {
         // Validate contract exists and belongs to the payer
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
         if (contract == null) {
@@ -584,8 +585,8 @@ public class ContractServiceImpl implements ContractService {
     @Transactional
     public ResponseEntity<?> addServiceToContract(String contractUuid, @Valid ContractDetailRequest detailRequest) {
         // Validate contract exists and belongs to the payer
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
         if (contract == null) {
@@ -643,8 +644,8 @@ public class ContractServiceImpl implements ContractService {
         }
 
         // Validate user has access to this contract
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         if (!contractDetail.getContractHeader().getPayer().getPayerUuid().equals(payerUuid)) {
             throw new BadRequestException("Contract does not belong to this payer");
@@ -690,8 +691,8 @@ public class ContractServiceImpl implements ContractService {
         }
 
         // Validate user has access to this contract
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         if (!contractDetail.getContractHeader().getPayer().getPayerUuid().equals(payerUuid)) {
             throw new BadRequestException("Contract does not belong to this payer");
@@ -753,8 +754,8 @@ public class ContractServiceImpl implements ContractService {
         }
 
         // Validate user has access to this contract
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         if (!contract.getPayer().getPayerUuid().equals(payerUuid)) {
             throw new BadRequestException("Contract does not belong to this payer");
@@ -790,7 +791,7 @@ public class ContractServiceImpl implements ContractService {
         }
 
         // Get current user
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String reviewerUuid = userDetails.getUserUuid();
 
         // Update contract status based on approval decision
@@ -821,8 +822,8 @@ public class ContractServiceImpl implements ContractService {
         }
 
         // Validate user has access to this contract
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         if (!originalContract.getPayer().getPayerUuid().equals(payerUuid)) {
             throw new BadRequestException("Contract does not belong to this payer");
@@ -887,8 +888,8 @@ public class ContractServiceImpl implements ContractService {
         }
 
         // Validate user has access to this contract
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         if (!renewalContract.getPayer().getPayerUuid().equals(payerUuid)) {
             throw new BadRequestException("Contract does not belong to this payer");
@@ -923,8 +924,8 @@ public class ContractServiceImpl implements ContractService {
         }
 
         // Validate user has access to this contract
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         if (!contract.getPayer().getPayerUuid().equals(payerUuid)) {
             throw new BadRequestException("Contract does not belong to this payer");
@@ -967,8 +968,8 @@ public class ContractServiceImpl implements ContractService {
         }
 
         // Validate user has access to this contract
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         if (!contract.getPayer().getPayerUuid().equals(payerUuid)) {
             throw new BadRequestException("Contract does not belong to this payer");

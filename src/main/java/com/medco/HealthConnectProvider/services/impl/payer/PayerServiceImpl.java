@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.services.impl.payer;
 
-import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserDetailsImpl;
+
+import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.dto.PayerAdminDto;
 import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
@@ -643,11 +644,11 @@ public class PayerServiceImpl implements PayerService {
 
     @Override
     public Page<ClaimResponse> getClaimsForReview(int page, int size) {
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<Claim> claims = claimRepository.findByPayerUuidAndStatus(payerUuid, String.valueOf(ClaimStatus.UNDER_REVIEW), pageable);
+        Page<Claim> claims = claimRepository.findByPayerUuidAndStatus(payerUuid, ClaimStatus.UNDER_REVIEW, pageable);
 
         return claims.map(this::mapClaimToClaimResponse);
     }
@@ -655,8 +656,8 @@ public class PayerServiceImpl implements PayerService {
     @Override
     @Transactional
     public ResponseEntity<?> reviewClaim(String claimUuid, ClaimReviewRequest reviewRequest) {
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
@@ -700,7 +701,7 @@ public class PayerServiceImpl implements PayerService {
 
         Pageable pageable = PageRequest.of(page, limit, sort);
 
-        Specification<Payer> spec = Specification.where(PayerSpecifications.isNotDeleted());
+        Specification<Payer> spec = PayerSpecifications.isNotDeleted();
 
         if (searchKey != null && !searchKey.isEmpty()) {
             spec = spec.and(PayerSpecifications.containsSearchKey(searchKey));

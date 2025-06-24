@@ -1,6 +1,6 @@
 package com.medco.HealthConnectProvider.services.impl.group;
 
-import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserDetailsImpl;
+import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
@@ -38,8 +38,8 @@ public class EmployeeInsuredGroupServiceImpl implements EmployeeInsuredGroupServ
     @Transactional
     public ResponseEntity<?> addInsuredToGroup(EmployeeInsuredGroupRequest request) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         // Validate group exists
         EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(request.getGroupUuid());
@@ -93,8 +93,8 @@ public class EmployeeInsuredGroupServiceImpl implements EmployeeInsuredGroupServ
     @Override
     public List<EmployeeInsuredGroupResponse> getGroupsByInsured(String insuredUuid) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         // Validate insured exists
         Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
@@ -119,8 +119,8 @@ public class EmployeeInsuredGroupServiceImpl implements EmployeeInsuredGroupServ
     @Override
     public Page<EmployeeInsuredGroupResponse> getInsuredByGroup(String groupUuid, String search, Pageable pageable) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         // Validate group exists
         EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
@@ -144,8 +144,8 @@ public class EmployeeInsuredGroupServiceImpl implements EmployeeInsuredGroupServ
     @Transactional
     public ResponseEntity<?> removeInsuredFromGroup(String insuredUuid, String groupUuid) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         // Validate group exists
         EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
@@ -178,8 +178,8 @@ public class EmployeeInsuredGroupServiceImpl implements EmployeeInsuredGroupServ
     @Transactional
     public ResponseEntity<?> batchAddInsuredToGroup(List<EmployeeInsuredGroupRequest> requests) {
         // Validate user access
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         int addedCount = 0;
 
@@ -228,8 +228,8 @@ public class EmployeeInsuredGroupServiceImpl implements EmployeeInsuredGroupServ
     @Override
     public Long getInsuredCountByGroup(String groupUuid) {
 
-        UserDetailsImpl userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getInstitutionUuid();
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
 
         EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
         if (group == null) {

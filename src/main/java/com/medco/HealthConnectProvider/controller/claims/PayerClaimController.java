@@ -1,4 +1,4 @@
-package com.medco.HealthConnectProvider.controller.payer;
+package com.medco.HealthConnectProvider.controller.claims;
 
 import com.medco.HealthConnectProvider.services.payer.PayerService;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimReviewRequest;
