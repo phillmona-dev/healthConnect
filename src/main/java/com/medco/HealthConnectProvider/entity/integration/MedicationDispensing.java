@@ -79,4 +79,9 @@ public class MedicationDispensing {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    private String primaryDiagnosis;
+
+    private String secondaryDiagnosis;
+
 }

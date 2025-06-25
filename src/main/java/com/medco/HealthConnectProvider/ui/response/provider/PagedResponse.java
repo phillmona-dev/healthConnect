@@ -12,6 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PagedResponse<T> {
+
     private List<T> content;
     private int page;
     private int perPage;
@@ -19,4 +20,5 @@ public class PagedResponse<T> {
     private int totalPages;
     private boolean hasNext;
     private boolean hasPrevious;
+
 }

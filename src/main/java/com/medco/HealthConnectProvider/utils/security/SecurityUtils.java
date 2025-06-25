@@ -30,12 +30,40 @@ public class SecurityUtils {
     public static UserPrincipal getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication == null || !authentication.isAuthenticated()
-                || authentication instanceof AnonymousAuthenticationToken) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Error: Login to get authorized.");
+        logger.debug("Authentication object: {}", authentication);
+
+        if (authentication == null) {
+            logger.error("No authentication found in SecurityContext");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Error: No authentication found.");
         }
 
-        return (UserPrincipal) authentication.getPrincipal();
+        if (!authentication.isAuthenticated()) {
+            logger.error("User is not authenticated");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Error: User is not authenticated.");
+        }
+
+        if (authentication instanceof AnonymousAuthenticationToken) {
+            logger.error("Anonymous authentication token found");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Error: Anonymous authentication is not sufficient.");
+        }
+
+        Object principal = authentication.getPrincipal();
+        logger.debug("Principal object: {}", principal);
+
+        if (!(principal instanceof UserPrincipal)) {
+            logger.error("Principal is not an instance of UserPrincipal");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Error: Unexpected principal type.");
+        }
+
+        UserPrincipal userPrincipal = (UserPrincipal) principal;
+        logger.debug("UserPrincipal: {}", userPrincipal);
+
+        if (userPrincipal.getPayerUuid() == null || userPrincipal.getPayerUuid().isEmpty()) {
+            logger.error("PayerUuid is null or empty for user: {}", userPrincipal.getUserUuid());
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Error: User does not have an associated payer UUID.");
+        }
+
+        return userPrincipal;
     }
 
 

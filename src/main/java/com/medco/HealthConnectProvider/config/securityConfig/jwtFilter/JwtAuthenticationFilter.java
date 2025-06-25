@@ -26,26 +26,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private UserDetails userDetailsService;
 
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain) throws ServletException, IOException {
-
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         try {
             String jwt = getJwtFromRequest(request);
+            logger.debug("JWT from request: {}");
 
-            if (jwt != null && JwtServiceImpl.validateJwtToken(jwt)) {
+            if (StringUtils.hasText(jwt) && JwtServiceImpl.validateJwtToken(jwt)) {
                 String username = JwtServiceImpl.getUserNameFromJwtToken(jwt);
+                logger.debug("Username from JWT: {}");
 
                 UserPrincipal userDetails = userDetailsService.loadUserByUsername(username);
+                logger.debug("UserDetails loaded: {}");
 
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                logger.debug("Authentication set in SecurityContextHolder");
+            } else {
+                logger.debug("No valid JWT found in request");
             }
         } catch (Exception e) {
-            logger.error("Cannot set user authentication: {}", e);
+            logger.error("Cannot set user authentication", e);
         }
 
         filterChain.doFilter(request, response);

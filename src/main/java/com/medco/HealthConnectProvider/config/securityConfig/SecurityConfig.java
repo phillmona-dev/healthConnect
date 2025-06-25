@@ -63,7 +63,7 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unAuthorizedHandler))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(
-                                "/api/provider/healthConnectProvider/users/**",
+                                "/api/v1/healthConnect/users/**",
                                 "/api/provider/healthConnectProvider/claim/**",
                                 "/api/v1/healthConnect/payer-provider-contract/**",
                                 "/api/v1/healthConnect/dependant/createDependant/**",
@@ -71,7 +71,7 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
-                        .anyRequest().permitAll()
+                        .anyRequest().authenticated()
                 )
                 .httpBasic(withDefaults())
                 .sessionManagement(session -> session
