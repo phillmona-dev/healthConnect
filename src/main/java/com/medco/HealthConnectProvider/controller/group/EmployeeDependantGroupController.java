@@ -7,6 +7,7 @@ import com.medco.HealthConnectProvider.ui.response.groups.GroupMembersAndService
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import com.medco.HealthConnectProvider.utils.paginationUtils.PaginationUtils;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
+@SecurityRequirement(name = "bearerAuth")
 @RequestMapping("/api/v1/healthConnect/groups")
 @Tag(name = "Group Management", description = "APIs for managing employee and dependant groups")
 public class EmployeeDependantGroupController {

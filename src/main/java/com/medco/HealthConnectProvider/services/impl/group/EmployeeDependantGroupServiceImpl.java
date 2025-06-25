@@ -143,16 +143,15 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
 
     @Override
     public Page<EmployeeDependantGroupResponse> listGroups(String search, Pageable pageable) {
-        // Validate user access
+
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
 
-        // Get groups with search
         Page<EmployeeDependantGroup> groups = groupRepository.findByPayerUuidAndGroupNameContainingIgnoreCase(
                 payerUuid, search, pageable);
 
-        // Map to response
         return groups.map(this::mapToResponse);
+
     }
 
     @Override
@@ -278,7 +277,7 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
     @Override
     public ResponseEntity<?> addServicesToGroup(String groupUuid, List<String> services) {
 
-        ContractDetail
+        return null;
     }
 
     // Helper method to map entity to response

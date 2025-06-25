@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -33,6 +34,7 @@ public class OpenApi30Config {
                 .externalDocs(new io.swagger.v3.oas.models.ExternalDocumentation()
                         .description("HealthConnect Documentation")
                         .url("https://healthconnect.org/docs")
-                );
+                )
+                .addSecurityItem(new SecurityRequirement().addList("bearerAuth")); // Add this line
     }
 }
