@@ -305,12 +305,30 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public PagedResponse<UserResponse> getAllSystemUsers(String search, String roleUuid, String providerUuid, int page, int limit) {
+    public PagedResponse<UserResponse> getAllSystemUsers(String search, int page, int limit) {
+        log.debug("Searching users with search={}, page={}, limit={}", search, page, limit);
+
         Pageable pageable = Pagination.paginateResource(page, limit, "id", "desc");
-        return (search != null)
-                ? getAllUsersWithSearch(search, roleUuid, providerUuid, pageable)
-                : getAllUsers(roleUuid, providerUuid, pageable);
+        Page<User> userPage = userRepository.findAll(UserSpecification.searchUsers(search), pageable);
+
+        log.info("Found {} users", userPage.getTotalElements());
+
+        List<UserResponse> content = userPage.getContent().stream()
+                .map(this::mapToUserResponse)
+                .collect(Collectors.toList());
+
+        log.info("Mapped {} users to response", content.size());
+
+        return new PagedResponse<>(
+                content,
+                userPage.getNumber() + 1,
+                userPage.getSize(),
+                userPage.getTotalElements(),
+                userPage.getTotalPages(),
+                userPage.isLast()
+        );
     }
+
 
     @Override
     public ResponseEntity<?> changePassword(ChangePasswordRequest resetPasswordDetail, String userUuid) {
@@ -373,30 +391,6 @@ public class UserServiceImpl implements UserService {
     }
 
 
-    private PagedResponse<UserResponse> getAllUsersWithSearch(String search, String roleUuid, String providerUuid, Pageable pageable) {
-        log.debug("Searching users with search={}, roleUuid={}, providerUuid={}, pageable={}", search, roleUuid, providerUuid, pageable);
-
-        Page<User> userPage = userRepository.findAllByIsDeletedAndFirstNameContainingOrMobilePhoneContaining(false, search, search, pageable);
-
-        log.info("Found {} users before filtering", userPage.getTotalElements());
-
-        List<UserResponse> content = userPage.getContent().stream()
-                .filter(user -> filterByRole(user, roleUuid))
-                .filter(user -> filterByProvider(user, providerUuid))
-                .map(this::mapToUserResponse)
-                .collect(Collectors.toList());
-
-        log.info("Filtered to {} users", content.size());
-
-        return new PagedResponse<>(
-                content,
-                userPage.getNumber(),
-                userPage.getSize(),
-                userPage.getTotalElements(),
-                userPage.getTotalPages(),
-                userPage.isLast()
-        );
-    }
 
     private boolean filterByRole(User user, String roleUuid) {
         if (roleUuid == null) return true;

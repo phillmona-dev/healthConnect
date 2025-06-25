@@ -14,7 +14,7 @@ public interface RoleService {
 
     RoleResponse getRoleByUuid(String roleUuid);
 
-    PagedResponse<RoleResponse> getAllRoles(String search, int page, int limit);
-
     ResponseEntity<?> deleteRole(String roleUuid);
+
+    PagedResponse<RoleResponse> getAllRoles(String search, int i, int limit);
 }

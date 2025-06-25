@@ -12,6 +12,10 @@ import com.medco.HealthConnectProvider.ui.response.auth.RefreshTokenResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.user.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -71,17 +75,47 @@ public class UserController {
     }
 
     @GetMapping("/all")
+    @Operation(
+            summary = "Get all users",
+            description = "Retrieves a paginated list of all users in the system. " +
+                    "The list can be filtered using a search term and paginated. " +
+                    "Page numbering starts from 1. " +
+                    "The search parameter filters users based on the following fields:\n" +
+                    "- First Name\n" +
+                    "- Father Name\n" +
+                    "- Mobile Phone\n" +
+                    "- Email\n" +
+                    "- Role UUID\n" +
+                    "- Provider UUID\n" +
+                    "- Payer UUID\n" +
+                    "The search is case-insensitive and matches partial strings for text fields. " +
+                    "For UUID fields, it requires an exact match.",
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Successful retrieval of user list",
+                            content = @Content(mediaType = "application/json",
+                                    schema = @Schema(implementation = PagedResponse.class))
+                    ),
+                    @ApiResponse(responseCode = "400", description = "Invalid page or limit parameters"),
+                    @ApiResponse(responseCode = "401", description = "Unauthorized access"),
+                    @ApiResponse(responseCode = "403", description = "Forbidden access"),
+                    @ApiResponse(responseCode = "500", description = "Internal server error")
+            }
+    )
     public ResponseEntity<PagedResponse<UserResponse>> getAllUsers(
+            @Parameter(description = "Search term to filter users. Can match first name, father name, mobile phone, email, role UUID, provider UUID, or payer UUID.")
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String roleUuid,
-            @RequestParam(required = false) String providerUuid,
-            @RequestParam(defaultValue = "0") int page,
+
+            @Parameter(description = "Page number (1-based)", example = "1")
+            @RequestParam(defaultValue = "1") int page,
+
+            @Parameter(description = "Number of items per page", example = "10")
             @RequestParam(defaultValue = "10") int limit) {
 
-        log.info("Fetching users with search={}, roleUuid={}, providerUuid={}, page={}, limit={}",
-                search, roleUuid, providerUuid, page, limit);
+        log.info("Fetching users with search={}, page={}, limit={}", search, page, limit);
 
-        PagedResponse<UserResponse> response = userService.getAllSystemUsers(search, roleUuid, providerUuid, page, limit);
+        PagedResponse<UserResponse> response = userService.getAllSystemUsers(search, page - 1, limit);
 
         log.info("Returned {} users", response.getContent().size());
 
