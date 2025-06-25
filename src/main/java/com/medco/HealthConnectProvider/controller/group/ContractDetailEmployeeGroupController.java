@@ -33,6 +33,14 @@ public class ContractDetailEmployeeGroupController {
         return contractDetailEmployeeGroupService.createContractDetailEmployeeGroup(request);
     }
 
+    @PostMapping("/batch/{employeeGroupUuid}")
+    @PreAuthorize("hasRole('Create-Provider-Contract')")
+    @Operation(summary = "Batch create associations", description = "Creates multiple associations between contract details and employee groups")
+    public ResponseEntity<?> batchCreateContractDetailEmployeeGroups(@PathVariable(value = "employeeGroupUuid")String employeeGroupUuid,
+            @RequestParam(value = "eligibleServicesUuid")ContractDetailEmployeeGroupRequest request) {
+        return contractDetailEmployeeGroupService.batchCreateContractDetailEmployeeGroups(employeeGroupUuid,request);
+    }
+
     @GetMapping("/contract/{contractUuid}")
     @PreAuthorize("hasRole('View-Provider-Contract')")
     @Operation(summary = "Get by contract", description = "Retrieves all associations for a specific contract")
@@ -79,11 +87,4 @@ public class ContractDetailEmployeeGroupController {
         return contractDetailEmployeeGroupService.deleteContractDetailEmployeeGroup(contractDetailUuid, employeeGroupUuid);
     }
 
-    @PostMapping("/batch")
-    @PreAuthorize("hasRole('Create-Provider-Contract')")
-    @Operation(summary = "Batch create associations", description = "Creates multiple associations between contract details and employee groups")
-    public ResponseEntity<?> batchCreateContractDetailEmployeeGroups(
-            @Valid @RequestBody List<ContractDetailEmployeeGroupRequest> requests) {
-        return contractDetailEmployeeGroupService.batchCreateContractDetailEmployeeGroups(requests);
-    }
 }

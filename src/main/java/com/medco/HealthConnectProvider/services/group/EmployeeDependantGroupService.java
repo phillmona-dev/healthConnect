@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.services.group;
 
 import com.medco.HealthConnectProvider.ui.request.group.EmployeeDependantGroupRequest;
 
+import com.medco.HealthConnectProvider.ui.request.group.GroupMembersRequest;
 import com.medco.HealthConnectProvider.ui.response.groups.EmployeeDependantGroupResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.GroupMembersAndServicesResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
@@ -52,7 +53,7 @@ public interface EmployeeDependantGroupService {
 
     PagedResponse<EmployeeDependantGroupResponse> payerGroups(String payerUUid, String search, Pageable pageable);
 
-    ResponseEntity<?> addMembersToGroup(String groupUuid,boolean insured, List<String> memberUuid);
+    ResponseEntity<?> addMembersToGroup(String groupUuid, GroupMembersRequest request);
 
     ResponseEntity<?> addServicesToGroup(String groupUuid, List<String> services);
 }

@@ -41,49 +41,50 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
     @Override
     @Transactional
     public ResponseEntity<?> createContractDetailEmployeeGroup(ContractDetailEmployeeGroupRequest request) {
-        // Validate user access
-        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getPayerUuid();
-
-        // Validate contract detail exists
-        ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(request.getContractDetailUuid());
-        if(contractDetail==null){
-            throw new ResourceNotFoundException("Contract Detail", "contractDetailUuid", request.getContractDetailUuid());
-        }
-
-        // Validate contract belongs to payer
-        if (!contractDetail.getContractHeader().getPayer().getPayerUuid().equals(payerUuid)) {
-            throw new BadRequestException("Contract does not belong to this payer");
-        }
-
-        // Validate employee group exists
-        EmployeeDependantGroup employeeGroup = employeeDependantGroupRepository.findByGroupUuid(request.getEmployeeGroupUuid());
-        if (employeeGroup == null) {
-            throw new ResourceNotFoundException("Employee Group", "groupUuid", request.getEmployeeGroupUuid());
-        }
-
-        // Validate employee group belongs to payer
-        if (!employeeGroup.getPayerUuid().equals(payerUuid)) {
-            throw new BadRequestException("Employee group does not belong to this payer");
-        }
-
-        // Check if association already exists
-        boolean exists = contractDetailEmployeeGroupRepository.existsByContractDetailAndEmployeeDependantGroup(
-                contractDetail, employeeGroup);
-        if (exists) {
-            throw new BadRequestException("Association between contract detail and employee group already exists");
-        }
-
-        // Create new association
-        ContractDetailEmployeeGroup association = new ContractDetailEmployeeGroup();
-        association.setContractDetail(contractDetail);
-        association.setEmployeeDependantGroup(employeeGroup);
-        association.setContractDetailUuid(contractDetail.getContractDetailUuid());
-        association.setEmployeeGroupUuid(employeeGroup.getGroupUuid());
-
-        contractDetailEmployeeGroupRepository.save(association);
-
-        return ResponseEntity.ok(new MessageResponse("Contract detail employee group association created successfully"));
+//        // Validate user access
+//        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+//        String payerUuid = userDetails.getPayerUuid();
+//
+//        // Validate contract detail exists
+//        ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(request.getContractDetailUuid());
+//        if(contractDetail==null){
+//            throw new ResourceNotFoundException("Contract Detail", "contractDetailUuid", request.getContractDetailUuid());
+//        }
+//
+//        // Validate contract belongs to payer
+//        if (!contractDetail.getContractHeader().getPayer().getPayerUuid().equals(payerUuid)) {
+//            throw new BadRequestException("Contract does not belong to this payer");
+//        }
+//
+//        // Validate employee group exists
+//        EmployeeDependantGroup employeeGroup = employeeDependantGroupRepository.findByGroupUuid(request.getEmployeeGroupUuid());
+//        if (employeeGroup == null) {
+//            throw new ResourceNotFoundException("Employee Group", "groupUuid", request.getEmployeeGroupUuid());
+//        }
+//
+//        // Validate employee group belongs to payer
+//        if (!employeeGroup.getPayerUuid().equals(payerUuid)) {
+//            throw new BadRequestException("Employee group does not belong to this payer");
+//        }
+//
+//        // Check if association already exists
+//        boolean exists = contractDetailEmployeeGroupRepository.existsByContractDetailAndEmployeeDependantGroup(
+//                contractDetail, employeeGroup);
+//        if (exists) {
+//            throw new BadRequestException("Association between contract detail and employee group already exists");
+//        }
+//
+//        // Create new association
+//        ContractDetailEmployeeGroup association = new ContractDetailEmployeeGroup();
+//        association.setContractDetail(contractDetail);
+//        association.setEmployeeDependantGroup(employeeGroup);
+//        association.setContractDetailUuid(contractDetail.getContractDetailUuid());
+//        association.setEmployeeGroupUuid(employeeGroup.getGroupUuid());
+//
+//        contractDetailEmployeeGroupRepository.save(association);
+//
+//        return ResponseEntity.ok(new MessageResponse("Contract detail employee group association created successfully"));
+        return null;
     }
 
     @Override
@@ -176,47 +177,42 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
 
     @Override
     @Transactional
-    public ResponseEntity<?> batchCreateContractDetailEmployeeGroups(List<ContractDetailEmployeeGroupRequest> requests) {
+    public ResponseEntity<?> batchCreateContractDetailEmployeeGroups(String employeeGroupUuid ,ContractDetailEmployeeGroupRequest request) {
         // Validate user access
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
+        EmployeeDependantGroup employeeDependantGroup=employeeDependantGroupRepository.findByGroupUuid(employeeGroupUuid);
 
-        List<ContractDetailEmployeeGroup> associations = new ArrayList<>();
-        int createdCount = 0;
-
-        for (ContractDetailEmployeeGroupRequest request : requests) {
+        List<ContractDetail >contractDetails=contractDetailRepository.findByContractDetailUuidIn(request.getContractDetailUuid());
+        List<ContractDetailEmployeeGroup>associations=new ArrayList<>();
+        int createdCount=0;
+        for (ContractDetail contractDetail : contractDetails) {
             // Validate contract detail exists
-            ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(request.getContractDetailUuid());
-            if (contractDetail==null){
-                throw new ResourceNotFoundException("Contract Detail", "contractDetailUuid", request.getContractDetailUuid());
-            }
+
+
 
             // Validate contract belongs to payer
             if (!contractDetail.getContractHeader().getPayer().getPayerUuid().equals(payerUuid)) {
                 throw new BadRequestException("Contract does not belong to this payer");
             }
 
-            // Validate employee group exists
-            EmployeeDependantGroup employeeGroup = employeeDependantGroupRepository.findByGroupUuid(request.getEmployeeGroupUuid());
-            if (employeeGroup == null) {
-                throw new ResourceNotFoundException("Employee Group", "groupUuid", request.getEmployeeGroupUuid());
-            }
+
 
             // Validate employee group belongs to payer
-            if (!employeeGroup.getPayerUuid().equals(payerUuid)) {
+            if (!employeeDependantGroup.getPayerUuid().equals(payerUuid)) {
                 throw new BadRequestException("Employee group does not belong to this payer");
             }
 
             // Check if association already exists
             boolean exists = contractDetailEmployeeGroupRepository.existsByContractDetailAndEmployeeDependantGroup(
-                    contractDetail, employeeGroup);
+                    contractDetail, employeeDependantGroup);
             if (!exists) {
                 // Create new association
                 ContractDetailEmployeeGroup association = new ContractDetailEmployeeGroup();
                 association.setContractDetail(contractDetail);
-                association.setEmployeeDependantGroup(employeeGroup);
+                association.setEmployeeDependantGroup(employeeDependantGroup);
                 association.setContractDetailUuid(contractDetail.getContractDetailUuid());
-                association.setEmployeeGroupUuid(employeeGroup.getGroupUuid());
+                association.setEmployeeGroupUuid(employeeDependantGroup.getGroupUuid());
 
                 associations.add(association);
                 createdCount++;
@@ -228,6 +224,7 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
         }
 
         return ResponseEntity.ok(new MessageResponse("Created " + createdCount + " contract detail employee group associations"));
+
     }
 
     private ContractDetailEmployeeGroupResponse mapToResponse(ContractDetailEmployeeGroup association) {

@@ -56,10 +56,6 @@ public interface ContractDetailEmployeeGroupService {
      */
     ResponseEntity<?> deleteContractDetailEmployeeGroup(String contractDetailUuid, String employeeGroupUuid);
     
-    /**
-     * Batch create contract detail employee group associations
-     * @param requests List of requests containing contract detail and employee group UUIDs
-     * @return Response with success message
-     */
-    ResponseEntity<?> batchCreateContractDetailEmployeeGroups(List<ContractDetailEmployeeGroupRequest> requests);
+
+    ResponseEntity<?> batchCreateContractDetailEmployeeGroups(String employeeGroupUuid,ContractDetailEmployeeGroupRequest requests);
 }

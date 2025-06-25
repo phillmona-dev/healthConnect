@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Where;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.UUID;
 
@@ -20,6 +21,7 @@ import java.util.UUID;
 @Where(clause = "is_deleted = false")
 public class ContractDetailEmployeeGroup extends Audit implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @Id

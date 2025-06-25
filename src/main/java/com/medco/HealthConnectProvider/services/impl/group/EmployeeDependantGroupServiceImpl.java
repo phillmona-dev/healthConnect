@@ -16,6 +16,7 @@ import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
 import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.services.group.EmployeeDependantGroupService;
 import com.medco.HealthConnectProvider.ui.request.group.EmployeeDependantGroupRequest;
+import com.medco.HealthConnectProvider.ui.request.group.GroupMembersRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.EmployeeDependantGroupResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.GroupMembersAndServicesResponse;
@@ -257,17 +258,17 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
     }
 
     @Override
-    public ResponseEntity<?> addMembersToGroup(String groupUuid,boolean insured, List<String> memberUuids) {
+    public ResponseEntity<?> addMembersToGroup(String groupUuid, GroupMembersRequest request) {
         EmployeeDependantGroup employeeDependantGroup=groupRepository.findByGroupUuid(groupUuid);
-        if (insured) {
-            List<Insured>insuredList=insuredRepository.findByInsuredUuidIn(memberUuids);
+        if (request.isInsured()) {
+            List<Insured>insuredList=insuredRepository.findByInsuredUuidIn(request.getInsuredUuids());
             Set<Insured> insuredSet = new HashSet<>(insuredList);
             employeeDependantGroup.getInsureds().addAll(insuredSet);
             groupRepository.save(employeeDependantGroup);
 
         }
         else {
-            List<Dependant>dependantList=dependantRepository.findByDependantUuidIn(memberUuids);
+            List<Dependant>dependantList=dependantRepository.findByDependantUuidIn(request.getDependantUuids());
             Set<Dependant> dependantSet = new HashSet<>(dependantList);
             employeeDependantGroup.getDependants().addAll(dependantSet);
             groupRepository.save(employeeDependantGroup);
@@ -278,7 +279,7 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
     @Override
     public ResponseEntity<?> addServicesToGroup(String groupUuid, List<String> services) {
 
-        ContractDetail
+        return null;
     }
 
     // Helper method to map entity to response

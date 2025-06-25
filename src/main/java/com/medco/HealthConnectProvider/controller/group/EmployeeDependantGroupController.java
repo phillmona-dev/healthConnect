@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.controller.group;
 
 import com.medco.HealthConnectProvider.services.group.EmployeeDependantGroupService;
 import com.medco.HealthConnectProvider.ui.request.group.EmployeeDependantGroupRequest;
+import com.medco.HealthConnectProvider.ui.request.group.GroupMembersRequest;
 import com.medco.HealthConnectProvider.ui.response.groups.EmployeeDependantGroupResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.GroupMembersAndServicesResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
@@ -86,9 +87,8 @@ public class EmployeeDependantGroupController {
     @Operation(summary = "Update group", description = "Updates an existing employee/dependant group")
     public ResponseEntity<?> addMembersToGroup(
             @PathVariable(value = "groupUuid") String groupUuid,
-            @RequestParam(value = "isInsured") boolean insured,
-            @RequestParam(value = "members") List<String>  memberUuid) {
-        return groupService.addMembersToGroup(groupUuid,insured, memberUuid);
+            @Valid @RequestBody()GroupMembersRequest request) {
+        return groupService.addMembersToGroup(groupUuid, request);
     }
 
     @PutMapping("addServicesToGroup/{groupUuid}")
