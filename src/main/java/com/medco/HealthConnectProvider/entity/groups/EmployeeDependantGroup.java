@@ -13,6 +13,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Where;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -33,6 +34,7 @@ import java.util.Set;
 @Where(clause = "is_deleted = false")
 public class EmployeeDependantGroup extends Audit implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @Id
@@ -78,15 +80,19 @@ public class EmployeeDependantGroup extends Audit implements Serializable {
     @Builder.Default
     private List<ContractDetailEmployeeGroup> contractDetailEmployeeGroups = new ArrayList<>();
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_insured_id")
-    @JsonBackReference(value = "employee-insured-groups")
-    private Insured insured;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dependant_id")
-    @JsonBackReference(value = "dependant-groups")
-    private Dependant dependant;
+
+
+    @OneToMany(mappedBy = "employeeDependantGroup", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JsonManagedReference(value = "employee-insured-groups")
+    @Builder.Default
+    private Set<Insured> insureds = new HashSet<>();
+
+    @OneToMany(mappedBy = "employeeDependantGroup", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JsonManagedReference(value = "employee-dependant-groups")
+    @Builder.Default
+    private Set<Dependant> dependants = new HashSet<>();
+
 
     @PrePersist
     public void prePersist() {

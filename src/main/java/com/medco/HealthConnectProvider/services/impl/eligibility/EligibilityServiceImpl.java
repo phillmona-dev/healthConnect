@@ -363,7 +363,7 @@ public class EligibilityServiceImpl implements EligibilityService {
     private List<GroupMembershipResponse> getInsuredGroups(Insured insured) {
         // Get all groups for this insured
         List<EmployeeDependantGroup> employeeGroups = employeeDependantGroupRepository
-                .findByInsured_InsuredUuidAndIsDeleted(insured.getInsuredUuid(), false);
+                .findByInsuredsAndIsDeleted(insured, false);
 
         return employeeGroups.stream()
                 .map(this::mapToGroupMembershipResponse)

@@ -196,4 +196,6 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
     List<Insured> findByIdNumber(String idNumber);
 
     Collection<? extends Insured> findByPhone(String phone);
+
+    List<Insured> findByInsuredUuidIn(List<String> insuredUuids);
 }

@@ -1180,6 +1180,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return ResponseEntity.ok(new MessageResponse("Selected dispensing records have been authorized"));
     }
 
+
+
     @Override
     @Transactional
     public ResponseEntity<?> createClaimFromAuthorizedRecord(String providerUuid, String dispensingUuid) {

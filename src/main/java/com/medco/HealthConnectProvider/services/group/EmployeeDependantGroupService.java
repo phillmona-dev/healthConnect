@@ -1,10 +1,15 @@
 package com.medco.HealthConnectProvider.services.group;
 
 import com.medco.HealthConnectProvider.ui.request.group.EmployeeDependantGroupRequest;
+
 import com.medco.HealthConnectProvider.ui.response.groups.EmployeeDependantGroupResponse;
+import com.medco.HealthConnectProvider.ui.response.groups.GroupMembersAndServicesResponse;
+import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+
+import java.util.List;
 
 public interface EmployeeDependantGroupService {
     
@@ -13,14 +18,14 @@ public interface EmployeeDependantGroupService {
      * @param request The group creation request
      * @return Response with the created group
      */
-    ResponseEntity<EmployeeDependantGroupResponse> createGroup(EmployeeDependantGroupRequest request);
+    ResponseEntity<EmployeeDependantGroupResponse> createGroup(String payerUuid,EmployeeDependantGroupRequest request);
     
     /**
      * Get a group by its UUID
      * @param groupUuid The UUID of the group
      * @return The group details
      */
-    EmployeeDependantGroupResponse getGroupByUuid(String groupUuid);
+    GroupMembersAndServicesResponse getGroupByUuid(String groupUuid);
     
     /**
      * List groups with pagination and search
@@ -44,4 +49,10 @@ public interface EmployeeDependantGroupService {
      * @return Response with success message
      */
     ResponseEntity<?> deleteGroup(String groupUuid);
+
+    PagedResponse<EmployeeDependantGroupResponse> payerGroups(String payerUUid, String search, Pageable pageable);
+
+    ResponseEntity<?> addMembersToGroup(String groupUuid,boolean insured, List<String> memberUuid);
+
+    ResponseEntity<?> addServicesToGroup(String groupUuid, List<String> services);
 }

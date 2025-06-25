@@ -3,6 +3,7 @@ package com.medco.HealthConnectProvider.repository.group;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.utils.enums.GroupType;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -50,40 +51,44 @@ public interface EmployeeDependantGroupRepository extends JpaRepository<Employee
 
     //NEW
 
-    List<EmployeeDependantGroup> findByInsured_InsuredUuidAndIsDeleted(String employeeInsuredUuid, boolean isDeleted);
+//    List<EmployeeDependantGroup> findByInsured_InsuredUuidAndIsDeleted(String employeeInsuredUuid, boolean isDeleted);
 
-    Long countByGroupUuid(String groupUuid);
+//    Long countByGroupUuid(String groupUuid);
 
-    List<EmployeeDependantGroup> findByInsuredAndType(Insured insured, GroupType groupType);
+//    List<EmployeeDependantGroup> findByInsuredAndType(Insured insured, GroupType groupType);
 
-    @Query("SELECT edg FROM EmployeeDependantGroup edg " +
-            "WHERE edg.groupUuid = :groupUuid " +
-            "AND edg.type = 'EMPLOYEE' " +
-            "AND edg.insured IS NOT NULL " +
-            "AND (edg.insured.firstName LIKE %:search% " +
-            "OR edg.insured.fatherName LIKE %:search% " +
-            "OR edg.insured.grandFatherName LIKE %:search% " +
-            "OR edg.insured.insuranceId LIKE %:search%) " +
-            "AND edg.isDeleted = false")
-    Page<EmployeeDependantGroup> searchByGroupUuidAndInsuredName(
-            @Param("groupUuid") String groupUuid,
-            @Param("search") String search,
-            Pageable pageable
-    );
+//    @Query("SELECT edg FROM EmployeeDependantGroup edg " +
+//            "WHERE edg.groupUuid = :groupUuid " +
+//            "AND edg.type = 'EMPLOYEE' " +
+//            "AND edg.insured IS NOT NULL " +
+//            "AND (edg.insured.firstName LIKE %:search% " +
+//            "OR edg.insured.fatherName LIKE %:search% " +
+//            "OR edg.insured.grandFatherName LIKE %:search% " +
+//            "OR edg.insured.insuranceId LIKE %:search%) " +
+//            "AND edg.isDeleted = false")
+//    Page<EmployeeDependantGroup> searchByGroupUuidAndInsuredName(
+//            @Param("groupUuid") String groupUuid,
+//            @Param("search") String search,
+//            Pageable pageable
+//    );
 
-    Long countByGroupUuidAndInsuredIsNotNull(String groupUuid);
+//    Long countByGroupUuidAndInsuredIsNotNull(String groupUuid);
 
-    @Query("SELECT edg FROM EmployeeDependantGroup edg " +
-            "JOIN edg.dependant d " +
-            "WHERE edg.groupUuid = :groupUuid " +
-            "AND (d.firstName LIKE %:search% OR d.fatherName LIKE %:search% OR d.grandFatherName LIKE %:search%) " +
-            "AND edg.isDeleted = false")
-    Page<EmployeeDependantGroup> searchByGroupUuidAndDependantName(
-            @Param("groupUuid") String groupUuid,
-            @Param("search") String search,
-            Pageable pageable
-    );
+//    @Query("SELECT edg FROM EmployeeDependantGroup edg " +
+//            "JOIN edg.dependant d " +
+//            "WHERE edg.groupUuid = :groupUuid " +
+//            "AND (d.firstName LIKE %:search% OR d.fatherName LIKE %:search% OR d.grandFatherName LIKE %:search%) " +
+//            "AND edg.isDeleted = false")
+//    Page<EmployeeDependantGroup> searchByGroupUuidAndDependantName(
+//            @Param("groupUuid") String groupUuid,
+//            @Param("search") String search,
+//            Pageable pageable
+//    );
 
-    Optional<EmployeeDependantGroup> findByDependant_DependantUuidAndGroupUuid(String dependantUuid, String groupUuid);
+//    Optional<EmployeeDependantGroup> findByDependant_DependantUuidAndGroupUuid(String dependantUuid, String groupUuid);
 
+
+    List<EmployeeDependantGroup> findByInsuredsAndIsDeleted(Insured insured, boolean b);
+
+    Page<EmployeeDependantGroup> findByPayerPayerUuid(String payerUUid, Pageable pageable);
 }
