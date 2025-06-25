@@ -13,6 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class DispensingRecordRequest {
+
     private String insuredUuid;
     private String providerUuid;
     private String payerUuid;
@@ -21,6 +22,8 @@ public class DispensingRecordRequest {
     private LocalDate dispensingDate;
     private String prescriptionNumber;
     private String pharmacyTransactionId;
+    private String primaryDiagnosis;
+    private String secondaryDiagnosis;
     private List<DispensingItemRequest> medicationItems;
 
     @Setter
@@ -29,8 +32,7 @@ public class DispensingRecordRequest {
     @NoArgsConstructor
     public static class DispensingItemRequest {
         private String serviceUuid;
-        private String primaryDiagnosis;
-        private String secondaryDiagnosis;
+        private String remark;
     }
 
 }

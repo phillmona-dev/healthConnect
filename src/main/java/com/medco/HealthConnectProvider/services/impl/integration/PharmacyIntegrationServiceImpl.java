@@ -876,6 +876,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         record.setSource(SourceType.INPUT);
         record.setInvoiceNumber(generateInvoiceNumber());
         record.setRecordedAt(LocalDate.now());
+        record.setPrimaryDiagnosis(request.getPrimaryDiagnosis());
+        record.setSecondaryDiagnosis(request.getSecondaryDiagnosis());
 
 //        double totalAmount = calculateTotalAmount(request.getMedicationItems());
 //        record.setTotalAmount(totalAmount);
@@ -922,15 +924,15 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         List<MedicationDispensingItem> dispensingItems = new ArrayList<>();
         for (int i = 0; i < services.size(); i++) {
             Servicelist service = services.get(i);
-            DispensingRecordRequest.DispensingItemRequest itemRequest = itemRequests.get(i);
+            DispensingRecordRequest itemRequest = new DispensingRecordRequest();
 
             MedicationDispensingItem item = new MedicationDispensingItem();
             item.setItemUuid(UUID.randomUUID().toString());
             item.setDispensing(dispensingRecord);
             item.setMedicationCode(service.getServiceCode());
             item.setMedicationName(service.getServiceName());
-            item.setPrimaryDiagnosis(itemRequest.getPrimaryDiagnosis());
-            item.setSecondaryDiagnosis(itemRequest.getSecondaryDiagnosis());
+//            item.setPrimaryDiagnosis(itemRequest.getPrimaryDiagnosis());
+//            item.setSecondaryDiagnosis(itemRequest.getSecondaryDiagnosis());
             item.setUnitPrice(service.getPrice());
             item.setTotalPrice(service.getPrice());
             item.setItemType(ItemType.SERVICE);
