@@ -1,10 +1,13 @@
 package com.medco.HealthConnectProvider.ui.response.groups;
 
+import com.medco.HealthConnectProvider.ui.response.persons.InsuredResponse;
 import com.medco.HealthConnectProvider.utils.enums.GroupType;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -12,7 +15,7 @@ import lombok.NoArgsConstructor;
 public class EmployeeInsuredGroupResponse {
     
     private Long id;
-    private String insuredUuid;
+
     private String groupUuid;
     
     // Insured information
@@ -28,4 +31,5 @@ public class EmployeeInsuredGroupResponse {
     private String groupName;
     private String groupDescription;
     private GroupType groupType;
+    List<InsuredResponse>insuredResponses;
 }

@@ -125,21 +125,20 @@ public class Insured implements Serializable {
     @Column
     private LocalDateTime deletedAt;
 
-    @OneToMany(mappedBy = "insured", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-    @JsonManagedReference(value = "employee-insured-groups")
-    @Builder.Default
-    private List<EmployeeDependantGroup> employeeInsuredGroups = new ArrayList<>();
 
+
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    @JsonBackReference(value = "employee-insured-groups")
+    private EmployeeDependantGroup employeeDependantGroup;
 //    public void addEmployeeInsuredGroup(EmployeeDependantGroup group) {
 //        employeeInsuredGroups.add(group);
 //        group.setInsured(this);
 //        group.setInsured(this.);
 //    }
 
-    public void removeEmployeeInsuredGroup(EmployeeDependantGroup group) {
-        employeeInsuredGroups.remove(group);
-        group.setInsured(null);
-    }
+
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payer_id")

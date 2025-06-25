@@ -24,19 +24,20 @@ public class EmployeeInsuredGroupController {
     @Autowired
     private EmployeeInsuredGroupService employeeInsuredGroupService;
 
-    @PostMapping
+    @PostMapping("/addInsuredToGroup/{groupUuid}")
     @PreAuthorize("hasRole('Manage-Groups')")
     @Operation(summary = "Add insured to group", description = "Adds an insured employee to a group")
-    public ResponseEntity<?> addInsuredToGroup(@Valid @RequestBody EmployeeInsuredGroupRequest request) {
-        return employeeInsuredGroupService.addInsuredToGroup(request);
+    public ResponseEntity<?> addInsuredToGroup(@PathVariable(value = "groupUuid")String groupUuid,
+                                               @Valid @RequestBody EmployeeInsuredGroupRequest request) {
+        return employeeInsuredGroupService.addInsuredToGroup(groupUuid,request);
     }
 
-    @GetMapping("/insured/{insuredUuid}")
-    @PreAuthorize("hasRole('View-Groups')")
-    @Operation(summary = "Get groups by insured", description = "Retrieves all groups that a specific insured employee belongs to")
-    public List<EmployeeInsuredGroupResponse> getGroupsByInsured(@PathVariable String insuredUuid) {
-        return employeeInsuredGroupService.getGroupsByInsured(insuredUuid);
-    }
+//    @GetMapping("/insured/{insuredUuid}")
+//    @PreAuthorize("hasRole('View-Groups')")
+//    @Operation(summary = "Get groups by insured", description = "Retrieves all groups that a specific insured employee belongs to")
+//    public List<EmployeeInsuredGroupResponse> getGroupsByInsured(@PathVariable String insuredUuid) {
+//        return employeeInsuredGroupService.getGroupsByInsured(insuredUuid);
+//    }
 
     @GetMapping("/group/{groupUuid}")
     @PreAuthorize("hasRole('View-Groups')")
@@ -60,12 +61,12 @@ public class EmployeeInsuredGroupController {
         return employeeInsuredGroupService.removeInsuredFromGroup(insuredUuid, groupUuid);
     }
 
-    @PostMapping("/batch")
-    @PreAuthorize("hasRole('Manage-Groups')")
-    @Operation(summary = "Batch add insured to groups", description = "Adds multiple insured employees to groups in a single operation")
-    public ResponseEntity<?> batchAddInsuredToGroup(@Valid @RequestBody List<EmployeeInsuredGroupRequest> requests) {
-        return employeeInsuredGroupService.batchAddInsuredToGroup(requests);
-    }
+//    @PostMapping("/batch")
+//    @PreAuthorize("hasRole('Manage-Groups')")
+//    @Operation(summary = "Batch add insured to groups", description = "Adds multiple insured employees to groups in a single operation")
+//    public ResponseEntity<?> batchAddInsuredToGroup(@Valid @RequestBody List<EmployeeInsuredGroupRequest> requests) {
+//        return employeeInsuredGroupService.batchAddInsuredToGroup(requests);
+//    }
 
     @GetMapping("/count/{groupUuid}")
     @PreAuthorize("hasRole('View-Groups')")

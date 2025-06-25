@@ -5,14 +5,14 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class EmployeeInsuredGroupRequest {
+
+    private List<String> insuredUuids;
     
-    @NotBlank(message = "Insured UUID is required")
-    private String insuredUuid;
-    
-    @NotBlank(message = "Group UUID is required")
-    private String groupUuid;
+
 }

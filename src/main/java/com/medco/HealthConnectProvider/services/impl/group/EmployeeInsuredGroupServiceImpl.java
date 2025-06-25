@@ -11,6 +11,7 @@ import com.medco.HealthConnectProvider.services.group.EmployeeInsuredGroupServic
 import com.medco.HealthConnectProvider.ui.request.group.EmployeeInsuredGroupRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.EmployeeInsuredGroupResponse;
+import com.medco.HealthConnectProvider.ui.response.persons.InsuredResponse;
 import com.medco.HealthConnectProvider.utils.enums.GroupType;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,15 +37,15 @@ public class EmployeeInsuredGroupServiceImpl implements EmployeeInsuredGroupServ
 
     @Override
     @Transactional
-    public ResponseEntity<?> addInsuredToGroup(EmployeeInsuredGroupRequest request) {
+    public ResponseEntity<?> addInsuredToGroup(String groupUuid,EmployeeInsuredGroupRequest request) {
         // Validate user access
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
 
         // Validate group exists
-        EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(request.getGroupUuid());
+        EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
         if (group == null) {
-            throw new ResourceNotFoundException("Employee Group", "groupUuid", request.getGroupUuid());
+            throw new ResourceNotFoundException("Employee Group", "groupUuid", groupUuid);
         }
 
         // Validate group belongs to payer
@@ -53,20 +54,17 @@ public class EmployeeInsuredGroupServiceImpl implements EmployeeInsuredGroupServ
         }
 
         // Validate insured exists
-        Insured insured = insuredRepository.findByInsuredUuid(request.getInsuredUuid());
-        if (insured == null) {
-            throw new ResourceNotFoundException("Insured Person", "insuredUuid", request.getInsuredUuid());
-        }
+       List <Insured> insureds = insuredRepository.findByInsuredUuidIn(request.getInsuredUuids());
+//        if (insured == null) {
+//            throw new ResourceNotFoundException("Insured Person", "insuredUuid", request.getInsuredUuid());
+//        }
 
-        // Validate insured belongs to payer
-        if (!insured.getPayerUuid().equals(payerUuid)) {
-            throw new BadRequestException("Insured person does not belong to this payer");
-        }
+//        // Validate insured belongs to payer
+//        if (!insured.getPayerUuid().equals(payerUuid)) {
+//            throw new BadRequestException("Insured person does not belong to this payer");
+//        }
 
-        // Check if association already exists
-        if (group.getInsured() != null && group.getInsured().getInsuredUuid().equals(insured.getInsuredUuid())) {
-            throw new BadRequestException("Insured person is already in this group");
-        }
+
 
         // Set the group type to EMPLOYEE if not already set
         if (group.getType() == null) {
@@ -76,45 +74,48 @@ public class EmployeeInsuredGroupServiceImpl implements EmployeeInsuredGroupServ
         }
 
         // Create new association
-        group.setInsured(insured);
-        group.setDependant(null); // Ensure no dependant is associated with this group
+        group.setInsureds(insureds);
+        group.setDependants(null); // Ensure no dependant is associated with this group
 
         // Add the group to the insured's list of groups
-        insured.getEmployeeInsuredGroups().add(group);
+       for (Insured insured1:insureds){
+           insured1.setEmployeeDependantGroup(group);
+           insuredRepository.save(insured1);
+       }
 
         // Save the changes
         employeeDependantGroupRepository.save(group);
-        insuredRepository.save(insured);
+
 
         return ResponseEntity.ok(new MessageResponse("Insured person added to group successfully"));
     }
 
 
-    @Override
-    public List<EmployeeInsuredGroupResponse> getGroupsByInsured(String insuredUuid) {
-        // Validate user access
-        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getPayerUuid();
-
-        // Validate insured exists
-        Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
-        if (insured == null) {
-            throw new ResourceNotFoundException("Insured Person", "insuredUuid", insuredUuid);
-        }
-
-        // Validate insured belongs to payer
-        if (!insured.getPayerUuid().equals(payerUuid)) {
-            throw new BadRequestException("Insured person does not belong to this payer");
-        }
-
-        // Find all groups associated with the insured person
-        List<EmployeeDependantGroup> groups = employeeDependantGroupRepository.findByInsuredAndType(insured, GroupType.EMPLOYEE);
-
-        return groups.stream()
-                .filter(group -> !group.isDeleted())
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
+//    @Override
+//    public List<EmployeeInsuredGroupResponse> getGroupsByInsured(String insuredUuid) {
+//        // Validate user access
+//        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+//        String payerUuid = userDetails.getPayerUuid();
+//
+//        // Validate insured exists
+//        Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
+//        if (insured == null) {
+//            throw new ResourceNotFoundException("Insured Person", "insuredUuid", insuredUuid);
+//        }
+//
+//        // Validate insured belongs to payer
+//        if (!insured.getPayerUuid().equals(payerUuid)) {
+//            throw new BadRequestException("Insured person does not belong to this payer");
+//        }
+//
+//        // Find all groups associated with the insured person
+//        List<EmployeeDependantGroup> groups = employeeDependantGroupRepository.findByInsuredAndType(insured, GroupType.EMPLOYEE);
+//
+//        return groups.stream()
+//                .filter(group -> !group.isDeleted())
+//                .map(this::mapToResponse)
+//                .collect(Collectors.toList());
+//    }
 
     @Override
     public Page<EmployeeInsuredGroupResponse> getInsuredByGroup(String groupUuid, String search, Pageable pageable) {
@@ -134,11 +135,13 @@ public class EmployeeInsuredGroupServiceImpl implements EmployeeInsuredGroupServ
         }
 
         // Search for insured persons in the group
-        Page<EmployeeDependantGroup> groups = employeeDependantGroupRepository
-                .searchByGroupUuidAndInsuredName(groupUuid, search, pageable);
+//        Page<EmployeeDependantGroup> groups = employeeDependantGroupRepository
+//                .searchByGroupUuidAndInsuredName(groupUuid, search, pageable);
 
-        return groups.map(this::mapToResponse);
+//        return mapToResponse(group);
+        return null;
     }
+
 
     @Override
     @Transactional
@@ -157,15 +160,10 @@ public class EmployeeInsuredGroupServiceImpl implements EmployeeInsuredGroupServ
         if (!group.getPayerUuid().equals(payerUuid)) {
             throw new BadRequestException("Group does not belong to this payer");
         }
-
-        // Validate insured exists and is associated with the group
-        if (group.getInsured() == null || !group.getInsured().getInsuredUuid().equals(insuredUuid)) {
-            throw new ResourceNotFoundException("Association", "insuredUuid and groupUuid",
-                    insuredUuid + " and " + groupUuid);
-        }
+//    TODO REMOVE THE INSURED FROM THE GROUP
 
         // Remove the insured from the group
-        group.setInsured(null);
+
         group.setType(null); // Reset the group type if needed
 
         // Save the changes
@@ -174,73 +172,74 @@ public class EmployeeInsuredGroupServiceImpl implements EmployeeInsuredGroupServ
         return ResponseEntity.ok(new MessageResponse("Insured person removed from group successfully"));
     }
 
-    @Override
-    @Transactional
-    public ResponseEntity<?> batchAddInsuredToGroup(List<EmployeeInsuredGroupRequest> requests) {
-        // Validate user access
-        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getPayerUuid();
-
-        int addedCount = 0;
-
-        for (EmployeeInsuredGroupRequest request : requests) {
-            // Validate group exists
-            EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(request.getGroupUuid());
-            if (group == null) {
-                throw new ResourceNotFoundException("Employee Group", "groupUuid", request.getGroupUuid());
-            }
-
-            // Validate group belongs to payer
-            if (!group.getPayerUuid().equals(payerUuid)) {
-                throw new BadRequestException("Group does not belong to this payer");
-            }
-
-            // Validate insured exists
-            Insured insured = insuredRepository.findByInsuredUuid(request.getInsuredUuid());
-            if (insured == null){
-                throw new ResourceNotFoundException("Insured Person", "insuredUuid", request.getInsuredUuid());
-            }
-
-            // Validate insured belongs to payer
-            if (!insured.getPayerUuid().equals(payerUuid)) {
-                throw new BadRequestException("Insured person does not belong to this payer");
-            }
-
-            // Check if association already exists
-            if (group.getInsured() == null || !group.getInsured().getInsuredUuid().equals(insured.getInsuredUuid())) {
-                // Create new association
-                group.setInsured(insured);
-                group.setType(GroupType.EMPLOYEE);
-
-                // Add the group to the insured's list of groups
-                insured.getEmployeeInsuredGroups().add(group);
-
-                employeeDependantGroupRepository.save(group);
-                insuredRepository.save(insured);
-
-                addedCount++;
-            }
-        }
-
-        return ResponseEntity.ok(new MessageResponse("Added " + addedCount + " insured persons to groups"));
-    }
+//    @Override
+//    @Transactional
+//    public ResponseEntity<?> batchAddInsuredToGroup(List<EmployeeInsuredGroupRequest> requests) {
+//        // Validate user access
+//        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+//        String payerUuid = userDetails.getPayerUuid();
+//
+//        int addedCount = 0;
+//
+//        for (EmployeeInsuredGroupRequest request : requests) {
+//            // Validate group exists
+//            EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(request.getGroupUuid());
+//            if (group == null) {
+//                throw new ResourceNotFoundException("Employee Group", "groupUuid", request.getGroupUuid());
+//            }
+//
+//            // Validate group belongs to payer
+//            if (!group.getPayerUuid().equals(payerUuid)) {
+//                throw new BadRequestException("Group does not belong to this payer");
+//            }
+//
+//            // Validate insured exists
+//            Insured insured = insuredRepository.findByInsuredUuid(request.getInsuredUuid());
+//            if (insured == null){
+//                throw new ResourceNotFoundException("Insured Person", "insuredUuid", request.getInsuredUuid());
+//            }
+//
+//            // Validate insured belongs to payer
+//            if (!insured.getPayerUuid().equals(payerUuid)) {
+//                throw new BadRequestException("Insured person does not belong to this payer");
+//            }
+//
+//            // Check if association already exists
+//            if (group.getInsured() == null || !group.getInsured().getInsuredUuid().equals(insured.getInsuredUuid())) {
+//                // Create new association
+//                group.setInsured(insured);
+//                group.setType(GroupType.EMPLOYEE);
+//
+//                // Add the group to the insured's list of groups
+//                insured.getEmployeeInsuredGroups().add(group);
+//
+//                employeeDependantGroupRepository.save(group);
+//                insuredRepository.save(insured);
+//
+//                addedCount++;
+//            }
+//        }
+//
+//        return ResponseEntity.ok(new MessageResponse("Added " + addedCount + " insured persons to groups"));
+//    }
 
     @Override
     public Long getInsuredCountByGroup(String groupUuid) {
-
-        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getPayerUuid();
-
-        EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
-        if (group == null) {
-            throw new ResourceNotFoundException("Employee Group", "groupUuid", groupUuid);
-        }
-
-        if (!group.getPayerUuid().equals(payerUuid)) {
-            throw new BadRequestException("Group does not belong to this payer");
-        }
-
-        return employeeDependantGroupRepository.countByGroupUuidAndInsuredIsNotNull(groupUuid);
+//
+//        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+//        String payerUuid = userDetails.getPayerUuid();
+//
+//        EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
+//        if (group == null) {
+//            throw new ResourceNotFoundException("Employee Group", "groupUuid", groupUuid);
+//        }
+//
+//        if (!group.getPayerUuid().equals(payerUuid)) {
+//            throw new BadRequestException("Group does not belong to this payer");
+//        }
+//
+//        return employeeDependantGroupRepository.countByGroupUuidAndInsuredIsNotNull(groupUuid);
+        return null;
     }
 
     private EmployeeInsuredGroupResponse mapToResponse(EmployeeDependantGroup group) {
@@ -251,15 +250,21 @@ public class EmployeeInsuredGroupServiceImpl implements EmployeeInsuredGroupServ
         response.setGroupDescription(group.getGroupDescription());
         response.setGroupType(group.getType());
 
-        if (group.getInsured() != null) {
-            response.setInsuredUuid(group.getInsured().getInsuredUuid());
-            response.setFirstName(group.getInsured().getFirstName());
-            response.setFatherName(group.getInsured().getFatherName());
-            response.setGrandFatherName(group.getInsured().getGrandFatherName());
-            response.setInsuranceId(group.getInsured().getInsuranceId());
-            response.setPhone(group.getInsured().getPhone());
-            response.setGender(group.getInsured().getGender());
-            response.setStatus(group.getInsured().getStatus());
+        List<InsuredResponse>insuredResponses=new ArrayList<>();
+        if (group.getInsureds() != null) {
+            for (Insured insured:group.getInsureds()){
+                InsuredResponse insuredResponse=new InsuredResponse();
+
+                insuredResponse.setFirstName(insured.getFirstName());
+                insuredResponse.setFatherName(insured.getFatherName());
+                insuredResponse.setGrandFatherName(insured.getGrandFatherName());
+                insuredResponse.setInsuranceId(insured.getInsuranceId());
+                insuredResponse.setPhone(insured.getPhone());
+                insuredResponse.setGender(insured.getGender());
+                insuredResponse.setStatus(insured.getStatus());
+                insuredResponses.add(insuredResponse);
+            }
+            response.setInsuredResponses(insuredResponses);
         }
 
         return response;

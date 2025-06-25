@@ -15,14 +15,14 @@ public interface EmployeeInsuredGroupService {
      * @param request The request containing insured and group UUIDs
      * @return Response with success message
      */
-    ResponseEntity<?> addInsuredToGroup(EmployeeInsuredGroupRequest request);
+    ResponseEntity<?> addInsuredToGroup(String groupUuid,EmployeeInsuredGroupRequest request);
     
     /**
      * Get all groups for an insured person
      * @param insuredUuid The UUID of the insured person
      * @return List of groups the insured person belongs to
      */
-    List<EmployeeInsuredGroupResponse> getGroupsByInsured(String insuredUuid);
+//    List<EmployeeInsuredGroupResponse> getGroupsByInsured(String insuredUuid);
     
     /**
      * Get all insured persons in a group
@@ -46,7 +46,7 @@ public interface EmployeeInsuredGroupService {
      * @param requests List of requests containing insured and group UUIDs
      * @return Response with success message
      */
-    ResponseEntity<?> batchAddInsuredToGroup(List<EmployeeInsuredGroupRequest> requests);
+//    ResponseEntity<?> batchAddInsuredToGroup(List<EmployeeInsuredGroupRequest> requests);
     
     /**
      * Get count of insured persons in a group
