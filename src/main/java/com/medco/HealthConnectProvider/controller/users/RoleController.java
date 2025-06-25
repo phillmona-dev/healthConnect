@@ -5,6 +5,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.RoleRequest;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.RoleResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -42,13 +43,22 @@ public class RoleController {
     }
 
     @GetMapping("/all")
-    @Operation(summary = "List roles", description = "Retrieves a list of roles with pagination and search capabilities")
+    @Operation(
+            summary = "List roles",
+            description = "Retrieves a list of roles with pagination and search capabilities. " +
+                    "The search parameter can match against role name, provider UUID, or payer UUID."
+    )
     public ResponseEntity<PagedResponse<RoleResponse>> getAllRoles(
+            @Parameter(description = "Search term for role name, provider UUID, or payer UUID")
             @RequestParam(value = "search", required = false) String search,
+
+            @Parameter(description = "Page number (1-based)", example = "1")
             @RequestParam(value = "page", defaultValue = "1") int page,
+
+            @Parameter(description = "Number of items per page", example = "25")
             @RequestParam(value = "limit", defaultValue = "25") int limit
     ) {
-        PagedResponse<RoleResponse> pagedResponse = roleService.getAllRoles(search, page, limit);
+        PagedResponse<RoleResponse> pagedResponse = roleService.getAllRoles(search, page - 1, limit);
         return ResponseEntity.ok(pagedResponse);
     }
 

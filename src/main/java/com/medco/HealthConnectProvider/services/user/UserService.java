@@ -30,6 +30,6 @@ public interface UserService {
 
     UserResponse createUser(PayerAdminDto payerAdminDto);
 
-    PagedResponse<UserResponse> getAllSystemUsers(String search, String roleUuid, String providerUuid, int page, int limit);
+    PagedResponse<UserResponse> getAllSystemUsers(String search, int page, int limit);
 
 }

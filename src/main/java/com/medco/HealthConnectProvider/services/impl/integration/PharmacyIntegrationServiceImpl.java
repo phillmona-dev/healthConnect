@@ -777,63 +777,91 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     private Insured findInsuredPerson(DispensingRecordRequest request) {
+        logger.info("Searching for insured person with request: {}", request);
+
+        // First, try to find by insuredUuid if it's provided
+        if (StringUtils.hasText(request.getInsuredUuid())) {
+            logger.info("Attempting to find insured person by insuredUuid: {}", request.getInsuredUuid());
+            Insured insured = insuredRepository.findByInsuredUuid(request.getInsuredUuid());
+            if (insured != null) {
+                logger.info("Insured person found by insuredUuid");
+                return validateInsuredPayer(insured, request.getPayerUuid());
+            }
+        }
+
         List<Insured> insuredList = new ArrayList<>();
 
+        // If not found by insuredUuid, try employeeId
         if (StringUtils.hasText(request.getEmployeeId())) {
+            logger.info("Attempting to find insured person by employeeId: {}", request.getEmployeeId());
             insuredList.addAll(insuredRepository.findByIdNumber(request.getEmployeeId()));
         }
 
+        // If still not found, try phone
         if (insuredList.isEmpty() && StringUtils.hasText(request.getPhone())) {
+            logger.info("Attempting to find insured person by phone: {}", request.getPhone());
             insuredList.addAll(insuredRepository.findByPhone(request.getPhone()));
         }
 
         if (insuredList.isEmpty()) {
+            logger.warn("No insured person found with the provided identifiers");
             throw new ResourceNotFoundException("Insured Person", "identifiers",
-                    "Employee ID: " + request.getEmployeeId() +
+                    "Insured UUID: " + request.getInsuredUuid() +
+                            ", Employee ID: " + request.getEmployeeId() +
                             ", Phone: " + request.getPhone());
         }
 
         if (insuredList.size() > 1) {
             logger.warn("Multiple insured persons found for the given identifiers. Count: {}", insuredList.size());
-
-            // Filter by payer UUID
-            List<Insured> filteredByPayer = insuredList.stream()
-                    .filter(insured -> insured.getPayerUuid().equals(request.getPayerUuid()))
-                    .collect(Collectors.toList());
-
-            if (filteredByPayer.size() == 1) {
-                logger.info("Single insured person found after filtering by payer UUID.");
-                return filteredByPayer.get(0);
-            } else if (filteredByPayer.size() > 1) {
-                logger.warn("Multiple insured persons found even after filtering by payer UUID. Count: {}", filteredByPayer.size());
-
-                // Additional filtering logic using employeeId (idNumber)
-                if (StringUtils.hasText(request.getEmployeeId())) {
-                    List<Insured> filteredByEmployeeId = filteredByPayer.stream()
-                            .filter(insured -> insured.getIdNumber().equals(request.getEmployeeId()))
-                            .collect(Collectors.toList());
-
-                    if (filteredByEmployeeId.size() == 1) {
-                        logger.info("Single insured person found after filtering by employee ID.");
-                        return filteredByEmployeeId.get(0);
-                    }
-                }
-
-                // If still multiple results, throw an exception
-                throw new BadRequestException("Multiple insured persons found with the given identifiers and payer. Please provide more specific information.");
-            } else {
-                throw new BadRequestException("No insured person found for the given payer UUID.");
-            }
+            return handleMultipleInsuredFound(insuredList, request);
         }
 
         Insured insured = insuredList.get(0);
+        return validateInsuredPayer(insured, request.getPayerUuid());
+    }
 
-        if (!insured.getPayerUuid().equals(request.getPayerUuid())) {
+
+    private Insured validateInsuredPayer(Insured insured, String payerUuid) {
+        if (!insured.getPayerUuid().equals(payerUuid)) {
+            logger.warn("Insured person does not belong to the specified payer");
             throw new BadRequestException("Insured person does not belong to the specified payer");
         }
-
         return insured;
     }
+
+    private Insured handleMultipleInsuredFound(List<Insured> insuredList, DispensingRecordRequest request) {
+        // Filter by payer UUID
+        List<Insured> filteredByPayer = insuredList.stream()
+                .filter(insured -> insured.getPayerUuid().equals(request.getPayerUuid()))
+                .collect(Collectors.toList());
+
+        if (filteredByPayer.size() == 1) {
+            logger.info("Single insured person found after filtering by payer UUID.");
+            return filteredByPayer.get(0);
+        } else if (filteredByPayer.size() > 1) {
+            logger.warn("Multiple insured persons found even after filtering by payer UUID. Count: {}", filteredByPayer.size());
+
+            // Additional filtering logic using employeeId (idNumber)
+            if (StringUtils.hasText(request.getEmployeeId())) {
+                List<Insured> filteredByEmployeeId = filteredByPayer.stream()
+                        .filter(insured -> insured.getIdNumber().equals(request.getEmployeeId()))
+                        .collect(Collectors.toList());
+
+                if (filteredByEmployeeId.size() == 1) {
+                    logger.info("Single insured person found after filtering by employee ID.");
+                    return filteredByEmployeeId.get(0);
+                }
+            }
+
+            // If still multiple results, throw an exception
+            throw new BadRequestException("Multiple insured persons found with the given identifiers and payer. Please provide more specific information.");
+        } else {
+            throw new BadRequestException("No insured person found for the given payer UUID.");
+        }
+    }
+
+
+
 
     private MedicationDispensing createDispensingRecord(DispensingRecordRequest request, Insured insured, Payer payer, Provider provider) {
         MedicationDispensing record = new MedicationDispensing();

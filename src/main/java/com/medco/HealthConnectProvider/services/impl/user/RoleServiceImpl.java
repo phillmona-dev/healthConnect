@@ -10,13 +10,17 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.RoleRequest;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.PrivilegeResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.RoleResponse;
-import com.medco.HealthConnectProvider.utils.paginationUtils.Pagination;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -40,9 +44,8 @@ public class RoleServiceImpl implements RoleService {
         List<Privilege> privilegeList = roleRequest.getPrivilegeUuid()
                 .stream()
                 .map(privilegeUuid -> {
-                    Privilege privilege = privilegeRepository.findByPrivilegeUuid(privilegeUuid)
+                    return privilegeRepository.findByPrivilegeUuid(privilegeUuid)
                             .orElseThrow(() -> new BadRequestException("Can't find Privilege with the provided ID: " + privilegeUuid));
-                    return privilege;
                 }).collect(Collectors.toList());
 
         role.setPrivileges(privilegeList);
@@ -91,7 +94,6 @@ public class RoleServiceImpl implements RoleService {
 
         BeanUtils.copyProperties(role, response);
 
-        // Map privileges to privilege responses
         response.setPrivilegeList(
                 role.getPrivileges().stream()
                         .map(privilege -> new PrivilegeResponse(
@@ -108,10 +110,21 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public PagedResponse<RoleResponse> getAllRoles(String search, int page, int limit) {
-        Pageable pageable = Pagination.paginateResource(page, limit, "id", "desc");
-        Page<Role> rolePage = search != null ?
-                (Page<Role>) roleRepository.findAllByRoleNameContaining(search, pageable) :
-                roleRepository.findAll(pageable);
+        Pageable pageable = PageRequest.of(page, limit, Sort.by(Sort.Direction.DESC, "id"));
+
+        Specification<Role> spec = (root, query, cb) -> {
+            if (search != null && !search.trim().isEmpty()) {
+                String likeSearch = "%" + search.toLowerCase() + "%";
+                return cb.or(
+                        cb.like(cb.lower(root.get("roleName")), likeSearch),
+                        cb.like(cb.lower(root.get("providerUuid")), likeSearch),
+                        cb.like(cb.lower(root.get("payerUuid")), likeSearch)
+                );
+            }
+            return null;
+        };
+
+        Page<Role> rolePage = roleRepository.findAll(spec, pageable);
 
         List<RoleResponse> roleResponses = rolePage.getContent().stream()
                 .map(this::mapRoleToResponse)
@@ -119,7 +132,7 @@ public class RoleServiceImpl implements RoleService {
 
         return new PagedResponse<>(
                 roleResponses,
-                rolePage.getNumber(),
+                rolePage.getNumber() + 1,
                 rolePage.getSize(),
                 rolePage.getTotalElements(),
                 rolePage.getTotalPages(),
@@ -180,33 +193,46 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
-    public ResponseEntity<?> updateRole(String roleUuid, RoleRequest roleUpdateRequest) {
+    @Transactional
+    public ResponseEntity<RoleResponse> updateRole(String roleUuid, RoleRequest roleUpdateRequest) {
         Role role = roleRepository.findByRoleUuid(roleUuid);
-        if (role == null){
-            throw new  BadRequestException("Can't find Role for Update");
+        if (role == null) {
+            throw new BadRequestException("Can't find Role with UUID: " + roleUuid);
         }
 
-        BeanUtils.copyProperties(roleUpdateRequest, role);
+        role.setRoleName(roleUpdateRequest.getRoleName());
+        role.setRoleDescription(roleUpdateRequest.getRoleDescription());
 
+        role.getPrivileges().forEach(privilege -> privilege.getRoles().remove(role));
         role.getPrivileges().clear();
-        if(roleUpdateRequest.getPrivilegeUuid().size() != 0) {
-            List<Privilege> privilegeList = roleUpdateRequest.getPrivilegeUuid()
-                    .stream()
-                    .map(privilegeUuid -> {
-                        Privilege privilege = privilegeRepository.findByPrivilegeUuid(privilegeUuid)
-                                .orElseThrow(() -> new BadRequestException("Can't find Privilege With the Provided Id."));
 
-                        return privilege;
-                    }).collect(Collectors.toList());
-            role.setPrivileges(privilegeList);
-            privilegeList.forEach(privilege -> {
-                privilege.getRoles().clear();
-                privilege.getRoles().add(role);
-            });
-        }
+        List<Privilege> privilegeList = roleUpdateRequest.getPrivilegeUuid().stream()
+                .map(privilegeUuid -> privilegeRepository.findByPrivilegeUuid(privilegeUuid)
+                        .orElseThrow(() -> new BadRequestException("Can't find Privilege with the provided ID: " + privilegeUuid)))
+                .collect(Collectors.toList());
 
-        roleRepository.save(role);
-        return ResponseEntity.ok("Role Updated Successfully");
+        role.setPrivileges(privilegeList);
+        privilegeList.forEach(privilege -> privilege.getRoles().add(role));
+
+        Role updatedRole = roleRepository.save(role);
+
+        RoleResponse roleResponse = new RoleResponse();
+        BeanUtils.copyProperties(updatedRole, roleResponse);
+
+        List<PrivilegeResponse> privilegeResponses = updatedRole.getPrivileges().stream()
+                .map(privilege -> {
+                    PrivilegeResponse privilegeResponse = new PrivilegeResponse();
+                    privilegeResponse.setPrivilegeUuid(privilege.getPrivilegeUuid());
+                    privilegeResponse.setPrivilegeName(privilege.getPrivilegeName());
+                    privilegeResponse.setPrivilegeDescription(privilege.getPrivilegeDescription());
+                    privilegeResponse.setPrivilegeCategory(privilege.getPrivilegeCategory());
+                    return privilegeResponse;
+                })
+                .collect(Collectors.toList());
+
+        roleResponse.setPrivilegeList(privilegeResponses);
+
+        return ResponseEntity.ok(roleResponse);
     }
 
 }

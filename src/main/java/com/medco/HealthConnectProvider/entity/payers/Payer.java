@@ -111,7 +111,6 @@ public class Payer extends Audit {
     @Builder.Default
     private List<EmployeeDependantGroup> employeeDependantGroups = new ArrayList<>();
 
-
     @OneToMany(mappedBy = "payer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ContractHeader> contractHeaders = new ArrayList<>();

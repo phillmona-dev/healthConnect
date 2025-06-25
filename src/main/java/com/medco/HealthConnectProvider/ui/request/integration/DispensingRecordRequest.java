@@ -1,6 +1,5 @@
 package com.medco.HealthConnectProvider.ui.request.integration;
 
-
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,6 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class DispensingRecordRequest {
+    private String insuredUuid;
     private String providerUuid;
     private String payerUuid;
     private String phone;
