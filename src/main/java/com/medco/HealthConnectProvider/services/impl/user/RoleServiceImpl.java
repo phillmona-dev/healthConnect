@@ -17,6 +17,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -40,9 +42,8 @@ public class RoleServiceImpl implements RoleService {
         List<Privilege> privilegeList = roleRequest.getPrivilegeUuid()
                 .stream()
                 .map(privilegeUuid -> {
-                    Privilege privilege = privilegeRepository.findByPrivilegeUuid(privilegeUuid)
+                    return privilegeRepository.findByPrivilegeUuid(privilegeUuid)
                             .orElseThrow(() -> new BadRequestException("Can't find Privilege with the provided ID: " + privilegeUuid));
-                    return privilege;
                 }).collect(Collectors.toList());
 
         role.setPrivileges(privilegeList);
@@ -91,7 +92,6 @@ public class RoleServiceImpl implements RoleService {
 
         BeanUtils.copyProperties(role, response);
 
-        // Map privileges to privilege responses
         response.setPrivilegeList(
                 role.getPrivileges().stream()
                         .map(privilege -> new PrivilegeResponse(
@@ -180,33 +180,55 @@ public class RoleServiceImpl implements RoleService {
     }
 
     @Override
+    @Transactional
     public ResponseEntity<?> updateRole(String roleUuid, RoleRequest roleUpdateRequest) {
         Role role = roleRepository.findByRoleUuid(roleUuid);
-        if (role == null){
-            throw new  BadRequestException("Can't find Role for Update");
+        if (role == null) {
+            throw new BadRequestException("Can't find Role for Update");
         }
 
-        BeanUtils.copyProperties(roleUpdateRequest, role);
+        role.setRoleName(roleUpdateRequest.getRoleName());
+        role.setRoleDescription(roleUpdateRequest.getRoleDescription());
 
+        // Remove the role from all existing privileges
+        role.getPrivileges().forEach(privilege -> privilege.getRoles().remove(role));
+
+        // Clear existing privileges from the role
         role.getPrivileges().clear();
-        if(roleUpdateRequest.getPrivilegeUuid().size() != 0) {
-            List<Privilege> privilegeList = roleUpdateRequest.getPrivilegeUuid()
-                    .stream()
-                    .map(privilegeUuid -> {
-                        Privilege privilege = privilegeRepository.findByPrivilegeUuid(privilegeUuid)
-                                .orElseThrow(() -> new BadRequestException("Can't find Privilege With the Provided Id."));
 
-                        return privilege;
-                    }).collect(Collectors.toList());
+        List<String> privilegeUuids = roleUpdateRequest.getPrivilegeUuid();
+        if (privilegeUuids != null && !privilegeUuids.isEmpty()) {
+            List<Privilege> privilegeList = privilegeUuids.stream()
+                    .map(privilegeUuid -> privilegeRepository.findByPrivilegeUuid(privilegeUuid)
+                            .orElseThrow(() -> new BadRequestException("Can't find Privilege with the Provided Id: " + privilegeUuid)))
+                    .collect(Collectors.toList());
+
             role.setPrivileges(privilegeList);
             privilegeList.forEach(privilege -> {
-                privilege.getRoles().clear();
-                privilege.getRoles().add(role);
+                if (!privilege.getRoles().contains(role)) {
+                    privilege.getRoles().add(role);
+                }
             });
         }
 
-        roleRepository.save(role);
-        return ResponseEntity.ok("Role Updated Successfully");
+        Role updatedRole = roleRepository.save(role);
+
+        // Fetch the updated role to ensure we have the latest data
+        Role fetchedRole = roleRepository.findByRoleUuid(updatedRole.getRoleUuid());
+
+        RoleResponse roleResponse = new RoleResponse();
+
+        BeanUtils.copyProperties(fetchedRole, roleResponse);
+        roleResponse.setPrivilegeList(fetchedRole.getPrivileges().stream()
+                .map(privilege -> {
+                    PrivilegeResponse privilegeResponse = new PrivilegeResponse();
+                    BeanUtils.copyProperties(privilege, privilegeResponse);
+                    return privilegeResponse;
+                })
+                .collect(Collectors.toList()));
+
+        return ResponseEntity.ok(roleResponse);
+
     }
 
 }
