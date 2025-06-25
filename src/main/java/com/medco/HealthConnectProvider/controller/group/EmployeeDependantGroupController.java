@@ -2,22 +2,20 @@ package com.medco.HealthConnectProvider.controller.group;
 
 import com.medco.HealthConnectProvider.services.group.EmployeeDependantGroupService;
 import com.medco.HealthConnectProvider.ui.request.group.EmployeeDependantGroupRequest;
-
 import com.medco.HealthConnectProvider.ui.response.groups.EmployeeDependantGroupResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.GroupMembersAndServicesResponse;
-
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import com.medco.HealthConnectProvider.utils.paginationUtils.PaginationUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/healthConnect/groups")
@@ -81,6 +79,25 @@ public class EmployeeDependantGroupController {
             @PathVariable String groupUuid,
             @Valid @RequestBody EmployeeDependantGroupRequest request) {
         return groupService.updateGroup(groupUuid, request);
+    }
+
+    @PutMapping("addMembersToGroup/{groupUuid}")
+//    @PreAuthorize("hasRole('Manage-Groups')")
+    @Operation(summary = "Update group", description = "Updates an existing employee/dependant group")
+    public ResponseEntity<?> addMembersToGroup(
+            @PathVariable(value = "groupUuid") String groupUuid,
+            @RequestParam(value = "isInsured") boolean insured,
+            @RequestParam(value = "members") List<String>  memberUuid) {
+        return groupService.addMembersToGroup(groupUuid,insured, memberUuid);
+    }
+
+    @PutMapping("addServicesToGroup/{groupUuid}")
+//    @PreAuthorize("hasRole('Manage-Groups')")
+    @Operation(summary = "Update group", description = "Updates an existing employee/dependant group")
+    public ResponseEntity<?> addServicesToGroup(
+            @PathVariable(value = "groupUuid") String groupUuid,
+            @RequestParam(value = "members") List<String>  eligibleServices) {
+        return groupService.addServicesToGroup(groupUuid,eligibleServices);
     }
 
     @DeleteMapping("/{groupUuid}")

@@ -51,4 +51,8 @@ public interface EmployeeDependantGroupService {
     ResponseEntity<?> deleteGroup(String groupUuid);
 
     PagedResponse<EmployeeDependantGroupResponse> payerGroups(String payerUUid, String search, Pageable pageable);
+
+    ResponseEntity<?> addMembersToGroup(String groupUuid,boolean insured, List<String> memberUuid);
+
+    ResponseEntity<?> addServicesToGroup(String groupUuid, List<String> services);
 }

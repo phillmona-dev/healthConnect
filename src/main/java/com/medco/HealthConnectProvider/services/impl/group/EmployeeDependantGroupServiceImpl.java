@@ -2,20 +2,23 @@ package com.medco.HealthConnectProvider.services.impl.group;
 
 
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
+import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
+import com.medco.HealthConnectProvider.repository.contract.ContractDetailRepository;
 import com.medco.HealthConnectProvider.repository.group.EmployeeDependantGroupRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
+import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
+import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.services.group.EmployeeDependantGroupService;
 import com.medco.HealthConnectProvider.ui.request.group.EmployeeDependantGroupRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.EmployeeDependantGroupResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.GroupMembersAndServicesResponse;
-import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.DependantResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
@@ -29,9 +32,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroupService {
@@ -40,10 +41,17 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
     private final EmployeeDependantGroupRepository groupRepository;
 
     private final PayerRepository payerRepository;
+    private final InsuredRepository insuredRepository;
+    private final DependantRepository dependantRepository;
+    private final ContractDetailRepository contractDetailRepository;
 
-    public EmployeeDependantGroupServiceImpl(EmployeeDependantGroupRepository groupRepository, PayerRepository payerRepository) {
+
+    public EmployeeDependantGroupServiceImpl(EmployeeDependantGroupRepository groupRepository, PayerRepository payerRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, ContractDetailRepository contractDetailRepository) {
         this.groupRepository = groupRepository;
         this.payerRepository = payerRepository;
+        this.insuredRepository = insuredRepository;
+        this.dependantRepository = dependantRepository;
+        this.contractDetailRepository = contractDetailRepository;
     }
 
     @Override
@@ -104,8 +112,8 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
         }
         GroupMembersAndServicesResponse response=new GroupMembersAndServicesResponse();
         BeanUtils.copyProperties(group,response);
-        response.setInsuredResponses(mapToInsuredResponse(group.getInsureds()));
-        response.setDependantResponses(mapToDependantResponse(group.getDependants()));
+        response.setInsuredResponses(mapToInsuredResponse(new ArrayList<>(group.getInsureds())));
+        response.setDependantResponses(mapToDependantResponse(new ArrayList<>(group.getDependants())));
 
         return response;
     }
@@ -220,9 +228,10 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
     public PagedResponse<EmployeeDependantGroupResponse> payerGroups(String payerUUid, String search, Pageable pageable) {
 //        Payer payer=payerRepository.findByPayerUuid(payerUUid);
        Page <EmployeeDependantGroup> employeeDependantGroup =groupRepository.findByPayerPayerUuid(payerUUid,pageable);
+        System.out.println("size"+employeeDependantGroup.getSize());
        List<EmployeeDependantGroupResponse>responseList=employeeDependantGroup.stream().map(employeeDependantGroup1 -> {
            EmployeeDependantGroupResponse employeeDependantGroupResponse=new EmployeeDependantGroupResponse();
-            BeanUtils.copyProperties(employeeDependantGroup,employeeDependantGroupResponse);
+            BeanUtils.copyProperties(employeeDependantGroup1,employeeDependantGroupResponse);
             return employeeDependantGroupResponse;
        }).toList();
 //        if (payer==null)throw new BadRequestException("payer no found");
@@ -245,6 +254,31 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
         return pagedResponses;
 //        return PagedResponse employeeDependantGroupResponses;
 
+    }
+
+    @Override
+    public ResponseEntity<?> addMembersToGroup(String groupUuid,boolean insured, List<String> memberUuids) {
+        EmployeeDependantGroup employeeDependantGroup=groupRepository.findByGroupUuid(groupUuid);
+        if (insured) {
+            List<Insured>insuredList=insuredRepository.findByInsuredUuidIn(memberUuids);
+            Set<Insured> insuredSet = new HashSet<>(insuredList);
+            employeeDependantGroup.getInsureds().addAll(insuredSet);
+            groupRepository.save(employeeDependantGroup);
+
+        }
+        else {
+            List<Dependant>dependantList=dependantRepository.findByDependantUuidIn(memberUuids);
+            Set<Dependant> dependantSet = new HashSet<>(dependantList);
+            employeeDependantGroup.getDependants().addAll(dependantSet);
+            groupRepository.save(employeeDependantGroup);
+        }
+        return ResponseEntity.ok("members successfully added to the group");
+    }
+
+    @Override
+    public ResponseEntity<?> addServicesToGroup(String groupUuid, List<String> services) {
+
+        ContractDetail
     }
 
     // Helper method to map entity to response

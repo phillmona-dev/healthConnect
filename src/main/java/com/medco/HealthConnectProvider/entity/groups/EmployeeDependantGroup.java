@@ -86,12 +86,12 @@ public class EmployeeDependantGroup extends Audit implements Serializable {
     @OneToMany(mappedBy = "employeeDependantGroup", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonManagedReference(value = "employee-insured-groups")
     @Builder.Default
-    private List<Insured> insureds = new ArrayList<>();
+    private Set<Insured> insureds = new HashSet<>();
 
     @OneToMany(mappedBy = "employeeDependantGroup", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonManagedReference(value = "employee-dependant-groups")
     @Builder.Default
-    private List<Dependant> dependants = new ArrayList<>();
+    private Set<Dependant> dependants = new HashSet<>();
 
 
     @PrePersist

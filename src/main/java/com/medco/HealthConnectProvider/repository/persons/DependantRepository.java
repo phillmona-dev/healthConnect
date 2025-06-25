@@ -50,4 +50,6 @@ public interface DependantRepository extends JpaRepository<Dependant, Long> {
 
     @Query("SELECT d FROM Dependant d WHERE d.insured.insuredUuid = :insuredUuid AND d.isDeleted = false")
     List<Dependant> findByInsuredUuid(String insuredUuid);
+
+    List<Dependant> findByDependantUuidIn(List<String> memberUuids);
 }
