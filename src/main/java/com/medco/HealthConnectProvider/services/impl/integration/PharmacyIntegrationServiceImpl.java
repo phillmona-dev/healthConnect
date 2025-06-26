@@ -1021,16 +1021,13 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             item.setMedicationName(service.getServiceName());
             item.setUnitPrice(service.getPrice());
 
-            // Use the quantity directly from itemRequest
             item.setQuantity((double) itemRequest.getQuantity());
 
-            // Calculate total price
             item.setTotalPrice(service.getPrice() * itemRequest.getQuantity());
 
             item.setItemType(ItemType.SERVICE);
             item.setRemark(itemRequest.getRemark());
 
-            // Find the appropriate ContractDetail
             ContractDetail contractDetail = findContractDetail(contractHeaderUuid, service.getServiceUuid(), insured);
             if (contractDetail == null) {
                 throw new ResourceNotFoundException("ContractDetail", "service", service.getServiceUuid());

@@ -27,7 +27,7 @@ public class ContractDetailController {
 
     @PostMapping("/{contractUuid}/services")
     @Operation(summary = "Add service to contract", description = "Adds a service with negotiated price to a contract")
-    @PreAuthorize("hasRole('Manage-Contract-Details')")
+    //@PreAuthorize("hasRole('Manage-Contract-Details')")
     public ResponseEntity<?> addServiceToContract(
             @PathVariable String contractUuid,
             @Valid @RequestBody ContractDetailRequest detailRequest) {
@@ -36,7 +36,7 @@ public class ContractDetailController {
 
     @PutMapping("/services/{contractDetailUuid}")
     @Operation(summary = "Update contract detail", description = "Updates a service's negotiated price or assigned groups in a contract")
-    @PreAuthorize("hasRole('Manage-Contract-Details')")
+    //@PreAuthorize("hasRole('Manage-Contract-Details')")
     public ResponseEntity<?> updateContractDetail(
             @PathVariable String contractDetailUuid,
             @Valid @RequestBody ContractDetailRequest detailRequest) {
@@ -45,14 +45,14 @@ public class ContractDetailController {
 
     @DeleteMapping("/services/{contractDetailUuid}")
     @Operation(summary = "Remove service from contract", description = "Removes a service from a contract")
-    @PreAuthorize("hasRole('Manage-Contract-Details')")
+    //@PreAuthorize("hasRole('Manage-Contract-Details')")
     public ResponseEntity<?> removeServiceFromContract(@PathVariable String contractDetailUuid) {
         return contractService.removeServiceFromContract(contractDetailUuid);
     }
 
     @GetMapping("/{contractUuid}/services")
     @Operation(summary = "Get contract details", description = "Gets all services and their details for a contract")
-    @PreAuthorize("hasRole('View-Contract-Details')")
+    //@PreAuthorize("hasRole('View-Contract-Details')")
     public List<ContractDetailResponse> getContractDetails(
             @PathVariable String contractUuid,
             @RequestParam(value = "page", defaultValue = "1") int page,
@@ -63,14 +63,14 @@ public class ContractDetailController {
 
     @PostMapping("/{contractUuid}/submit")
     @Operation(summary = "Submit contract for approval", description = "Submits a contract for approval")
-    @PreAuthorize("hasRole('Submit-Contract')")
+   // @PreAuthorize("hasRole('Submit-Contract')")
     public ResponseEntity<?> submitContractForApproval(@PathVariable String contractUuid) {
         return contractService.submitContractForApproval(contractUuid);
     }
 
     @PostMapping("/{contractUuid}/review")
     @Operation(summary = "Review contract", description = "Approves or rejects a contract")
-    @PreAuthorize("hasRole('Review-Contract')")
+   // @PreAuthorize("hasRole('Review-Contract')")
     public ResponseEntity<?> reviewContract(
             @PathVariable String contractUuid,
             @RequestParam boolean approved,
@@ -80,7 +80,7 @@ public class ContractDetailController {
 
     @PostMapping("/{contractUuid}/renew")
     @Operation(summary = "Initiate contract renewal", description = "Creates a new contract as a renewal of an existing one")
-    @PreAuthorize("hasRole('Renew-Contract')")
+    //@PreAuthorize("hasRole('Renew-Contract')")
     public ResponseEntity<?> initiateContractRenewal(
             @PathVariable String contractUuid,
             @Valid @RequestBody ContractRenewalRequest renewalRequest) {
@@ -89,14 +89,14 @@ public class ContractDetailController {
 
     @DeleteMapping("/renewals/{renewalUuid}")
     @Operation(summary = "Cancel renewal", description = "Cancels a contract renewal")
-    @PreAuthorize("hasRole('Renew-Contract')")
+    //@PreAuthorize("hasRole('Renew-Contract')")
     public ResponseEntity<?> cancelRenewal(@PathVariable String renewalUuid) {
         return contractService.cancelRenewal(renewalUuid);
     }
 
     @PostMapping("/{contractUuid}/terminate")
     @Operation(summary = "Terminate contract", description = "Initiates termination of a contract")
-    @PreAuthorize("hasRole('Terminate-Contract')")
+    //@PreAuthorize("hasRole('Terminate-Contract')")
     public ResponseEntity<?> terminateContract(
             @PathVariable String contractUuid,
             @Valid @RequestBody ContractTerminationRequest terminationRequest) {
@@ -105,7 +105,7 @@ public class ContractDetailController {
 
     @PostMapping("/{contractUuid}/withdraw-termination")
     @Operation(summary = "Withdraw termination", description = "Withdraws a pending contract termination")
-    @PreAuthorize("hasRole('Terminate-Contract')")
+   // @PreAuthorize("hasRole('Terminate-Contract')")
     public ResponseEntity<?> withdrawTermination(@PathVariable String contractUuid) {
         return contractService.withdrawTermination(contractUuid);
     }

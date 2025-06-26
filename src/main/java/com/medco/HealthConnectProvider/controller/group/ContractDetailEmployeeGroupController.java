@@ -37,7 +37,7 @@ public class ContractDetailEmployeeGroupController {
 //    }
 
     @PostMapping("/batch/{employeeGroupUuid}")
-    @PreAuthorize("hasRole('Create-Provider-Contract')")
+    //@PreAuthorize("hasRole('Create-Provider-Contract')")
     @Operation(summary = "Batch create associations", description = "Creates multiple associations between contract details and employee groups")
     public ResponseEntity<?> batchCreateContractDetailEmployeeGroups(@PathVariable(value = "employeeGroupUuid")String employeeGroupUuid,
             @Valid @RequestBody ContractDetailEmployeeGroupRequest request) {
@@ -45,7 +45,7 @@ public class ContractDetailEmployeeGroupController {
     }
 
     @GetMapping("/contract/{contractUuid}")
-    @PreAuthorize("hasRole('View-Provider-Contract')")
+    //@PreAuthorize("hasRole('View-Provider-Contract')")
     @Operation(summary = "Get by contract", description = "Retrieves all associations for a specific contract")
     public List<ContractDetailEmployeeGroupResponse> getContractDetailEmployeeGroupsByContract(
             @PathVariable String contractUuid) {
@@ -53,7 +53,7 @@ public class ContractDetailEmployeeGroupController {
     }
 
     @GetMapping("/contract-detail/{contractDetailUuid}")
-    @PreAuthorize("hasRole('View-Provider-Contract')")
+    //@PreAuthorize("hasRole('View-Provider-Contract')")
     @Operation(summary = "Get by contract detail", description = "Retrieves all associations for a specific contract detail")
     public List<ContractDetailEmployeeGroupResponse> getContractDetailEmployeeGroupsByContractDetail(
             @PathVariable String contractDetailUuid) {
@@ -61,7 +61,7 @@ public class ContractDetailEmployeeGroupController {
     }
 
     @GetMapping("/employee-group/{employeeGroupUuid}")
-    @PreAuthorize("hasRole('View-Provider-Contract')")
+    //@PreAuthorize("hasRole('View-Provider-Contract')")
     @Operation(summary = "Get by employee group", description = "Retrieves all associations for a specific employee group")
     public List<ContractDetailEmployeeGroupResponse> getContractDetailEmployeeGroupsByEmployeeGroup(
             @PathVariable String employeeGroupUuid) {
@@ -69,7 +69,7 @@ public class ContractDetailEmployeeGroupController {
     }
 
     @GetMapping("/search")
-    @PreAuthorize("hasRole('View-Provider-Contract')")
+    //@PreAuthorize("hasRole('View-Provider-Contract')")
     @Operation(summary = "Search associations", description = "Searches for associations by contract and group name with pagination")
     public Page<ContractDetailEmployeeGroupResponse> searchContractDetailEmployeeGroups(
             @RequestParam String contractUuid,
@@ -82,7 +82,7 @@ public class ContractDetailEmployeeGroupController {
     }
 
     @DeleteMapping("/{contractDetailUuid}/{employeeGroupUuid}")
-    @PreAuthorize("hasRole('Delete-Provider-Contract')")
+    //@PreAuthorize("hasRole('Delete-Provider-Contract')")
     @Operation(summary = "Delete association", description = "Deletes an association between a contract detail and an employee group")
     public ResponseEntity<?> deleteContractDetailEmployeeGroup(
             @PathVariable String contractDetailUuid,

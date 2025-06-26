@@ -5,6 +5,7 @@ import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.U
 import com.medco.HealthConnectProvider.dto.PayerAdminDto;
 import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
+import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.entity.user.Role;
 import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
@@ -12,6 +13,7 @@ import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.claims.ClaimRepository;
 import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
+import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
 import com.medco.HealthConnectProvider.repository.user.RoleRepository;
 import com.medco.HealthConnectProvider.repository.user.UserRepository;
 import com.medco.HealthConnectProvider.services.mail.EmailService;
@@ -53,6 +55,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.FileCopyUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -65,6 +68,8 @@ import java.time.Instant;
 import java.util.*;
 
 import java.util.Base64;
+import java.util.stream.Collectors;
+
 import org.springframework.data.jpa.domain.Specification;
 import com.medco.HealthConnectProvider.specifications.PayerSpecifications;
 
@@ -90,6 +95,9 @@ public class PayerServiceImpl implements PayerService {
 
     @Autowired
     private EmailService emailService;
+
+    @Autowired
+    private ProviderRepository providerRepository;
 
     @Value("${file.upload-dir-payer-logos:C:/Users/Administrator/OneDrive/Desktop/MedcoProjects/logos/payers}")
     private String payerLogosDirectory;
@@ -161,10 +169,9 @@ public class PayerServiceImpl implements PayerService {
         Payer savedPayer = payerRepository.save(payer);
         log.info("Payer created with UUID: {}, status: {}", savedPayer.getPayerUuid(), savedPayer.getStatus());
 
-        // Create role with "PA_" prefix
         Role role = new Role();
         String payerNameForRole = payerRequest.getPayerName();
-        if (payerNameForRole.length() > 35) {  // Reduced to 35 to accommodate "PA_" prefix
+        if (payerNameForRole.length() > 35) {
             payerNameForRole = payerNameForRole.substring(0, 35);
         }
         role.setRoleName("PA_" + payerNameForRole + "_Manager");
@@ -194,94 +201,6 @@ public class PayerServiceImpl implements PayerService {
         return payerResponse;
     }
 
-    private void createPayerManager(PayerRequest payerRequest, Role savedRole, Payer savedPayer) {
-
-        SignUpRequest managerDto = new SignUpRequest();
-        managerDto.setEmail(payerRequest.getEmail());
-        managerDto.setGender("Male");
-        managerDto.setTitle("Mr");
-        managerDto.setFirstName("Payer");
-        managerDto.setFatherName("Manager");
-        managerDto.setGrandFatherName("Default");
-        managerDto.setMobilePhone(payerRequest.getTelephone());
-
-        String randomPassword = generateRandomPassword();
-        managerDto.setPassword(randomPassword);
-
-        managerDto.setRoleUuid(savedRole.getRoleUuid());
-        //managerDto.setProviderUuid(savedProvider.getProviderUuid());
-        managerDto.setUserStatus(Status.ACTIVE);
-
-        // Create the user
-        try {
-            User savedUser = createPayerManagerUser(managerDto, savedPayer);
-
-            // Send welcome email
-            String loginUrl = frontendUrl + "/login?newUser=true&email=" + savedUser.getEmail();
-            emailService.sendWelcomeEmail(
-                    savedUser.getEmail(),
-                    savedUser.getFirstName(),
-                    randomPassword,
-                    savedPayer.getPayerName(),
-                    loginUrl
-            );
-        } catch (Exception e) {
-            System.err.println("Failed to create provider manager: " + e.getMessage());
-        }
-    }
-
-    private User createPayerManagerUser(SignUpRequest managerDto, Payer savedPayer) {
-        if (userRepository.existsByEmail(managerDto.getEmail())) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Error: Email is already in use!");
-        }
-
-        User user = new User();
-        BeanUtils.copyProperties(managerDto, user);
-        user.setPassword(passwordEncoder.encode(managerDto.getPassword()));
-
-        Role role = roleRepository.findByRoleUuid(managerDto.getRoleUuid());
-        if (role == null) {
-            throw new BadRequestException("Role not found");
-        }
-        user.setRole(role);
-        user.setPayerUuid(savedPayer.getPayerUuid());
-
-        return userRepository.save(user);
-    }
-
-    private static PayerAdminDto getPayerAdminDto(PayerRequest payerRequest, Role savedRole, Payer payer1) {
-        PayerAdminDto payerAdminDto = new PayerAdminDto();
-        payerAdminDto.setEmail(payerRequest.getEmail());
-        payerAdminDto.setGender("Male");
-        payerAdminDto.setTitle("Mr");
-        payerAdminDto.setFirstName("Institution" );
-        payerAdminDto.setFatherName("Admin");
-        payerAdminDto.setGrandFatherName("Default");
-        payerAdminDto.setMobilePhone(payerRequest.getTelephone());
-
-        String randomPassword = generateRandomPassword();
-        payerAdminDto.setPassword(randomPassword);
-
-        payerAdminDto.setRoleUuid(savedRole.getRoleUuid());
-        payerAdminDto.setPayerUuid(payer1.getPayerUuid());
-        return payerAdminDto;
-    }
-
-    private static String generateRandomPassword() {
-        // Generate a random password with 6 characters
-        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
-        StringBuilder sb = new StringBuilder();
-        Random random = new Random();
-        for (int i = 0; i < 6; i++) {
-            int index = random.nextInt(chars.length());
-            sb.append(chars.charAt(index));
-        }
-
-        String password = sb.toString();
-        System.out.println("Generated Password: " + password);
-        return password;
-    }
-
     @Override
     @Transactional
     public PayerResponse updatePayer(String payerUuid, PayerRequest payerRequest, MultipartFile logo) {
@@ -305,24 +224,21 @@ public class PayerServiceImpl implements PayerService {
         else
             payer.setStatus(Status.PENDING);
 
-        // Update logo if provided
         if (logo != null && !logo.isEmpty()) {
             try {
-                // Ensure directory exists
+
                 File directory = new File(payerLogosDirectory);
                 if (!directory.exists()) {
                     directory.mkdirs();
                     logger.info("Created directory: {}", payerLogosDirectory);
                 }
 
-                // Delete old logo if exists
                 if (payer.getLogoPath() != null && !payer.getLogoPath().isEmpty()) {
                     Path oldLogoPath = Paths.get(payerLogosDirectory + "/" + payer.getLogoPath());
                     try {
                         Files.deleteIfExists(oldLogoPath);
                         logger.info("Deleted old logo: {}", oldLogoPath);
                     } catch (IOException e) {
-                        // Log error but continue with update
                         logger.warn("Failed to delete old logo: {}", e.getMessage());
                     }
                 }
@@ -364,7 +280,6 @@ public class PayerServiceImpl implements PayerService {
 
         PayerResponse response = getPayerResponse(payer);
 
-        // Add logo as base64 if available
         if (payer.getLogoPath() != null && !payer.getLogoPath().isEmpty()) {
             try {
                 String logoPath = payerLogosDirectory + "/" + payer.getLogoPath();
@@ -761,6 +676,57 @@ public class PayerServiceImpl implements PayerService {
 
         return pagedResponse;
     }
+
+    @Override
+    public ResponseEntity<PagedResponse<ProviderResponse>> getProvidersWithContract(String payerUuid, int page, int size, String sortBy, String sortDir, String search) {
+        log.info("Fetching providers with contract for payer UUID: {}", payerUuid);
+
+        Payer payer = payerRepository.findByPayerUuid(payerUuid);
+        if (payer == null) {
+            throw new ResourceNotFoundException("Payer", "UUID", payerUuid);
+        }
+
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() :
+                Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page - 1, size, sort);
+
+        Page<Provider> providerPage;
+        if (StringUtils.hasText(search)) {
+            providerPage = providerRepository.findProvidersWithContractByPayer(payerUuid, search, pageable);
+        } else {
+            providerPage = providerRepository.findProvidersWithContractByPayer(payerUuid, pageable);
+        }
+
+        List<ProviderResponse> providerResponses = providerPage.getContent().stream()
+                .map(this::mapToProviderResponse)
+                .collect(Collectors.toList());
+
+        PagedResponse<ProviderResponse> pagedResponse = new PagedResponse<>(
+                providerResponses,
+                page,
+                size,
+                providerPage.getTotalElements(),
+                providerPage.getTotalPages(),
+                providerPage.hasNext(),
+                providerPage.hasPrevious()
+        );
+
+        log.info("Successfully fetched {} providers with contract for payer UUID: {}", providerResponses.size(), payerUuid);
+        return ResponseEntity.ok(pagedResponse);
+    }
+
+    private ProviderResponse mapToProviderResponse(Provider provider) {
+        ProviderResponse response = new ProviderResponse();
+        BeanUtils.copyProperties(provider, response);
+
+        // Set additional fields if needed
+        response.setTotalContracts((long) provider.getContractHeaders().size());
+
+        // You might want to add more fields here based on your ProviderResponse structure
+
+        return response;
+    }
+
 
     private ClaimResponse mapClaimToClaimResponse(Claim claim) {
         ClaimResponse response = new ClaimResponse();

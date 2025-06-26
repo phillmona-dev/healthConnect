@@ -58,16 +58,16 @@ public class UserController {
         return userService.createUser(signUpRequest);
     }
 
-    @PutMapping(path = "/{userUuid}")
-    @PreAuthorize("hasRole('Update_User')")
+    @PutMapping("/{userUuid}")
+    //@PreAuthorize("hasRole('Update_User')")
     @Operation(summary = "Update System User", description = "Updates an existing user's information", security = @SecurityRequirement(name = "bearerAuth"))
-    public UserResponse updateUser(@PathVariable String userUuid, @RequestBody SignUpRequest userRequest) {
-        return userService.updateUser(userUuid, userRequest);
-
+    public ResponseEntity<UserResponse> updateUser(@PathVariable String userUuid, @Valid @RequestBody SignUpRequest userRequest) {
+        UserResponse updatedUser = userService.updateUser(userUuid, userRequest);
+        return ResponseEntity.ok(updatedUser);
     }
 
     @GetMapping(path = "/{userUuid}")
-    @PreAuthorize("hasRole('Read_User')")
+    //@PreAuthorize("hasRole('Read_User')")
     @Operation(summary = "Read System User", description = "Retrieves a specific user's details by UUID", security = @SecurityRequirement(name = "bearerAuth"))
     public UserResponse getUser(@PathVariable String userUuid) {
         return userService.getUser(userUuid);

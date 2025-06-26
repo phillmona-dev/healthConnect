@@ -16,6 +16,7 @@ import java.util.List;
 public class DrugDispensingRecordRequest {
 
     private String dependantUuid;
+    private String insuredUuid;
     private String providerUuid;
     private String payerUuid;
     private String phone;
