@@ -1,6 +1,5 @@
 package com.medco.HealthConnectProvider.entity.claims;
 
-import com.medco.HealthConnectProvider.entity.services.ProvidedService;
 import com.medco.HealthConnectProvider.shared.Audit;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
@@ -180,9 +179,9 @@ public class Claim extends Audit {
 
 
 
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "provided_service_id")
-    private ProvidedService providedService;
+//    @OneToOne(cascade = CascadeType.ALL)
+//    @JoinColumn(name = "provided_service_id")
+//    private ProvidedService providedService;
 
 
     @Column(nullable = false)

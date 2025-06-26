@@ -2,7 +2,8 @@ package com.medco.HealthConnectProvider.entity.contracts;
 
 import com.medco.HealthConnectProvider.entity.groups.ContractDetailEmployeeGroup;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
-import com.medco.HealthConnectProvider.entity.services.ProvidedService;
+import com.medco.HealthConnectProvider.entity.integration.MedicationDispensingItem;
+
 import com.medco.HealthConnectProvider.entity.services.Servicelist;
 import com.medco.HealthConnectProvider.shared.Audit;
 import com.medco.HealthConnectProvider.utils.enums.Status;
@@ -21,6 +22,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Where;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ import java.util.UUID;
 @Where(clause = "is_deleted = false")
 public class ContractDetail extends Audit implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @Id
@@ -82,10 +85,10 @@ public class ContractDetail extends Audit implements Serializable {
     @Builder.Default
     private Set<EmployeeDependantGroup> employeeDependantGroups = new HashSet<>();
 //
-//    @OneToMany(mappedBy = "contractDetail", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
-//    @JsonManagedReference(value = "contract-detail-provided-services")
-//    @Builder.Default
-//    private List<ProvidedService> providedServices = new ArrayList<>();
+    @OneToMany(mappedBy = "contractDetail", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
+    @JsonManagedReference(value = "contract-detail-medication-dispensing-item ")
+    @Builder.Default
+    private List<MedicationDispensingItem> medicationDispensingItems = new ArrayList<>();
 
     @PrePersist
     public void prePersist() {

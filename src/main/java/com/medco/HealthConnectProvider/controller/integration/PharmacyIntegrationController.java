@@ -134,6 +134,8 @@ public class PharmacyIntegrationController {
         return pharmacyIntegrationService.createClaimFromAuthorizedRecords(providerUuid, dispensingUuids);
     }
 
+
+
     @PutMapping("/dispensing/update-status/{providerUuid}")
     @Operation(summary = "Update status of dispensing records",
             description = "Changes the status of one or more dispensing records to either SUBMITTED or AUTHORIZED")

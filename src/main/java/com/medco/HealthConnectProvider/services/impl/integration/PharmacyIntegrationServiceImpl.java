@@ -1285,7 +1285,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         List<MedicationDispensing> dispensingRecords = dispensingRepository.findByClaimUuid(claimUuid);
 
         // Create batch record
-        BatchRecord batchRecord = createBatchRecord(claim.getProvidedService().getInsured().getPayer(), dispensingRecords, claim);
+        BatchRecord batchRecord = createBatchRecord(claim.getBatchRecord().getMedicationDispensing().get(0).getInsured().getPayer(), dispensingRecords, claim);
         batchRecord.setStatus("RECONCILED");
         batchRecord.setClaim(claim);
         claim.setBatchRecord(batchRecord);

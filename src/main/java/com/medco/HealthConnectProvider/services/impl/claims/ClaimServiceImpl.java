@@ -2,22 +2,21 @@ package com.medco.HealthConnectProvider.services.impl.claims;
 
 
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
-import com.medco.HealthConnectProvider.entity.claims.Claim;
-import com.medco.HealthConnectProvider.entity.claims.ClaimAttachment;
-import com.medco.HealthConnectProvider.entity.claims.ClaimComment;
-import com.medco.HealthConnectProvider.entity.claims.ClaimLogs;
-import com.medco.HealthConnectProvider.entity.claims.ClaimPayment;
+import com.medco.HealthConnectProvider.entity.claims.*;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
+import com.medco.HealthConnectProvider.entity.integration.MedicationDispensing;
+import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 
-import com.medco.HealthConnectProvider.entity.services.ProvidedService;
+
 import com.medco.HealthConnectProvider.entity.services.Servicelist;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.claims.*;
 import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
+import com.medco.HealthConnectProvider.repository.integration.MedicationDispensingRepository;
 import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
 import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
@@ -34,7 +33,6 @@ import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -57,174 +55,186 @@ public class ClaimServiceImpl implements ClaimService {
     @Value("${file.upload-dir-claims}")
     private String uploadDir;
 
-    @Autowired
-    private ClaimRepository claimRepository;
+
+    private final ClaimRepository claimRepository;
     
-    @Autowired
-    private ClaimAttachmentRepository claimAttachmentRepository;
+
+    private final ClaimAttachmentRepository claimAttachmentRepository;
     
-    @Autowired
-    private ClaimCommentRepository claimCommentRepository;
+
+    private final ClaimCommentRepository claimCommentRepository;
     
-    @Autowired
-    private ClaimLogsRepository claimLogsRepository;
+
+    private final ClaimLogsRepository claimLogsRepository;
     
-    @Autowired
-    private ClaimPaymentRepository claimPaymentRepository;
+
+    private final ClaimPaymentRepository claimPaymentRepository;
     
-    @Autowired
-    private ContractRepository contractRepository;
+
+    private final ContractRepository contractRepository;
     
-    @Autowired
-    private InsuredRepository insuredRepository;
+
+    private final InsuredRepository insuredRepository;
     
-    @Autowired
-    private DependantRepository dependantRepository;
+
+    private final DependantRepository dependantRepository;
     
-    @Autowired
-    private ProviderRepository providerRepository;
-    
-    @Autowired
-    private ProvidedServiceRepository providedServiceRepository;
+
+    private final ProviderRepository providerRepository;
+
 
     private final PaymentService paymentService;
-    private final NotificationService notificationService;
 
-    @Autowired
-    public ClaimServiceImpl(PaymentService paymentService, NotificationService notificationService) {
+    private final NotificationService notificationService;
+    private final BatchRecordRepository batchRecordRepository;
+    private final MedicationDispensingRepository medicationDispensingRepository;
+
+    public ClaimServiceImpl(ClaimRepository claimRepository, ClaimAttachmentRepository claimAttachmentRepository, ClaimCommentRepository claimCommentRepository, ClaimLogsRepository claimLogsRepository, ClaimPaymentRepository claimPaymentRepository, ContractRepository contractRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, ProviderRepository providerRepository, PaymentService paymentService, NotificationService notificationService, BatchRecordRepository batchRecordRepository, MedicationDispensingRepository medicationDispensingRepository) {
+        this.claimRepository = claimRepository;
+        this.claimAttachmentRepository = claimAttachmentRepository;
+        this.claimCommentRepository = claimCommentRepository;
+        this.claimLogsRepository = claimLogsRepository;
+        this.claimPaymentRepository = claimPaymentRepository;
+        this.contractRepository = contractRepository;
+        this.insuredRepository = insuredRepository;
+        this.dependantRepository = dependantRepository;
+        this.providerRepository = providerRepository;
         this.paymentService = paymentService;
         this.notificationService = notificationService;
+        this.batchRecordRepository = batchRecordRepository;
+        this.medicationDispensingRepository = medicationDispensingRepository;
     }
 
 
     @Override
     @Transactional
     public ResponseEntity<?> submitClaim(ClaimRequest claimRequest) {
-        // Get authenticated user
-        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
-        String providerUuid = userDetails.getPayerUuid();
-
-        // Validate contract exists and is active
-        ContractHeader contract = contractRepository.findByContractHeaderUuid(claimRequest.getContractUuid());
-        if (contract == null) {
-            throw new ResourceNotFoundException("Contract", "contractUuid", claimRequest.getContractUuid());
-        }
-
-        if (contract.getStatus() != Status.ACTIVE) {
-            throw new BadRequestException("Contract is not active. Claims can only be submitted for active contracts.");
-        }
-
-        // Validate provider has access to this contract
-        Provider provider = providerRepository.findByProviderUuid(providerUuid);
-        if (provider == null){
-            throw new ResourceNotFoundException("Provider", "providerUuid", providerUuid);
-        }
-
-        if (!contract.getProvider().getProviderUuid().equals(providerUuid)) {
-            throw new BadRequestException("Contract does not belong to this provider");
-        }
-
-        // Validate insured person exists and belongs to the payer
-        Insured insured = insuredRepository.findByInsuredUuid(claimRequest.getInsuredPersonUuid());
-        if(insured == null){
-            throw new ResourceNotFoundException("Insured Person", "insuredPersonUuid",
-                    claimRequest.getInsuredPersonUuid());
-        }
-
-        if (!insured.getPayer().getPayerUuid().equals(contract.getPayer().getPayerUuid())) {
-            throw new BadRequestException("Insured person does not belong to the payer associated with this contract");
-        }
-
-        // Validate dependant if provided
-        Dependant dependant = null;
-        if (claimRequest.getDependantUuid() != null && !claimRequest.getDependantUuid().isEmpty()) {
-            dependant = dependantRepository.findByDependantUuid(claimRequest.getDependantUuid());
-
-            if(dependant==null){
-                throw new ResourceNotFoundException("Dependant", "dependantUuid",
-                        claimRequest.getDependantUuid());
-            }
-
-            if (!dependant.getInsured().getInsuredUuid().equals(insured.getInsuredUuid())) {
-                throw new BadRequestException("Dependant does not belong to the specified insured person");
-            }
-        }
-
-        // Validate provided services
-        List<ProvidedService> providedServices = new ArrayList<>();
-        if (claimRequest.getProvidedServiceUuids() != null && !claimRequest.getProvidedServiceUuids().isEmpty()) {
-            for (String serviceUuid : claimRequest.getProvidedServiceUuids()) {
-                ProvidedService service = providedServiceRepository.findByProvidedServiceUuid(serviceUuid)
-                        .orElseThrow(() -> new ResourceNotFoundException("Provided Service", "providedServiceUuid", serviceUuid));
-
-                // Validate service belongs to this provider
-                if (!service.getContractDetail().getContractHeader().getProvider().getProviderUuid().equals(providerUuid)) {
-                    throw new BadRequestException("Provided service does not belong to this provider");
-                }
-
-                // Validate service is not already claimed
-                if (service.getClaimUuid() != null && !service.getClaimUuid().isEmpty()) {
-                    throw new BadRequestException("Service with UUID " + serviceUuid + " is already claimed");
-                }
-
-                providedServices.add(service);
-            }
-        }
-
-        Claim claim = new Claim();
-        claim.setClaimUuid(UUID.randomUUID().toString());
-        claim.setMrnNumber(claimRequest.getMrnNumber());
-        claim.setVisitDate(claimRequest.getVisitDate());
-        claim.setTotalAmount(BigDecimal.valueOf(claimRequest.getTotalAmount()));
-        claim.setProviderComment(claimRequest.getProviderComment());
-
-//        // Set entity relationships
-//        claim.setContract(contract);
-//        claim.setProvider(provider);
-//        claim.setPayer(contract.getPayer());
-//        claim.setInsuredPerson(insured);
+        return  null;
+//        // Get authenticated user
+//        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+//        String providerUuid = userDetails.getPayerUuid();
 //
-//        if (dependant != null) {
-//            claim.setDependant(dependant);
+//        // Validate contract exists and is active
+//        ContractHeader contract = contractRepository.findByContractHeaderUuid(claimRequest.getContractUuid());
+//        if (contract == null) {
+//            throw new ResourceNotFoundException("Contract", "contractUuid", claimRequest.getContractUuid());
 //        }
-
-        // Set claim status
-        claim.setStatus(ClaimStatus.SUBMITTED);
-        claim.setPreparedByProviderUuid(userDetails.getUserUuid());
-        claim.setPreparedByProviderStatus("Submitted");
-        claim.setPreparedByProviderDate(LocalDateTime.from(Instant.now()));
-
-        // Set default statuses
-        claim.setApprovedByProviderStatus("Pending");
-        claim.setApprovedByPayerStatus("Pending");
-        claim.setPaidStatus("Pending");
-
-        // Save claim
-        Claim savedClaim = claimRepository.save(claim);
-
-        // Update provided services with claim UUID
-        for (ProvidedService service : providedServices) {
-            service.setClaimUuid(savedClaim.getClaimUuid());
-            providedServiceRepository.save(service);
-        }
-
-        // Create claim log
-        ClaimLogs log = new ClaimLogs();
-        log.setLogUuid(UUID.randomUUID().toString());
-        log.setClaim(savedClaim);
-        log.setActionByUuid(userDetails.getUserUuid());
-        log.setActionByName(userDetails.getFirstName() + " " + userDetails.getFatherName());
-        log.setActionByRole(userDetails.getAuthorities().iterator().next().getAuthority());
-        log.setComment("Claim submitted by provider");
-        log.setActionDate(Instant.now());
-        log.setActionStatus(ClaimStatus.SUBMITTED.toString());
-        log.setPreviousStatus("New");
-        claimLogsRepository.save(log);
-
-        // Notify claim submission
-        notificationService.notifyClaimSubmitted(savedClaim);
-
-        return ResponseEntity.ok(new MessageResponse("Claim submitted successfully with UUID: " + savedClaim.getClaimUuid()));
+//
+//        if (contract.getStatus() != Status.ACTIVE) {
+//            throw new BadRequestException("Contract is not active. Claims can only be submitted for active contracts.");
+//        }
+//
+//        // Validate provider has access to this contract
+//        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+//        if (provider == null){
+//            throw new ResourceNotFoundException("Provider", "providerUuid", providerUuid);
+//        }
+//
+//        if (!contract.getProvider().getProviderUuid().equals(providerUuid)) {
+//            throw new BadRequestException("Contract does not belong to this provider");
+//        }
+//
+//        // Validate insured person exists and belongs to the payer
+//        Insured insured = insuredRepository.findByInsuredUuid(claimRequest.getInsuredPersonUuid());
+//        if(insured == null){
+//            throw new ResourceNotFoundException("Insured Person", "insuredPersonUuid",
+//                    claimRequest.getInsuredPersonUuid());
+//        }
+//
+//        if (!insured.getPayer().getPayerUuid().equals(contract.getPayer().getPayerUuid())) {
+//            throw new BadRequestException("Insured person does not belong to the payer associated with this contract");
+//        }
+//
+//        // Validate dependant if provided
+//        Dependant dependant = null;
+//        if (claimRequest.getDependantUuid() != null && !claimRequest.getDependantUuid().isEmpty()) {
+//            dependant = dependantRepository.findByDependantUuid(claimRequest.getDependantUuid());
+//
+//            if(dependant==null){
+//                throw new ResourceNotFoundException("Dependant", "dependantUuid",
+//                        claimRequest.getDependantUuid());
+//            }
+//
+//            if (!dependant.getInsured().getInsuredUuid().equals(insured.getInsuredUuid())) {
+//                throw new BadRequestException("Dependant does not belong to the specified insured person");
+//            }
+//        }
+//
+//        // Validate provided services
+//        List<ProvidedService> providedServices = new ArrayList<>();
+//        if (claimRequest.getProvidedServiceUuids() != null && !claimRequest.getProvidedServiceUuids().isEmpty()) {
+//            for (String serviceUuid : claimRequest.getProvidedServiceUuids()) {
+//                ProvidedService service = providedServiceRepository.findByProvidedServiceUuid(serviceUuid)
+//                        .orElseThrow(() -> new ResourceNotFoundException("Provided Service", "providedServiceUuid", serviceUuid));
+//
+//                // Validate service belongs to this provider
+//                if (!service.getContractDetail().getContractHeader().getProvider().getProviderUuid().equals(providerUuid)) {
+//                    throw new BadRequestException("Provided service does not belong to this provider");
+//                }
+//
+//                // Validate service is not already claimed
+//                if (service.getClaimUuid() != null && !service.getClaimUuid().isEmpty()) {
+//                    throw new BadRequestException("Service with UUID " + serviceUuid + " is already claimed");
+//                }
+//
+//                providedServices.add(service);
+//            }
+//        }
+//
+//        Claim claim = new Claim();
+//        claim.setClaimUuid(UUID.randomUUID().toString());
+//        claim.setMrnNumber(claimRequest.getMrnNumber());
+//        claim.setVisitDate(claimRequest.getVisitDate());
+//        claim.setTotalAmount(BigDecimal.valueOf(claimRequest.getTotalAmount()));
+//        claim.setProviderComment(claimRequest.getProviderComment());
+//
+////        // Set entity relationships
+////        claim.setContract(contract);
+////        claim.setProvider(provider);
+////        claim.setPayer(contract.getPayer());
+////        claim.setInsuredPerson(insured);
+////
+////        if (dependant != null) {
+////            claim.setDependant(dependant);
+////        }
+//
+//        // Set claim status
+//        claim.setStatus(ClaimStatus.SUBMITTED);
+//        claim.setPreparedByProviderUuid(userDetails.getUserUuid());
+//        claim.setPreparedByProviderStatus("Submitted");
+//        claim.setPreparedByProviderDate(LocalDateTime.from(Instant.now()));
+//
+//        // Set default statuses
+//        claim.setApprovedByProviderStatus("Pending");
+//        claim.setApprovedByPayerStatus("Pending");
+//        claim.setPaidStatus("Pending");
+//
+//        // Save claim
+//        Claim savedClaim = claimRepository.save(claim);
+//
+//        // Update provided services with claim UUID
+//        for (ProvidedService service : providedServices) {
+//            service.setClaimUuid(savedClaim.getClaimUuid());
+//            providedServiceRepository.save(service);
+//        }
+//
+//        // Create claim log
+//        ClaimLogs log = new ClaimLogs();
+//        log.setLogUuid(UUID.randomUUID().toString());
+//        log.setClaim(savedClaim);
+//        log.setActionByUuid(userDetails.getUserUuid());
+//        log.setActionByName(userDetails.getFirstName() + " " + userDetails.getFatherName());
+//        log.setActionByRole(userDetails.getAuthorities().iterator().next().getAuthority());
+//        log.setComment("Claim submitted by provider");
+//        log.setActionDate(Instant.now());
+//        log.setActionStatus(ClaimStatus.SUBMITTED.toString());
+//        log.setPreviousStatus("New");
+//        claimLogsRepository.save(log);
+//
+//        // Notify claim submission
+//        notificationService.notifyClaimSubmitted(savedClaim);
+//
+//        return ResponseEntity.ok(new MessageResponse("Claim submitted successfully with UUID: " + savedClaim.getClaimUuid()));
     }
 
 
@@ -238,12 +248,12 @@ public class ClaimServiceImpl implements ClaimService {
         String institutionUuid = userDetails.getPayerUuid();
 
         // If user is from provider, check if claim belongs to this provider
-        if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(institutionUuid)) {
+        if (userDetails.getProviderUuid() == null || !claim.getProviderUuid().equals(userDetails.getProviderUuid())) {
             throw new BadRequestException("You don't have access to this claim");
         }
 
         // If user is from payer, check if claim belongs to this payer
-        if (userDetails.getPayerUuid() != null && !claim.getPayerUuid().equals(institutionUuid)) {
+        if (userDetails.getPayerUuid() == null || !claim.getPayerUuid().equals(institutionUuid)) {
             throw new BadRequestException("You don't have access to this claim");
         }
 
@@ -253,32 +263,37 @@ public class ClaimServiceImpl implements ClaimService {
 
         // Set related entity data from relationships
 
-        response.setContractUuid(claim.getProvidedService().getContractDetail().getContractHeader().getContractHeaderUuid());
-        response.setContractName(claim.getProvidedService().getContractDetail().getContractHeader().getContractName());
-        response.setContractCode(claim.getProvidedService().getContractDetail().getContractHeader().getContractCode());
+        response.setContractUuid(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractHeaderUuid());
+        response.setContractName(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractName());
+        response.setContractCode(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractCode());
 
-        if (claim.getProvidedService().getContractDetail().getServicelist().getProvider()!=null) {
+        Payer payer=claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getPayer();
+        Provider provider=claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getProvider();
+        if (claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getServicelist().getProvider()!=null) {
             response.setProviderUuid(claim.getProviderUuid());
-            response.setProviderName(claim.getProvidedService().getContractDetail().getServicelist().getProvider().getProviderName());
-            response.setProviderCode(claim.getProvidedService().getContractDetail().getServicelist().getProvider().getProviderCode());
+            response.setProviderName(provider.getProviderName());
+            response.setProviderCode(provider.getProviderCode());
         }
-        if (claim.getProvidedService().getInsured()!=null&&claim.getProvidedService().getInsured().getPayer()!=null) {
+        if (claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getPayer()!=null) {
             response.setPayerUuid(claim.getPayerUuid());
-            response.setPayerName(claim.getProvidedService().getInsured().getPayer().getPayerName());
-            response.setPayerCode(claim.getProvidedService().getInsured().getPayer().getPayerCode());
+            response.setPayerName(payer.getPayerName());
+            response.setPayerCode(payer.getPayerCode());
         }
-        if (claim.getProvidedService().getInsured()!=null) {
-            response.setInsuredPersonUuid(claim.getProvidedService().getInsured().getInsuredUuid());
-            response.setInsuredPersonName(claim.getProvidedService().getInsured().getFirstName() + " " + claim.getProvidedService().getInsured().getFatherName());
-            response.setInsuredPersonCode(claim.getProvidedService().getInsured().getIdNumber());
-            response.setInsuredPersonPhone(claim.getProvidedService().getInsured().getPhone());
-            response.setInsuredPersonGender(claim.getProvidedService().getInsured().getGender());
-            response.setInsuredPersonUuid(claim.getProvidedService().getInsured().getInsuredUuid());
+        if (claim.getBatchRecord().getMedicationDispensing().get(0).getInsured()!=null) {
+            Insured insured=claim.getBatchRecord().getMedicationDispensing().get(0).getInsured();
+            response.setInsuredPersonUuid(insured.getInsuredUuid());
+            response.setInsuredPersonName(insured.getFirstName()+" "+insured.getFatherName());
+//            response.setInsuredPersonCode(insured.get());
+            response.setInsuredPersonPhone(insured.getPhone());
+            response.setInsuredPersonGender(insured.getGender());
+            response.setInsuredPersonUuid(insured.getInsuredUuid());
+
         }
-        if (claim.getProvidedService().getDependant()!=null) {
-            response.setDependantUuid(claim.getProvidedService().getDependant().getDependantUuid());
-            response.setDependantFullName(claim.getProvidedService().getDependant().getFirstName());
-            response.setDependantRelationship(claim.getProvidedService().getDependant().getRelationship().toString());
+        if (claim.getBatchRecord().getMedicationDispensing().get(0).getDependant()!=null) {
+            Dependant dependant=claim.getBatchRecord().getMedicationDispensing().get(0).getDependant();
+            response.setDependantUuid(dependant.getDependantUuid());
+            response.setDependantFullName(dependant.getFirstName());
+            response.setDependantRelationship(dependant.getRelationship().toString());
         }
         // Use the JPA relationships to get related collections
         // Get attachments - can use the relationship directly
@@ -299,7 +314,7 @@ public class ClaimServiceImpl implements ClaimService {
                 .collect(Collectors.toList()));
 
         // Get provided services - can use the relationship directly
-        response.setService(mapToServiceResponse(claim.getProvidedService()));
+//        response.setService(mapToServiceResponse(claim.getProvidedService()));
 
         return response;
     }
@@ -395,23 +410,23 @@ public class ClaimServiceImpl implements ClaimService {
         return response;
     }
 
-    private ProvidedServiceResponse mapToServiceResponse(ProvidedService service) {
-        ProvidedServiceResponse response = new ProvidedServiceResponse();
-        BeanUtils.copyProperties(service, response);
-
-        if (service.getContractDetail() != null && service.getContractDetail().getServicelist() != null) {
-            Servicelist servicelist = service.getContractDetail().getServicelist();
-            response.setServiceUuid(servicelist.getServiceUuid());
-            response.setServiceName(servicelist.getServiceName());
-            response.setServiceCode(servicelist.getServiceCode());
-            response.setServiceCategory(servicelist.getServiceCategory());
-            response.setServiceSubCategory(servicelist.getServiceSubCategory());
-
-            response.setNegotiatedPrice(service.getContractDetail().getNegotiatedPrice());
-        }
-
-        return response;
-    }
+//    private ProvidedServiceResponse mapToServiceResponse(ProvidedService service) {
+//        ProvidedServiceResponse response = new ProvidedServiceResponse();
+//        BeanUtils.copyProperties(service, response);
+//
+//        if (service.getContractDetail() != null && service.getContractDetail().getServicelist() != null) {
+//            Servicelist servicelist = service.getContractDetail().getServicelist();
+//            response.setServiceUuid(servicelist.getServiceUuid());
+//            response.setServiceName(servicelist.getServiceName());
+//            response.setServiceCode(servicelist.getServiceCode());
+//            response.setServiceCategory(servicelist.getServiceCategory());
+//            response.setServiceSubCategory(servicelist.getServiceSubCategory());
+//
+//            response.setNegotiatedPrice(service.getContractDetail().getNegotiatedPrice());
+//        }
+//
+//        return response;
+//    }
 
     @Override
     @Transactional
@@ -951,7 +966,7 @@ public class ClaimServiceImpl implements ClaimService {
                 "Payment initiated through Chapa. Amount: " + paymentRequest.getAmount());
 
         // Notify the pharmacy
-        notificationService.notifyPharmacy(claim.getProvidedService().getContractDetail().getServicelist().getProvider(), "Payment initiated for claim " + claimUuid);
+//        notificationService.notifyPharmacy(claim.getProvidedService().getContractDetail().getServicelist().getProvider(), "Payment initiated for claim " + claimUuid);
 
         return ResponseEntity.ok(new MessageResponse("Payment initiated successfully"));
     }
@@ -978,12 +993,33 @@ public class ClaimServiceImpl implements ClaimService {
                     "Payment verified successfully");
 
             // Notify the pharmacy
-            notificationService.notifyPharmacy(claim.getProvidedService().getContractDetail().getServicelist().getProvider(), "Payment confirmed for claim " + claimUuid);
+//            notificationService.notifyPharmacy(claim.getProvidedService().getContractDetail().getServicelist().getProvider(), "Payment confirmed for claim " + claimUuid);
 
             return ResponseEntity.ok(new MessageResponse("Payment verified successfully"));
         } else {
             return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED)
                     .body(new MessageResponse("Payment verification failed"));
         }
+    }
+
+    @Override
+    public ResponseEntity<?> createBatchClaim(String batchCode) {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+
+        BatchRecord batch=batchRecordRepository.findByBatchCode(batchCode).orElseThrow(()->new BadRequestException("batch not found"));
+        if (userDetails.getProviderUuid()==null)throw new BadRequestException("allowed only for provider ");
+        if (!batch.getStatus().equals(Status.AUTHORIZED.toString()))throw new BadRequestException("batch is not authorized");
+        List<MedicationDispensing> authorizedMedications=new ArrayList<>();
+        for (MedicationDispensing medicationDispensing:batch.getMedicationDispensing()){
+            medicationDispensing.setStatus(Status.AUTHORIZED);
+            authorizedMedications.add(medicationDispensing);
+        }
+        medicationDispensingRepository.saveAll(authorizedMedications);
+        Claim claim=new Claim();
+        claim.setBatchRecord(batch);
+        claim.setPayerUuid(batch.getPayerName());
+        claimRepository.save(claim);
+        return ResponseEntity.ok("claim created successfully");
+
     }
 }

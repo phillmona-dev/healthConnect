@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.entity.integration;
 
+import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.utils.enums.ItemType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -74,4 +75,8 @@ public class MedicationDispensingItem {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+
+    @ManyToOne
+    @JoinColumn(name = "contract_detail_id", nullable = false)
+    private ContractDetail contractDetail;
 }
