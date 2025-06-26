@@ -5,14 +5,14 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class ContractDetailEmployeeGroupRequest {
     
     @NotBlank(message = "Contract detail UUID is required")
-    private String contractDetailUuid;
-    
-    @NotBlank(message = "Employee group UUID is required")
-    private String employeeGroupUuid;
+    private List<String> contractDetailUuid;
+
 }

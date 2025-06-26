@@ -45,4 +45,5 @@ public interface ContractDetailEmployeeGroupRepository extends JpaRepository<Con
 
     void deleteByContractDetailUuidAndEmployeeGroupUuid(String contractDetailUuid, String employeeGroupUuid);
 
+    ContractDetailEmployeeGroup findByEmployeeDependantGroupGroupUuid(String employeeGroupUuid);
 }

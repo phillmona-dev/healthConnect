@@ -1,8 +1,6 @@
 package com.medco.HealthConnectProvider.services.impl.group;
 
-
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
-import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
@@ -16,6 +14,7 @@ import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
 import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.services.group.EmployeeDependantGroupService;
 import com.medco.HealthConnectProvider.ui.request.group.EmployeeDependantGroupRequest;
+import com.medco.HealthConnectProvider.ui.request.group.GroupMembersRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.EmployeeDependantGroupResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.GroupMembersAndServicesResponse;
@@ -39,7 +38,6 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
 
 
     private final EmployeeDependantGroupRepository groupRepository;
-
     private final PayerRepository payerRepository;
     private final InsuredRepository insuredRepository;
     private final DependantRepository dependantRepository;
@@ -256,17 +254,21 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
     }
 
     @Override
-    public ResponseEntity<?> addMembersToGroup(String groupUuid,boolean insured, List<String> memberUuids) {
+    public ResponseEntity<?> addMembersToGroup(String groupUuid, GroupMembersRequest request) {
         EmployeeDependantGroup employeeDependantGroup=groupRepository.findByGroupUuid(groupUuid);
-        if (insured) {
-            List<Insured>insuredList=insuredRepository.findByInsuredUuidIn(memberUuids);
-            Set<Insured> insuredSet = new HashSet<>(insuredList);
-            employeeDependantGroup.getInsureds().addAll(insuredSet);
+        if (request.isInsured()) {
+            List<Insured>insuredList=insuredRepository.findByInsuredUuidIn(request.getInsuredUuids());
+            for (Insured insured : insuredList) {
+                insured.setEmployeeDependantGroup(employeeDependantGroup); // 🔥 important
+                employeeDependantGroup.getInsureds().add(insured);          // optional but good to keep both sides in sync
+            }
+//            Set<Insured> insuredSet = new HashSet<>(insuredList);
+//            employeeDependantGroup.getInsureds().addAll(insuredSet);
             groupRepository.save(employeeDependantGroup);
 
         }
         else {
-            List<Dependant>dependantList=dependantRepository.findByDependantUuidIn(memberUuids);
+            List<Dependant>dependantList=dependantRepository.findByDependantUuidIn(request.getDependantUuids());
             Set<Dependant> dependantSet = new HashSet<>(dependantList);
             employeeDependantGroup.getDependants().addAll(dependantSet);
             groupRepository.save(employeeDependantGroup);

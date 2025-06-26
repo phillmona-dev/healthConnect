@@ -63,4 +63,6 @@ public interface ContractDetailRepository extends JpaRepository<ContractDetail, 
     List<ContractDetail> findByContractHeaderAndService(
             @Param("contractHeaderUuid") String contractHeaderUuid,
             @Param("serviceUuid") String serviceUuid);
+
+    List<ContractDetail> findByContractDetailUuidIn(List<String> eligibleServicesUuids);
 }
