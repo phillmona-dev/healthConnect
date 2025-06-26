@@ -25,7 +25,6 @@ import java.util.List;
 @Tag(name = "Group Management", description = "APIs for managing employee and dependant groups")
 public class EmployeeDependantGroupController {
 
-
     private final EmployeeDependantGroupService groupService;
 
     public EmployeeDependantGroupController(EmployeeDependantGroupService groupService) {

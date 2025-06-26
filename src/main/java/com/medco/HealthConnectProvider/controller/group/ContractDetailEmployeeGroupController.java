@@ -20,6 +20,7 @@ import java.util.List;
 
 @SecurityRequirement(name = "bearerAuth")
 @RestController
+@SecurityRequirement(name = "bearerAuth")
 @RequestMapping("/api/v1/healthConnect/contract-detail-employee-groups")
 @Tag(name = "Contract Detail Employee Group Management", description = "APIs for managing associations between contract details and employee groups")
 public class ContractDetailEmployeeGroupController {
