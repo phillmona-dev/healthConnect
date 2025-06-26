@@ -21,29 +21,29 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     Page<Claim> findByPayerUuidAndStatus(String payerUuid, ClaimStatus status, Pageable pageable);
 
 
-
-    @Query(value = """
-        SELECT NEW com.your.package.ClaimServiceDto(
-            c.id as claimId,
-            c.claimNumber,
-            s.uuid as providedServiceUuid,
-            svc.uuid as serviceUuid,
-            svc.name as serviceName,
-            svc.code as serviceCode,
-            s.quantity,
-            s.unitPrice,
-            s.totalPrice,
-            svc.category as serviceCategory,
-            svc.subCategory as serviceSubCategory,
-            cd.negotiatedPrice
-        )
-        FROM Claim c
-        LEFT JOIN c.medicationDispensingServices s
-        LEFT JOIN s.service svc
-        LEFT JOIN s.contractDetails cd
-        """,
-            countQuery = "SELECT COUNT(c) FROM Claim c")
-        Page<ClaimResponse> findClaimServicesByPatientId(
-                Pageable pageable);
+//
+//    @Query(value = """
+//        SELECT NEW com.your.package.ClaimServiceDto(
+//            c.id as claimId,
+//            c.claimNumber,
+//            s.uuid as providedServiceUuid,
+//            svc.uuid as serviceUuid,
+//            svc.name as serviceName,
+//            svc.code as serviceCode,
+//            s.quantity,
+//            s.unitPrice,
+//            s.totalPrice,
+//            svc.category as serviceCategory,
+//            svc.subCategory as serviceSubCategory,
+//            cd.negotiatedPrice
+//        )
+//        FROM Claim c
+//        LEFT JOIN c.medicationDispensingServices s
+//        LEFT JOIN s.service svc
+//        LEFT JOIN s.contractDetails cd
+//        """,
+//            countQuery = "SELECT COUNT(c) FROM Claim c")
+//        Page<ClaimResponse> findClaimServicesByPatientId(
+//                Pageable pageable);
     }
 

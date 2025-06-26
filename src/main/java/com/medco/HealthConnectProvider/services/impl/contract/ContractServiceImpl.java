@@ -588,7 +588,8 @@ public class ContractServiceImpl implements ContractService {
         // Validate contract exists and belongs to the payer
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
-
+        System.out.println("payer uuid "+payerUuid);
+        System.out.println( "in the add service to contract ");
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
         if (contract == null) {
             throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);

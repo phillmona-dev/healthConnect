@@ -15,6 +15,7 @@ import java.util.List;
 @NoArgsConstructor
 public class DrugDispensingRecordRequest {
 
+    private String insuredUuid;
     private String dependantUuid;
     private String providerUuid;
     private String payerUuid;

@@ -97,7 +97,7 @@ public class EmployeeDependantGroupController {
     @Operation(summary = "Update group", description = "Updates an existing employee/dependant group")
     public ResponseEntity<?> addServicesToGroup(
             @PathVariable(value = "groupUuid") String groupUuid,
-            @RequestParam(value = "members") List<String>  eligibleServices) {
+            @RequestBody List<String>  eligibleServices) {
         return groupService.addServicesToGroup(groupUuid,eligibleServices);
     }
 
