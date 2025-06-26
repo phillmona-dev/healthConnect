@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.repository.contract;
 
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
+import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -65,4 +66,8 @@ public interface ContractDetailRepository extends JpaRepository<ContractDetail, 
             @Param("serviceUuid") String serviceUuid);
 
     List<ContractDetail> findByContractDetailUuidIn(List<String> eligibleServicesUuids);
+
+    ContractDetail findByContractHeaderUuidAndServiceUuidAndEmployeeDependantGroups(String contractHeaderUuid, String serviceUuid, EmployeeDependantGroup employeeDependantGroup);
+
+    ContractDetail findByContractHeaderUuidAndServiceUuid(String contractHeaderUuid, String serviceUuid);
 }

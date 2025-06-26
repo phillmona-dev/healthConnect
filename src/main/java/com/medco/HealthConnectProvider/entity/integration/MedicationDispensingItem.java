@@ -75,6 +75,8 @@ public class MedicationDispensingItem {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    private String remark;
+
 
     @ManyToOne
     @JoinColumn(name = "contract_detail_id", nullable = false)

@@ -88,6 +88,7 @@ public class MedicationDispensing {
     private String primaryDiagnosis;
 
     private String secondaryDiagnosis;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "insured_id")
     @JsonBackReference(value = "employee-provided-services")

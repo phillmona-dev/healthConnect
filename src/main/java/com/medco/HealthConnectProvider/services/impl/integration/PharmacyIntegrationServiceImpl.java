@@ -1,6 +1,12 @@
 package com.medco.HealthConnectProvider.services.impl.integration;
 
 
+import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
+import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
+import com.medco.HealthConnectProvider.repository.contract.ContractDetailRepository;
+import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
+import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.dto.MedicationDispensingDTO;
 import com.medco.HealthConnectProvider.dto.PendingDispensingRecordDTO;
@@ -11,6 +17,7 @@ import com.medco.HealthConnectProvider.entity.claims.ClaimLogs;
 import com.medco.HealthConnectProvider.entity.drug.Drug;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensing;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensingItem;
+import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
@@ -127,6 +134,14 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Autowired
     private DrugRepository drugRepository;
 
+    @Autowired
+    private DependantRepository dependantRepository;
+
+    @Autowired
+    private ContractDetailRepository contractDetailRepository;
+    @Autowired
+    private ContractRepository contractHeaderRepository;
+
     private Provider validateProvider(String providerUuid) {
         Provider provider = providerRepository.findByProviderUuid(providerUuid);
         if (provider==null){
@@ -235,17 +250,26 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Override
     @Transactional
     public ResponseEntity<?> addDrugDispensingRecord(DrugDispensingRecordRequest request) {
-
         try {
             Provider provider = validateProvider(request.getProviderUuid());
             Payer payer = validatePayer(request.getPayerUuid());
-            Insured insured = findInsuredPersonFor(request);
-            log.info("Insured person found: {}", insured.getFirstName());
+            ImmutablePair<Insured, Dependant> insuredDependantPair = findInsuredPersonFor(request);
+            Insured insured = insuredDependantPair.getLeft();
+            Dependant dependant = insuredDependantPair.getRight();
 
-            MedicationDispensing dispensingRecord = createDrugDispensingRecord(request, insured, payer, provider);
+            log.info("Insured person found: {}", insured.getFirstName());
+            if (dependant != null) {
+                log.info("Dependant found: {}", dependant.getFirstName());
+            }
+
+            // Find the active contract for this payer
+            ContractHeader activeContract = contractHeaderRepository.findActiveContractByPayerUuid(payer.getPayerUuid())
+                    .orElseThrow(() -> new ResourceNotFoundException("Active contract", "payer", payer.getPayerUuid()));
+
+            MedicationDispensing dispensingRecord = createDrugDispensingRecord(request, insured, dependant, payer, provider);
 
             List<Drug> drugs = validateDrugs(provider.getProviderUuid(), request.getDrugItems());
-            List<MedicationDispensingItem> dispensingItems = createDrugDispensingItems(dispensingRecord, drugs, request.getDrugItems());
+            List<MedicationDispensingItem> dispensingItems = createDrugDispensingItems(dispensingRecord, drugs, request.getDrugItems(), payer, activeContract);
 
             MedicationDispensing savedRecord = dispensingRepository.save(dispensingRecord);
 
@@ -268,9 +292,9 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         } catch (DataIntegrityViolationException e) {
             log.error("Data integrity violation: {}", e.getMessage());
             String errorMessage = "A conflict occurred while saving the record. ";
-            if (e.getCause() instanceof ConstraintViolationException) {
-                ConstraintViolationException cve = (ConstraintViolationException) e.getCause();
-                if (cve.getConstraintViolations().stream().anyMatch(v -> v.getPropertyPath().toString().equals("insurance_coverage"))) {
+            if (e.getCause() instanceof ConstraintViolationException cve) {
+                if (cve.getConstraintViolations().stream()
+                        .anyMatch(v -> v.getPropertyPath().toString().equals("insurance_coverage"))) {
                     errorMessage += "Insurance coverage cannot be null.";
                 } else {
                     errorMessage += "Please check for duplicate entries or missing required fields.";
@@ -340,19 +364,19 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return itemDTO;
     }
 
-    private Insured findInsuredPersonFor(DrugDispensingRecordRequest request) {
+    private ImmutablePair<Insured, Dependant> findInsuredPersonFor(DrugDispensingRecordRequest request) {
         String patientId = request.getPhone();
+        Insured insured = null;
+        Dependant dependant = null;
 
-        Insured insured = insuredRepository.findByInsuranceId(patientId);
-
+        // First, try to find the insured person
+        insured = insuredRepository.findByInsuranceId(patientId);
         if (insured == null) {
             insured = insuredRepository.findByEmployeeId(patientId);
         }
-
         if (insured == null) {
             insured = insuredRepository.findByNationalId(patientId);
         }
-
         if (insured == null) {
             List<Insured> insuredList = (List<Insured>) insuredRepository.findByPhone(patientId);
             if (!insuredList.isEmpty()) {
@@ -360,12 +384,27 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             }
         }
 
-        if (insured == null) {
-            throw new ResourceNotFoundException("Insured", "patientId", patientId);
+        // If insured is found and dependantUuid is provided, find the dependant
+        if (insured != null && request.getDependantUuid() != null && !request.getDependantUuid().isEmpty()) {
+            dependant = insured.getDependants().stream()
+                    .filter(d -> d.getDependantUuid().equals(request.getDependantUuid()))
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException("Dependant", "uuid", request.getDependantUuid()));
         }
 
-        return insured;
+        // If insured is not found, check if the patient is a dependant
+        if (insured == null) {
+            dependant = dependantRepository.findByPhone(patientId);
+            if (dependant != null) {
+                insured = dependant.getInsured();
+            }
+        }
 
+        if (insured == null) {
+            throw new ResourceNotFoundException("Insured or Dependant", "patientId", patientId);
+        }
+
+        return new ImmutablePair<>(insured, dependant);
     }
 
     private List<Drug> validateDrugs(String providerUuid, List<DrugDispensingRecordRequest.DrugDispensingItemRequest> drugItems) {
@@ -386,12 +425,19 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return drugs;
     }
 
-    private MedicationDispensing createDrugDispensingRecord(DrugDispensingRecordRequest request, Insured insured, Payer payer, Provider provider) {
+    private MedicationDispensing createDrugDispensingRecord(DrugDispensingRecordRequest request, Insured insured, Dependant dependant, Payer payer, Provider provider) {
         MedicationDispensing dispensing = new MedicationDispensing();
         dispensing.setDispensingUuid(UUID.randomUUID().toString());
         dispensing.setProviderUuid(provider.getProviderUuid());
-        dispensing.setPayerUuid(payer.getPayerUuid());
+
+        dispensing.setInsured(insured);
         dispensing.setInsuredUuid(insured.getInsuredUuid());
+
+        if (dependant != null) {
+            dispensing.setDependant(dependant);
+        }
+
+        dispensing.setPayerUuid(payer.getPayerUuid());
         dispensing.setDispensingDate(request.getDispensingDate());
         dispensing.setPrescriptionNumber(request.getPrescriptionNumber());
         dispensing.setPharmacyTransactionId(request.getPharmacyTransactionId());
@@ -401,12 +447,13 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         dispensing.setRecordedAt(LocalDate.now());
         return dispensing;
-
     }
 
-    private List<MedicationDispensingItem> createDrugDispensingItems(MedicationDispensing dispensingRecord, List<Drug> drugs, List<DrugDispensingRecordRequest.DrugDispensingItemRequest> drugItems) {
-
+    private List<MedicationDispensingItem> createDrugDispensingItems(MedicationDispensing dispensingRecord, List<Drug> drugs, List<DrugDispensingRecordRequest.DrugDispensingItemRequest> drugItems, Payer payer, ContractHeader activeContract) {
         List<MedicationDispensingItem> dispensingItems = new ArrayList<>();
+        Insured insured = dispensingRecord.getInsured();
+        String contractHeaderUuid = activeContract.getContractHeaderUuid();
+
         for (int i = 0; i < drugs.size(); i++) {
             Drug drug = drugs.get(i);
             DrugDispensingRecordRequest.DrugDispensingItemRequest item = drugItems.get(i);
@@ -416,7 +463,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             dispensingItem.setDispensing(dispensingRecord);
             dispensingItem.setMedicationCode(drug.getDrugCode());
             dispensingItem.setMedicationName(drug.getDrugName());
-            dispensingItem.setQuantity(item.getQuantity());
+            dispensingItem.setQuantity((double) item.getQuantity().intValue());  // Convert Double to int
             dispensingItem.setTotalPrice(item.getTotalPrice());
             dispensingItem.setFormulation(drug.getFormulation());
             dispensingItem.setRoute(item.getRoute());
@@ -425,11 +472,18 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             String dosageInstructions = String.format("%s %s for %s", item.getDose(), item.getFrequency(), item.getDuration());
             dispensingItem.setDosageInstructions(dosageInstructions);
 
+            // Find the appropriate ContractDetail
+            ContractDetail contractDetail = findContractDetail(contractHeaderUuid, drug.getDrugUuid(), insured);
+            if (contractDetail == null) {
+                throw new ResourceNotFoundException("ContractDetail", "drug", drug.getDrugUuid());
+            }
+            dispensingItem.setContractDetail(contractDetail);
+
             dispensingItems.add(dispensingItem);
         }
+
         return dispensingItems;
     }
-
 
     @Override
     @Transactional
@@ -572,10 +626,14 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             Insured insured = findInsuredPerson(request);
             logger.info("Insured person found: {}", insured.getFirstName());
 
+            // Find the active contract for this payer
+            ContractHeader activeContract = contractHeaderRepository.findActiveContractByPayerUuid(payer.getPayerUuid())
+                    .orElseThrow(() -> new ResourceNotFoundException("Active contract", "payer", payer.getPayerUuid()));
+
             MedicationDispensing dispensingRecord = createDispensingRecord(request, insured, payer, provider);
 
             List<Servicelist> services = validateServices(provider.getProviderUuid(), request.getMedicationItems());
-            List<MedicationDispensingItem> dispensingItems = createDispensingItems(dispensingRecord, services, request.getMedicationItems());
+            List<MedicationDispensingItem> dispensingItems = createDispensingItems(dispensingRecord, services, request.getMedicationItems(), payer, activeContract);
 
             MedicationDispensing savedRecord = dispensingRepository.save(dispensingRecord);
 
@@ -879,12 +937,21 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
 
-
-
     private MedicationDispensing createDispensingRecord(DispensingRecordRequest request, Insured insured, Payer payer, Provider provider) {
         MedicationDispensing record = new MedicationDispensing();
         record.setDispensingUuid(UUID.randomUUID().toString());
         record.setInsuredUuid(insured.getInsuredUuid());
+
+        record.setInsured(insured);
+
+        if (request.getDependantUuid()!=null && request.getDependantUuid().isEmpty()){
+            Dependant dependant = insured.getDependants().stream()
+                    .filter(d->d.getDependantUuid().equals(request.getDependantUuid()))
+                    .findFirst()
+                    .orElseThrow(()-> new ResourceNotFoundException("Dependant", "uuid", request.getDependantUuid()));
+            record.setDependant(dependant);
+        }
+
         record.setPayerUuid(payer.getPayerUuid());
         record.setProviderUuid(provider.getProviderUuid());
         record.setDispensingDate(request.getDispensingDate());
@@ -938,29 +1005,56 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return services;
     }
 
-    private List<MedicationDispensingItem> createDispensingItems(MedicationDispensing dispensingRecord, List<Servicelist> services, List<DispensingRecordRequest.DispensingItemRequest> itemRequests) {
+    private List<MedicationDispensingItem> createDispensingItems(MedicationDispensing dispensingRecord, List<Servicelist> services, List<DispensingRecordRequest.DispensingItemRequest> itemRequests, Payer payer, ContractHeader activeContract) {
         List<MedicationDispensingItem> dispensingItems = new ArrayList<>();
+        Insured insured = dispensingRecord.getInsured();
+        String contractHeaderUuid = activeContract.getContractHeaderUuid();
+
         for (int i = 0; i < services.size(); i++) {
             Servicelist service = services.get(i);
-            DispensingRecordRequest itemRequest = new DispensingRecordRequest();
+            DispensingRecordRequest.DispensingItemRequest itemRequest = itemRequests.get(i);
 
             MedicationDispensingItem item = new MedicationDispensingItem();
             item.setItemUuid(UUID.randomUUID().toString());
             item.setDispensing(dispensingRecord);
             item.setMedicationCode(service.getServiceCode());
             item.setMedicationName(service.getServiceName());
-//            item.setPrimaryDiagnosis(itemRequest.getPrimaryDiagnosis());
-//            item.setSecondaryDiagnosis(itemRequest.getSecondaryDiagnosis());
             item.setUnitPrice(service.getPrice());
-            item.setTotalPrice(service.getPrice());
+
+            // Use the quantity directly from itemRequest
+            item.setQuantity((double) itemRequest.getQuantity());
+
+            // Calculate total price
+            item.setTotalPrice(service.getPrice() * itemRequest.getQuantity());
+
             item.setItemType(ItemType.SERVICE);
+            item.setRemark(itemRequest.getRemark());
+
+            // Find the appropriate ContractDetail
+            ContractDetail contractDetail = findContractDetail(contractHeaderUuid, service.getServiceUuid(), insured);
+            if (contractDetail == null) {
+                throw new ResourceNotFoundException("ContractDetail", "service", service.getServiceUuid());
+            }
+            item.setContractDetail(contractDetail);
 
             dispensingItems.add(item);
-
         }
         return dispensingItems;
     }
 
+    private ContractDetail findContractDetail(String contractHeaderUuid, String serviceUuid, Insured insured) {
+        // First, try to find a contract detail specific to the insured's employee dependant group
+        if (insured.getEmployeeDependantGroup() != null) {
+            ContractDetail detail = contractDetailRepository.findByContractHeaderUuidAndServiceUuidAndEmployeeDependantGroups(
+                    contractHeaderUuid, serviceUuid, insured.getEmployeeDependantGroup());
+            if (detail != null) {
+                return detail;
+            }
+        }
+
+        // If not found, look for a general contract detail for this service
+        return contractDetailRepository.findByContractHeaderUuidAndServiceUuid(contractHeaderUuid, serviceUuid);
+    }
 
     private PendingDispensingRecordDTO convertToDTO(MedicationDispensing dispensing) {
         PendingDispensingRecordDTO dto = new PendingDispensingRecordDTO();
