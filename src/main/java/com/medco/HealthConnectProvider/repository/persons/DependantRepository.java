@@ -52,4 +52,6 @@ public interface DependantRepository extends JpaRepository<Dependant, Long> {
     List<Dependant> findByInsuredUuid(String insuredUuid);
 
     List<Dependant> findByDependantUuidIn(List<String> memberUuids);
+
+    Dependant findByPhone(String patientId);
 }

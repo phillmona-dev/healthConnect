@@ -15,6 +15,7 @@ import java.util.List;
 public class DispensingRecordRequest {
 
     private String insuredUuid;
+    private String dependantUuid;
     private String providerUuid;
     private String payerUuid;
     private String phone;
@@ -33,6 +34,7 @@ public class DispensingRecordRequest {
     public static class DispensingItemRequest {
         private String serviceUuid;
         private String remark;
+        private int quantity;
     }
 
 }

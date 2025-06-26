@@ -27,6 +27,9 @@ public class BatchRecord {
     @Column(unique = true)
     private String batchCode;
 
+    @Column(name = "batch_number")
+    private long batchNumber;
+
     private String payerName;
 
     private LocalDateTime requestedOn;

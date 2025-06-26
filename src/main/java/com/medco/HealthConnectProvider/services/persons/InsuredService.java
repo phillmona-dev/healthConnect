@@ -33,7 +33,7 @@ public interface InsuredService {
 //    List<InsuredListResponse> getInsuredPersonEligiblity(String insuredUuid);
 
     List<InsuredResponse> getInsuredPersons(String payerInstitutionContractId, String search, int page, int limit);
-    ResponseEntity<?> importInsuredPersonAndDependant(File convert, String institutionUuid) throws Exception, IOException;
+    ResponseEntity<?> importInsuredPersonAndDependant(File convert, String payerUuid) throws Exception, IOException;
     List<InsuredDependantResponse> getInsuredPersonsAndDependants(String payerInstitutionContractId, String search,
                                                                   int page, int limit);
 

@@ -198,4 +198,6 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
     Collection<? extends Insured> findByPhone(String phone);
 
     List<Insured> findByInsuredUuidIn(List<String> insuredUuids);
+
+    boolean existsByPhoneAndPayerUuid(String phone, String payerUuid);
 }
