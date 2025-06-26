@@ -4,6 +4,7 @@ import com.medco.HealthConnectProvider.services.group.ContractDetailEmployeeGrou
 import com.medco.HealthConnectProvider.ui.request.group.ContractDetailEmployeeGroupRequest;
 import com.medco.HealthConnectProvider.ui.response.groups.ContractDetailEmployeeGroupResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -18,6 +19,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
+@SecurityRequirement(name = "bearerAuth")
 @RequestMapping("/api/v1/healthConnect/contract-detail-employee-groups")
 @Tag(name = "Contract Detail Employee Group Management", description = "APIs for managing associations between contract details and employee groups")
 public class ContractDetailEmployeeGroupController {
