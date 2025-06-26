@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
-import com.medco.HealthConnectProvider.entity.services.ProvidedService;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
@@ -144,20 +143,20 @@ public class Insured implements Serializable {
     @JoinColumn(name = "payer_id")
     private Payer payer;
 
-    @OneToMany(mappedBy = "insured", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-    @JsonManagedReference(value = "employee-provided-services")
-    @Builder.Default
-    private List<ProvidedService> providedServices = new ArrayList<>();
-
-    public void addProvidedService(ProvidedService providedService) {
-        providedServices.add(providedService);
-        providedService.setInsured(this);
-    }
-
-    public void removeProvidedService(ProvidedService providedService) {
-        providedServices.remove(providedService);
-        providedService.setInsured(null);
-    }
+//    @OneToMany(mappedBy = "insured", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+//    @JsonManagedReference(value = "employee-provided-services")
+//    @Builder.Default
+//    private List<Medcation> providedServices = new ArrayList<>();
+//
+//    public void addProvidedService(ProvidedService providedService) {
+//        providedServices.add(providedService);
+//        providedService.setInsured(this);
+//    }
+//
+//    public void removeProvidedService(ProvidedService providedService) {
+//        providedServices.remove(providedService);
+//        providedService.setInsured(null);
+//    }
 
     @OneToMany(mappedBy = "insured", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Dependant> dependants;

@@ -1,7 +1,11 @@
 package com.medco.HealthConnectProvider.entity.integration;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.medco.HealthConnectProvider.entity.claims.BatchRecord;
+import com.medco.HealthConnectProvider.entity.persons.Dependant;
+import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.utils.enums.SourceType;
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -52,6 +56,7 @@ public class MedicationDispensing {
 
     private String claimStatus; // PENDING, CLAIMED
 
+    private Status status;
     private String claimUuid;
 
     private Double totalAmount;
@@ -83,5 +88,14 @@ public class MedicationDispensing {
     private String primaryDiagnosis;
 
     private String secondaryDiagnosis;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "insured_id")
+    @JsonBackReference(value = "employee-provided-services")
+    private Insured insured;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dependant_id")
+    @JsonBackReference(value = "dependant-provided-services")
+    private Dependant dependant;
 
 }

@@ -97,6 +97,7 @@ public class PharmacyIntegrationController {
             @RequestBody String[] dispensingUuids) {
         return pharmacyIntegrationService.createClaimFromDispensingRecords(providerUuid, dispensingUuids);
     }
+
 //TODO THIS API AUTHORIZES A SINGLE DISPENSING MEDICATION
     @PostMapping("/dispensing/authorize/{dispensingUuid}")
     @Operation(summary = "Authorize single dispensing record",
@@ -132,6 +133,8 @@ public class PharmacyIntegrationController {
             @RequestBody String[] dispensingUuids) {
         return pharmacyIntegrationService.createClaimFromAuthorizedRecords(providerUuid, dispensingUuids);
     }
+
+
 
     @PutMapping("/dispensing/update-status/{providerUuid}")
     @Operation(summary = "Update status of dispensing records",

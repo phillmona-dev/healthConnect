@@ -89,6 +89,6 @@ public class ClaimDetailResponse {
     private List<ClaimAttachmentResponse> attachments;
     private List<ClaimCommentResponse> comments;
     private List<ClaimLogResponse> logs;
-//    private List<ProvidedServiceResponse> services;
-    private ProvidedServiceResponse service;
+    private List<ProvidedServiceResponse> services;
+//    private ProvidedServiceResponse service;
 }

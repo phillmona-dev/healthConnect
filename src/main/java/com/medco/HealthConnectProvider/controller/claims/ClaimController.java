@@ -31,7 +31,6 @@ public class ClaimController {
 
     private final ClaimService claimService;
 
-
     private final PharmacyIntegrationService pharmacyIntegrationService;
 
     public ClaimController(ClaimService claimService, PharmacyIntegrationService pharmacyIntegrationService) {
@@ -39,12 +38,12 @@ public class ClaimController {
         this.pharmacyIntegrationService = pharmacyIntegrationService;
     }
 
-
-    @PostMapping
-    @Operation(summary = "Submit a new claim")
-    public ResponseEntity<?> submitClaim(@Valid @RequestBody ClaimRequest claimRequest) {
-        return claimService.submitClaim(claimRequest);
-    }
+//
+//    @PostMapping
+//    @Operation(summary = "Submit a new claim")
+//    public ResponseEntity<?> submitClaim(@Valid @RequestBody ClaimRequest claimRequest) {
+//        return claimService.submitClaim(claimRequest);
+//    }
 
     @GetMapping("/{claimUuid}")
     @Operation(summary = "Get claim details by UUID")
@@ -162,5 +161,18 @@ public class ClaimController {
     @PostMapping("/claims/{claimUuid}/reconcile")
     public ResponseEntity<?> reconcilePayment(@PathVariable String claimUuid) {
         return pharmacyIntegrationService.reconcilePayment(claimUuid);
+    }
+
+
+
+//    TODO NEW APIS FOR THE CLAIM
+
+
+    @PostMapping("/createBatchClaim/{batchCode}")
+    @Operation(summary = "Create claim from a batch",
+            description = "Creates a new claim from authorized batch")
+    public ResponseEntity<?> createBatchClaim(
+            @PathVariable String batchCode) {
+        return claimService.createBatchClaim(batchCode);
     }
 }

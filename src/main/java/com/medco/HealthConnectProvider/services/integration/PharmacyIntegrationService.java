@@ -61,4 +61,5 @@ public interface PharmacyIntegrationService {
 
     ResponseEntity<List<MedicationDispensingDTO>> getMedicationsByBatchCode(String batchCode);
 
+//    ResponseEntity<?> createBatchClaim(String batchCode);
 }

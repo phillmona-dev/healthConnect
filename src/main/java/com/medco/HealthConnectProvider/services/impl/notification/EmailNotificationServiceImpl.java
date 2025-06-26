@@ -18,7 +18,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
 
     @Override
     public void notifyClaimSubmitted(Claim claim) {
-        sendEmail(claim.getProvidedService().getContractDetail().getServicelist().getProvider().getEmail(), "Claim Submitted",
+        sendEmail(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getProvider().getEmail(), "Claim Submitted",
                 "Your claim " + claim.getClaimUuid() + " has been submitted successfully.");
     }
 
@@ -33,20 +33,20 @@ public class EmailNotificationServiceImpl implements NotificationService {
 
     @Override
     public void notifyClaimApproved(Claim claim) {
-        sendEmail(claim.getProvidedService().getContractDetail().getServicelist().getProvider().getEmail(), "Claim Approved",
+        sendEmail(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getServicelist().getProvider().getEmail(), "Claim Approved",
                 "Your claim " + claim.getClaimUuid() + " has been approved.");
     }
 
     @Override
     public void notifyClaimRejected(Claim claim) {
-        sendEmail(claim.getProvidedService().getContractDetail().getServicelist().getProvider().getEmail(), "Claim Rejected",
+        sendEmail(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getServicelist().getProvider().getEmail(), "Claim Rejected",
                 "Your claim " + claim.getClaimUuid() + " has been rejected.");
     }
 
     @Override
     public void notifyPaymentInitiated(PaymentTransaction transaction) {
         Claim claim = transaction.getClaim();
-        String providerEmail = claim.getProvidedService().getContractDetail().getServicelist().getProvider().getEmail();
+        String providerEmail = claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getServicelist().getProvider().getEmail();
         String subject = "Payment Initiated";
         String message = String.format(
                 "Payment for claim %s has been initiated.\n" +
@@ -70,7 +70,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
     @Override
     public void notifyPaymentCompleted(PaymentTransaction transaction) {
         Claim claim = transaction.getClaim();
-        String providerEmail = claim.getProvidedService().getContractDetail().getServicelist().getProvider().getEmail();
+        String providerEmail = claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getServicelist().getProvider().getEmail();
         String subject = "Payment Completed";
         String message = String.format(
                 "Payment for claim %s has been completed.\n" +
@@ -98,7 +98,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
     @Override
     public void notifyPaymentFailed(PaymentTransaction transaction) {
         Claim claim = transaction.getClaim();
-        String providerEmail = claim.getProvidedService().getContractDetail().getServicelist().getProvider().getEmail();
+        String providerEmail = claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getServicelist().getProvider().getEmail();
         String subject = "Payment Failed";
         String message = String.format(
                 "Payment for claim %s has failed.\n" +
@@ -123,7 +123,7 @@ public class EmailNotificationServiceImpl implements NotificationService {
 
     @Override
     public void notifyClaimReconciled(Claim claim) {
-        sendEmail(claim.getProvidedService().getContractDetail().getServicelist().getProvider().getEmail(), "Claim Reconciled",
+        sendEmail(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getServicelist().getProvider().getEmail(), "Claim Reconciled",
                 "Your claim " + claim.getClaimUuid() + " has been reconciled.");
     }
 
