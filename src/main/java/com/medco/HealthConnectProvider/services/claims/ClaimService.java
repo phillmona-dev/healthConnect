@@ -37,4 +37,6 @@ public interface ClaimService {
     ResponseEntity<?> verifyPayment(String claimUuid);
 
     ResponseEntity<?> createBatchClaim(String batchCode);
+
+    ClaimResponse getAll(Pageable pageable);
 }
