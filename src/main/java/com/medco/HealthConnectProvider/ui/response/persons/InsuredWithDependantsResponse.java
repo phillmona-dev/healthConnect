@@ -30,6 +30,7 @@ public class InsuredWithDependantsResponse {
     private String phone;
     private String branchOffice;
     private String position;
+    private boolean dependantCoverage;
     private String idNumber;
     private String insuranceId;
     private String address;

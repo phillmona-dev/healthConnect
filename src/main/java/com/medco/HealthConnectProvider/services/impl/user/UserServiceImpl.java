@@ -9,6 +9,7 @@ import com.medco.HealthConnectProvider.entity.token.RefreshToken;
 import com.medco.HealthConnectProvider.entity.user.Role;
 import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
+import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.exception.UnauthorizedException;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
@@ -47,6 +48,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -276,15 +278,39 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public UserResponse updateUser(String userUuid, SignUpRequest userRequest) {
-
         return userRepository.findByUserUuid(userUuid)
                 .map(user -> {
-                    var response = new UserResponse();
-                    BeanUtils.copyProperties(userRequest,user);
-                    BeanUtils.copyProperties(user,response);
-                    return response;
-                }).orElseThrow(() -> new BadRequestException("User With the Provided Id not found"));
+
+                    user.setEmail(userRequest.getEmail());
+                    user.setTitle(userRequest.getTitle());
+                    user.setFirstName(userRequest.getFirstName());
+                    user.setFatherName(userRequest.getFatherName());
+                    user.setGrandFatherName(userRequest.getGrandFatherName());
+                    user.setGender(userRequest.getGender());
+                    user.setMobilePhone(userRequest.getMobilePhone());
+                    user.setUserStatus(userRequest.getUserStatus());
+
+                    if (StringUtils.hasText(userRequest.getRoleUuid())) {
+                        Role role = roleRepository.findByRoleUuid(userRequest.getRoleUuid());
+                        if (role == null){
+                            throw new BadRequestException("Invalid role UUID");
+                        }
+                        user.setRole(role);
+                    }
+
+                    User updatedUser = userRepository.save(user);
+                    return mapUserToUserResponse(updatedUser);
+                })
+                .orElseThrow(() -> new ResourceNotFoundException("User", "UUID", userUuid));
+    }
+
+    private UserResponse mapUserToUserResponse(User user) {
+        UserResponse response = new UserResponse();
+        BeanUtils.copyProperties(user, response);
+        response.setRoleName(user.getRole() != null ? user.getRole().getRoleName() : null);
+        return response;
     }
 
     @Override
@@ -444,7 +470,6 @@ public class UserServiceImpl implements UserService {
         user.setMobilePhone(payerAdminDto.getMobilePhone());
         user.setPayerUuid(payerAdminDto.getPayerUuid());
 
-        // Store the plain password temporarily for the email
         String plainPassword = payerAdminDto.getPassword();
         user.setPassword(passwordEncoder.encode(plainPassword));
 
@@ -461,7 +486,6 @@ public class UserServiceImpl implements UserService {
 
         User savedUser = userRepository.save(user);
 
-        // Get payer name for the email
         String payerName = "your institution";
         if (user.getPayerUuid() != null) {
             Payer payer = payerRepository.findByPayerUuid(user.getPayerUuid());

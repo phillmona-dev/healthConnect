@@ -458,69 +458,6 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         }
     }
 
-    private void createProviderManager(ProviderRequest providerRequest, Role savedRole, Provider savedProvider) {
-
-        SignUpRequest managerDto = new SignUpRequest();
-        managerDto.setEmail(providerRequest.getEmail());
-        managerDto.setGender("Male");
-        managerDto.setTitle("Mr");
-        managerDto.setFirstName("Provider");
-        managerDto.setFatherName("Manager");
-        managerDto.setGrandFatherName("Default");
-        managerDto.setMobilePhone(providerRequest.getTelephone());
-
-        String randomPassword = generateRandomPassword();
-        managerDto.setPassword(randomPassword);
-
-        managerDto.setRoleUuid(savedRole.getRoleUuid());
-        //managerDto.setProviderUuid(savedProvider.getProviderUuid());
-        managerDto.setUserStatus(Status.ACTIVE);
-
-        try {
-            User savedUser = createProviderManagerUser(managerDto, savedProvider);
-
-            String loginUrl = frontendUrl + "/login?newUser=true&email=" + savedUser.getEmail();
-            emailService.sendWelcomeEmail(
-                    savedUser.getEmail(),
-                    savedUser.getFirstName(),
-                    randomPassword,
-                    savedProvider.getProviderName(),
-                    loginUrl
-            );
-        } catch (Exception e) {
-            System.err.println("Failed to create provider manager: " + e.getMessage());
-        }
-    }
-
-    private User createProviderManagerUser(SignUpRequest managerDto, Provider savedProvide) {
-        if (userRepository.existsByEmail(managerDto.getEmail())) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Error: Email is already in use!");
-        }
-
-        User user = new User();
-        BeanUtils.copyProperties(managerDto, user);
-        user.setPassword(passwordEncoder.encode(managerDto.getPassword()));
-
-        Role role = roleRepository.findByRoleUuid(managerDto.getRoleUuid());
-        if (role == null) {
-            throw new BadRequestException("Role not found");
-        }
-        user.setRole(role);
-        user.setProviderUuid(savedProvide.getProviderUuid());
-
-        return userRepository.save(user);
-    }
-
-    private static String generateRandomPassword() {
-        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
-        StringBuilder sb = new StringBuilder();
-        Random random = new Random();
-        for (int i = 0; i < 6; i++) {
-            int index = random.nextInt(chars.length());
-            sb.append(chars.charAt(index));
-        }
-        return sb.toString();
-    }
 
     @Override
     public ResponseEntity<?> updateProvider(String providerUuid, ProviderRequest providerRequest, MultipartFile logo) {

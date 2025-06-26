@@ -94,4 +94,10 @@ public interface ProviderRepository extends JpaRepository<Provider, Long>, JpaSp
 
     Optional<Object> findByProviderName(String providerName);
 
+    @Query("SELECT DISTINCT p FROM Provider p JOIN p.contractHeaders ch WHERE ch.payer.payerUuid = :payerUuid AND p.isDeleted = false")
+    Page<Provider> findProvidersWithContractByPayer(@Param("payerUuid") String payerUuid, Pageable pageable);
+
+    @Query("SELECT DISTINCT p FROM Provider p JOIN p.contractHeaders ch WHERE ch.payer.payerUuid = :payerUuid AND p.isDeleted = false " +
+            "AND (p.providerName LIKE %:search% OR p.email LIKE %:search% OR p.telephone LIKE %:search%)")
+    Page<Provider> findProvidersWithContractByPayer(@Param("payerUuid") String payerUuid, @Param("search") String search, Pageable pageable);
 }

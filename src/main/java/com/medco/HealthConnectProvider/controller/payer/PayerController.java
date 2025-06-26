@@ -7,6 +7,7 @@ import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
+import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -57,7 +58,6 @@ public class PayerController {
         return payerService.updatePayer(payerUuid, payerRequest, logo);
     }
 
-
     @PutMapping(path="/updateInstitutionStatus/{payerUuid}")
     @Operation(summary = "Update payer status", description = "Updates the status of a payer")
     public ResponseEntity<?> updateInstitutionStatus(@PathVariable String payerUuid, @RequestParam Status payerStatus) {
@@ -93,7 +93,6 @@ public class PayerController {
                 payerName, tinNumber, level, sortBy, sortDir);
 
     }
-
 
     @GetMapping("/list/without_logo")
     @Operation(
@@ -147,6 +146,19 @@ public class PayerController {
     @Operation(summary = "Get payer logo", description = "Retrieves the logo image for a payer")
     public ResponseEntity<ByteArrayResource> getPayerLogo(@PathVariable String payerUuid) {
         return payerService.getPayerLogo(payerUuid);
+    }
+
+
+    @GetMapping("/{payerUuid}/providers-with-contract")
+    @Operation(summary = "Get providers with contract for a payer")
+    public ResponseEntity<PagedResponse<ProviderResponse>> getProvidersWithContract(
+            @PathVariable String payerUuid,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "providerName") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir,
+            @RequestParam(required = false) String search) {
+        return payerService.getProvidersWithContract(payerUuid, page, size, sortBy, sortDir, search);
     }
 
 }

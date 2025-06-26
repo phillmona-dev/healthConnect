@@ -27,6 +27,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.persons.Dependan
 import com.medco.HealthConnectProvider.ui.request.auth.password.persons.InsuredRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.persons.InsuredWithDependantsRequest;
 import com.medco.HealthConnectProvider.ui.request.persons.InsuredUpdateRequest;
+import com.medco.HealthConnectProvider.ui.response.ApiErrorResponse;
 import com.medco.HealthConnectProvider.ui.response.ImportResponse;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
@@ -252,13 +253,22 @@ public class InsuredServiceImpl implements InsuredService {
         try {
             Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
             if (insured == null) {
-                throw new RuntimeException("Insured person not found with UUID: " + insuredUuid);
+                throw new ResourceNotFoundException("Insured person", "UUID", insuredUuid);
             }
 
             InsuredWithDependantsResponse response = new InsuredWithDependantsResponse();
             BeanUtils.copyProperties(insured, response);
 
             setProfilePictureBase64(insured.getProfilePicturePath(), response);
+
+            // Get dependantCoverage from Payer
+            Payer payer = insured.getPayer();
+            if (payer != null) {
+                response.setDependantCoverage(payer.isDependantCoverage());
+            } else {
+                log.warn("Payer not found for insured with UUID: {}", insuredUuid);
+                response.setDependantCoverage(false);
+            }
 
             if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
                 List<DependantResponse> dependantResponses = insured.getDependants().stream()
@@ -270,10 +280,11 @@ public class InsuredServiceImpl implements InsuredService {
 
             return ResponseEntity.ok(response);
         } catch (ResourceNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiErrorResponse(e.getMessage()));
         } catch (Exception e) {
             log.error("Error fetching insured person: ", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred while fetching the insured person");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiErrorResponse("An error occurred while fetching the insured person"));
         }
     }
 

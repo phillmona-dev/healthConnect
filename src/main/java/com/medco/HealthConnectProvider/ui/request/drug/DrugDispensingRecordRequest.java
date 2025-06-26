@@ -17,6 +17,7 @@ public class DrugDispensingRecordRequest {
 
     private String insuredUuid;
     private String dependantUuid;
+    private String insuredUuid;
     private String providerUuid;
     private String payerUuid;
     private String phone;

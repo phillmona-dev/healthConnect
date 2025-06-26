@@ -7,6 +7,7 @@ import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
+import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.Valid;
 import org.springframework.core.io.ByteArrayResource;
@@ -54,4 +55,6 @@ public interface PayerService {
     ResponseEntity<?> reviewClaim(String claimUuid, ClaimReviewRequest reviewRequest);
 
     PagedResponse<PayerResponse> getPayersWithFiltersWithOutLogo(String searchKey, int page, int limit, Status status, String category, String payerName, Long tinNumber, String level, String sortBy, String sortDir);
+
+    ResponseEntity<PagedResponse<ProviderResponse>> getProvidersWithContract(String payerUuid, int page, int size, String sortBy, String sortDir, String search);
 }
