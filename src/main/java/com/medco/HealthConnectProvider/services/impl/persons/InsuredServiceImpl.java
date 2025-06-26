@@ -27,6 +27,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.persons.Dependan
 import com.medco.HealthConnectProvider.ui.request.auth.password.persons.InsuredRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.persons.InsuredWithDependantsRequest;
 import com.medco.HealthConnectProvider.ui.request.persons.InsuredUpdateRequest;
+import com.medco.HealthConnectProvider.ui.response.ImportResponse;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.*;
@@ -1147,16 +1148,17 @@ public class InsuredServiceImpl implements InsuredService {
         return insuredResponse;
     }
 
-
-
     @Override
     @Transactional
-    public ResponseEntity<?> importInsuredPersonAndDependant(File file, String institutionUuid) throws Exception, IOException {
+    public ResponseEntity<?> importInsuredPersonAndDependant(File file, String payerUuid) throws Exception, IOException {
         Workbook workbook = null;
+        Logger logger = LoggerFactory.getLogger(this.getClass());
+        List<String> errors = new ArrayList<>();
+        int successfulImports = 0;
+
         try {
             workbook = WorkbookFactory.create(file);
             Sheet sheet = workbook.getSheetAt(0);
-            int i = 0;
             int numberOfColumns = 0;
             int numbrOfDependants = 0;
 
@@ -1165,264 +1167,192 @@ public class InsuredServiceImpl implements InsuredService {
                     continue;
                 }
 
-                if (i == 0) {
-                    // Get the number of columns in the first row
-                    numberOfColumns = row.getLastCellNum();
+                if (numberOfColumns == 0) {
 
-                    // Calculate number of dependants - each dependant has 6 columns
-                    if (numberOfColumns > 17) {
-                        numbrOfDependants = (numberOfColumns - 17) / 6;
-
-                        // Check if the dependant columns are properly formatted (multiple of 6)
-                        if ((numberOfColumns - 17) % 6 != 0) {
-                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                    "Error: Use the valid format for importing members. Each dependant should have exactly 6 columns.");
-                        }
-                    }
-
-                    // Validate header row
                     try {
-                        if (!row.getCell(0).getStringCellValue().equalsIgnoreCase("Title")
-                                || !row.getCell(1).getStringCellValue().equalsIgnoreCase("First Name")
-                                || !row.getCell(2).getStringCellValue().equalsIgnoreCase("Father Name")
-                                || !row.getCell(3).getStringCellValue().equalsIgnoreCase("Grand Father Name")
-                                || !row.getCell(4).getStringCellValue().equalsIgnoreCase("Gender")
-                                || !row.getCell(5).getStringCellValue().equalsIgnoreCase("Date of Birth")
-                                || !row.getCell(6).getStringCellValue().equalsIgnoreCase("ID Number")
-                                || !row.getCell(7).getStringCellValue().equalsIgnoreCase("Phone")
-                                || !row.getCell(8).getStringCellValue().equalsIgnoreCase("Email")
-                                || !row.getCell(9).getStringCellValue().equalsIgnoreCase("Branch Office")
-                                || !row.getCell(10).getStringCellValue().equalsIgnoreCase("Position")
-                                || !row.getCell(11).getStringCellValue().equalsIgnoreCase("Address")
-                                || !row.getCell(12).getStringCellValue().equalsIgnoreCase("State")
-                                || !row.getCell(13).getStringCellValue().equalsIgnoreCase("Country")
-                                || !row.getCell(14).getStringCellValue().equalsIgnoreCase("Insurance Number")) {
-                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                    "Error: The Excel sheet for uploading insured person should use the standard format.");
-                        }
-                    } catch (NullPointerException e) {
-                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                "Error: Missing required columns in the Excel sheet header.");
-                    }
-                } else {
-                    // Process data rows
-                    try {
-                        // Create and populate the Insured entity
-                        Insured person = new Insured();
-                        person.setInsuredUuid(UUID.randomUUID().toString());
+                        numberOfColumns = row.getLastCellNum();
+                        String[] expectedHeaders = {"Title", "First Name", "Father Name", "Grand Father Name", "Gender",
+                                "Date of Birth", "ID Number", "Phone", "Email", "Branch Office",
+                                "Position", "Address", "State", "Country", "Insurance Number"};
 
-                        // Set insured person properties
-                        person.setTitle(getCellValueAsString(row.getCell(0)));
-                        person.setFirstName(getCellValueAsString(row.getCell(1)));
-                        person.setFatherName(getCellValueAsString(row.getCell(2)));
-                        person.setGrandFatherName(getCellValueAsString(row.getCell(3)));
-                        person.setGender(getCellValueAsString(row.getCell(4)));
-
-                        // Handle birth date
-                        try {
-                            if (row.getCell(5) != null) {
-                                if (row.getCell(5).getCellType() == CellType.NUMERIC) {
-                                    person.setBirthDate(row.getCell(5).getDateCellValue());
-                                } else if (row.getCell(5).getCellType() == CellType.STRING) {
-                                    // Try to parse the string as a date
-                                    String dateStr = row.getCell(5).getStringCellValue();
-                                    try {
-                                        // Try different date formats
-                                        SimpleDateFormat[] formats = {
-                                                new SimpleDateFormat("yyyy-MM-dd"),
-                                                new SimpleDateFormat("MM/dd/yyyy"),
-                                                new SimpleDateFormat("dd/MM/yyyy"),
-                                                new SimpleDateFormat("dd-MM-yyyy")
-                                        };
-
-                                        Date parsedDate = null;
-                                        for (SimpleDateFormat format : formats) {
-                                            try {
-                                                parsedDate = format.parse(dateStr);
-                                                break;
-                                            } catch (ParseException e) {
-                                                // Try next format
-                                            }
-                                        }
-
-                                        if (parsedDate != null) {
-                                            person.setBirthDate(parsedDate);
-                                        } else {
-                                            throw new BadRequestException("Invalid date format for Birth Date: " + dateStr);
-                                        }
-                                    } catch (Exception e) {
-                                        throw new BadRequestException("Invalid date format for Birth Date: " + dateStr);
-                                    }
-                                }
-                            }
-                        } catch (Exception e) {
-                            throw new BadRequestException("Error processing Birth Date in row " + (i+1) + ": " + e.getMessage());
-                        }
-
-                        person.setIdNumber(getCellValueAsString(row.getCell(6)));
-                        person.setPhone(getCellValueAsString(row.getCell(7)));
-                        person.setEmail(getCellValueAsString(row.getCell(8)));
-                        person.setBranchOffice(getCellValueAsString(row.getCell(9)));
-                        person.setPosition(getCellValueAsString(row.getCell(10)));
-                        person.setAddress(getCellValueAsString(row.getCell(11)));
-                        person.setState(getCellValueAsString(row.getCell(12)));
-                        person.setCountry(getCellValueAsString(row.getCell(13)));
-                        person.setInsuranceId(getCellValueAsString(row.getCell(14)));
-
-                        // Set status and institution
-                        person.setStatus(Status.ACTIVE);
-                        Payer payer = payerRepository.findByPayerUuid(institutionUuid);
-                        if (payer == null) {
-                            throw new BadRequestException("Institution not found with UUID: " + institutionUuid);
-                        }
-                        person.setPayerUuid(institutionUuid);
-                        person.setPayer(payer);
-
-                        // Initialize the dependents collection
-                        if (person.getDependants() == null) {
-                            person.setDependants(new ArrayList<>());
-                        }
-
-                        // Save the insured person first to get an ID
-                        insuredRepository.save(person);
-
-                        // Now process dependants for this insured person
-                        List<Dependant> dependants = new ArrayList<>();
-                        int k = 0;
-                        for (int j = 17; j < numberOfColumns; j += 6) {
-                            k++;
-
-                            // Check if dependant data exists
-                            if (j + 5 < row.getLastCellNum() &&
-                                    row.getCell(j) != null &&
-                                    !getCellValueAsString(row.getCell(j)).trim().isEmpty()) {
-
-                                Dependant dependant = new Dependant();
-                                dependant.setDependantUuid(UUID.randomUUID().toString());
-
-                                // Set dependant properties
-                                dependant.setFirstName(getCellValueAsString(row.getCell(j)));
-                                dependant.setFatherName(getCellValueAsString(row.getCell(j + 1)));
-                                dependant.setGrandFatherName(getCellValueAsString(row.getCell(j + 2)));
-                                dependant.setGender(getCellValueAsString(row.getCell(j + 3)));
-
-                                // Handle date cell for dependant
-                                if (row.getCell(j + 4) != null) {
-                                    try {
-                                        if (row.getCell(j + 4).getCellType() == CellType.NUMERIC) {
-                                            dependant.setBirthDate(row.getCell(j + 4).getDateCellValue());
-                                        } else if (row.getCell(j + 4).getCellType() == CellType.STRING) {
-                                            // Try to parse the string as a date
-                                            String dateStr = row.getCell(j + 4).getStringCellValue();
-                                            try {
-                                                // Try different date formats
-                                                SimpleDateFormat[] formats = {
-                                                        new SimpleDateFormat("yyyy-MM-dd"),
-                                                        new SimpleDateFormat("MM/dd/yyyy"),
-                                                        new SimpleDateFormat("dd/MM/yyyy"),
-                                                        new SimpleDateFormat("dd-MM-yyyy")
-                                                };
-
-                                                Date parsedDate = null;
-                                                for (SimpleDateFormat format : formats) {
-                                                    try {
-                                                        parsedDate = format.parse(dateStr);
-                                                        break;
-                                                    } catch (ParseException e) {
-                                                        // Try next format
-                                                    }
-                                                }
-
-                                                if (parsedDate != null) {
-                                                    dependant.setBirthDate(parsedDate);
-                                                } else {
-                                                    throw new BadRequestException("Invalid date format for Dependant Birth Date: " + dateStr);
-                                                }
-                                            } catch (Exception e) {
-                                                throw new BadRequestException("Invalid date format for Dependant Birth Date: " + dateStr);
-                                            }
-                                        }
-                                    } catch (Exception e) {
-                                        throw new BadRequestException("Error processing Dependant Birth Date in row " + (i+1) + ": " + e.getMessage());
-                                    }
-                                }
-
-                                // Handle relationship cell
-                                if (row.getCell(j + 5) != null) {
-                                    String relationshipStr = getCellValueAsString(row.getCell(j + 5)).trim();
-
-                                    // Try to match the relationship string to an enum value, ignoring case
-                                    try {
-                                        // First try exact match
-                                        try {
-                                            dependant.setRelationship(Relationship.valueOf(relationshipStr));
-                                        } catch (IllegalArgumentException e) {
-                                            // If that fails, try case-insensitive match
-                                            boolean found = false;
-                                            for (Relationship rel : Relationship.values()) {
-                                                if (rel.name().equalsIgnoreCase(relationshipStr)) {
-                                                    dependant.setRelationship(rel);
-                                                    found = true;
-                                                    break;
-                                                }
-                                            }
-
-                                            if (!found) {
-                                                throw new BadRequestException("Invalid relationship value: '" + relationshipStr +
-                                                        "'. Valid values are: " + Arrays.toString(Relationship.values()) +
-                                                        ". Make sure there are no extra spaces or special characters.");
-                                            }
-                                        }
-                                    } catch (Exception e) {
-                                        throw new BadRequestException("Error processing relationship: " + e.getMessage());
-                                    }
-                                }
-
-                                dependant.setStatus(Status.ACTIVE);
-
-                                // Set the relationship to the insured person
-                                dependant.setInsured(person);
-
-                                // Save the dependant
-                                dependantRepository.save(dependant);
-
-                                // Add to the list for this insured person
-                                dependants.add(dependant);
-                            }
-
-                            if (k >= numbrOfDependants) {
-                                break;
+                        for (int i = 0; i < expectedHeaders.length; i++) {
+                            String cellValue = getCellValueAsString(row.getCell(i));
+                            if (!cellValue.equalsIgnoreCase(expectedHeaders[i])) {
+                                logger.error("Header mismatch at column {}: Expected '{}', Found '{}'", i + 1, expectedHeaders[i], cellValue);
+                                errors.add("Header mismatch at column " + (i + 1) + ": Expected '" + expectedHeaders[i] + "', Found '" + cellValue + "'");
                             }
                         }
 
-                        // Update the insured person's dependents collection
-                        if (!dependants.isEmpty()) {
-                            person.getDependants().addAll(dependants);
-                            insuredRepository.save(person);
+                        if (!errors.isEmpty()) {
+                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Error: The Excel sheet for uploading insured person should use the standard format.");
                         }
 
+                        // Calculate number of dependants - each dependant has 6 columns
+                        if (numberOfColumns > 15) {
+                            numbrOfDependants = (numberOfColumns - 15) / 6;
+                            if ((numberOfColumns - 15) % 6 != 0) {
+                                logger.warn("Unexpected number of columns for dependants: {}. Each dependant should have exactly 6 columns.", numberOfColumns - 15);
+                            }
+                        }
                     } catch (Exception e) {
-                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                "Error processing row " + (i+1) + ": " + e.getMessage());
+                        logger.error("Error validating header row: {}", e.getMessage());
+                        errors.add("Error validating header row: " + e.getMessage());
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Error: Invalid Excel format.");
                     }
+                    continue; // Skip to next row after processing header
                 }
-                i++;
+
+                try {
+                    // Process data rows
+                    Insured person = createInsuredPerson(row, payerUuid);
+                    insuredRepository.save(person);
+
+                    // Process dependants
+                    List<Dependant> dependants = processDependants(row, person, numbrOfDependants);
+                    if (!dependants.isEmpty()) {
+                        person.getDependants().addAll(dependants);
+                        insuredRepository.save(person);
+                    }
+
+                    successfulImports++;
+                } catch (Exception e) {
+                    logger.error("Error processing row {}: {}", row.getRowNum() + 1, e.getMessage());
+                    errors.add("Error in row " + (row.getRowNum() + 1) + ": " + e.getMessage());
+                }
             }
 
-            return ResponseEntity.ok(new MessageResponse("Insured person imported successfully!"));
+            String message = successfulImports + " insured persons imported successfully.";
+            if (!errors.isEmpty()) {
+                message += " There were " + errors.size() + " errors.";
+            }
+            return ResponseEntity.ok(new ImportResponse(message, errors));
+
         } catch (Exception e) {
+            logger.error("Error during import process: {}", e.getMessage());
             throw e;
         } finally {
             if (workbook != null) {
                 try {
                     workbook.close();
                 } catch (IOException e) {
-                    System.err.println("Error closing workbook: " + e.getMessage());
+                    logger.error("Error closing workbook: {}", e.getMessage());
                 }
             }
             if (file != null && file.exists()) {
                 file.delete();
             }
+        }
+    }
+
+    private Insured createInsuredPerson(Row row, String payerUuid) throws BadRequestException {
+        String phone = getCellValueAsString(row.getCell(7));
+        String insuranceId = getCellValueAsString(row.getCell(14));
+
+        // Check if an insured person with the same phone number already exists
+        if (insuredRepository.existsByPhoneAndPayerUuid(phone, payerUuid)) {
+            logger.warn("Insured person with phone number {} already exists for payer {}. Skipping this entry.", phone, payerUuid);
+            return null;
+        }
+
+        // Check if an insured person with the same insurance ID already exists
+        if (insuredRepository.existsByInsuranceIdAndPayerUuid(insuranceId, payerUuid)) {
+            logger.warn("Insured person with insurance ID {} already exists for payer {}. Skipping this entry.", insuranceId, payerUuid);
+            return null;
+        }
+
+        Insured person = new Insured();
+        person.setInsuredUuid(UUID.randomUUID().toString());
+
+        person.setTitle(getCellValueAsString(row.getCell(0)));
+        person.setFirstName(getCellValueAsString(row.getCell(1)));
+        person.setFatherName(getCellValueAsString(row.getCell(2)));
+        person.setGrandFatherName(getCellValueAsString(row.getCell(3)));
+        person.setGender(getCellValueAsString(row.getCell(4)));
+        person.setBirthDate(parseDateCell(row.getCell(5)));
+        person.setIdNumber(getCellValueAsString(row.getCell(6)));
+        person.setPhone(phone);
+        person.setEmail(getCellValueAsString(row.getCell(8)));
+        person.setBranchOffice(getCellValueAsString(row.getCell(9)));
+        person.setPosition(getCellValueAsString(row.getCell(10)));
+        person.setAddress(getCellValueAsString(row.getCell(11)));
+        person.setState(getCellValueAsString(row.getCell(12)));
+        person.setCountry(getCellValueAsString(row.getCell(13)));
+        person.setInsuranceId(insuranceId);
+
+        person.setStatus(Status.ACTIVE);
+        Payer payer = payerRepository.findByPayerUuid(payerUuid);
+        if (payer == null) {
+            throw new BadRequestException("Institution not found with UUID: " + payerUuid);
+        }
+        person.setPayerUuid(payerUuid);
+        person.setPayer(payer);
+
+        return person;
+
+    }
+
+    private List<Dependant> processDependants(Row row, Insured person, int numbrOfDependants) throws BadRequestException {
+        List<Dependant> dependants = new ArrayList<>();
+        for (int j = 15; j < 15 + (numbrOfDependants * 6); j += 6) {
+            if (j + 5 < row.getLastCellNum() && row.getCell(j) != null && !getCellValueAsString(row.getCell(j)).trim().isEmpty()) {
+                Dependant dependant = new Dependant();
+                dependant.setDependantUuid(UUID.randomUUID().toString());
+                dependant.setFirstName(getCellValueAsString(row.getCell(j)));
+                dependant.setFatherName(getCellValueAsString(row.getCell(j + 1)));
+                dependant.setGrandFatherName(getCellValueAsString(row.getCell(j + 2)));
+                dependant.setGender(getCellValueAsString(row.getCell(j + 3)));
+                dependant.setBirthDate(parseDateCell(row.getCell(j + 4)));
+                dependant.setRelationship(parseRelationship(getCellValueAsString(row.getCell(j + 5))));
+                dependant.setStatus(Status.ACTIVE);
+                dependant.setInsured(person);
+                dependantRepository.save(dependant);
+                dependants.add(dependant);
+            }
+        }
+        return dependants;
+    }
+
+    private Date parseDateCell(Cell cell) throws BadRequestException {
+        if (cell == null) {
+            return null;
+        }
+        try {
+            if (cell.getCellType() == CellType.NUMERIC) {
+                return cell.getDateCellValue();
+            } else if (cell.getCellType() == CellType.STRING) {
+                String dateStr = cell.getStringCellValue();
+                SimpleDateFormat[] formats = {
+                        new SimpleDateFormat("yyyy-MM-dd"),
+                        new SimpleDateFormat("MM/dd/yyyy"),
+                        new SimpleDateFormat("dd/MM/yyyy"),
+                        new SimpleDateFormat("dd-MM-yyyy")
+                };
+                for (SimpleDateFormat format : formats) {
+                    try {
+                        return format.parse(dateStr);
+                    } catch (ParseException e) {
+                        // Try next format
+                    }
+                }
+                throw new BadRequestException("Invalid date format: " + dateStr);
+            }
+        } catch (Exception e) {
+            throw new BadRequestException("Error processing date: " + e.getMessage());
+        }
+        return null;
+    }
+
+    private Relationship parseRelationship(String relationshipStr) throws BadRequestException {
+        try {
+            return Relationship.valueOf(relationshipStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            for (Relationship rel : Relationship.values()) {
+                if (rel.name().equalsIgnoreCase(relationshipStr)) {
+                    return rel;
+                }
+            }
+            throw new BadRequestException("Invalid relationship value: '" + relationshipStr +
+                    "'. Valid values are: " + Arrays.toString(Relationship.values()));
         }
     }
 

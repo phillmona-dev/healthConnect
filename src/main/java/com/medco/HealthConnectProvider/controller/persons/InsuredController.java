@@ -157,8 +157,8 @@ public class InsuredController {
 //	@PreAuthorize("hasRole('Upload-Insured-Persons')")
     @Operation(summary = "Import insured persons and dependants", description = "Imports insured persons and their dependants from a file")
     public ResponseEntity<?> importInsuredAndDependant(@RequestParam("file") MultipartFile file,
-                                                       @RequestParam("institutionUuid") String institutionUuid) throws Exception {
-        return insuredService.importInsuredPersonAndDependant(convert(file), institutionUuid);
+                                                       @RequestParam("payerUuid") String payerUuid) throws Exception {
+        return insuredService.importInsuredPersonAndDependant(convert(file), payerUuid);
     }
 
     private File convert(MultipartFile file) throws IOException {
@@ -194,7 +194,6 @@ public class InsuredController {
     public boolean checkMemberExist(@PathVariable String payerInstitutionContractUuid) {
         return insuredService.checkMemberExist(payerInstitutionContractUuid);
     }
-
 
     @GetMapping("/insuredWithPhotoBase64/{insuredUuid}")
     @Operation(summary = "Get insured person with photo", description = "Retrieves an insured person with their photo as base64")

@@ -31,6 +31,7 @@ import com.medco.HealthConnectProvider.repository.service.ServicelistRepository;
 import com.medco.HealthConnectProvider.services.eligibility.EligibilityService;
 import com.medco.HealthConnectProvider.services.integration.PharmacyIntegrationService;
 import com.medco.HealthConnectProvider.services.persons.InsuredService;
+import com.medco.HealthConnectProvider.ui.BatchCodeInfo;
 import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
@@ -519,7 +520,15 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     private BatchRecord createBatchRecord(Payer payer, List<MedicationDispensing> dispensingRecords, Claim claim) {
         BatchRecord batchRecord = new BatchRecord();
-        batchRecord.setBatchCode(generateBatchCode());
+
+        // Get the provider from the first dispensing record
+        String providerUuid = dispensingRecords.get(0).getProviderUuid();
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+
+        BatchCodeInfo batchCodeInfo = generateBatchCode(provider);
+        batchRecord.setBatchCode(batchCodeInfo.getBatchCode());
+        batchRecord.setBatchNumber(batchCodeInfo.getBatchNumber());
+
         batchRecord.setPayerName(payer.getPayerName());
         batchRecord.setRequestedOn(LocalDateTime.now());
         batchRecord.setClaimDatingFrom(dispensingRecords.stream()
@@ -541,8 +550,17 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return batchRecord;
     }
 
-    private String generateBatchCode() {
-        return "BATCH-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    private BatchCodeInfo generateBatchCode(Provider provider) {
+        String providerPrefix = provider.getProviderName().substring(0, Math.min(provider.getProviderName().length(), 3)).toUpperCase();
+
+        Long maxBatchNumber = batchRecordRepository.findMaxBatchNumber();
+        Long newBatchNumber = (maxBatchNumber == null) ? 1L : maxBatchNumber + 1;
+
+        String batchNumberString = String.format("%07d", newBatchNumber);
+
+        String batchCode = "CL-" + providerPrefix + "-" + batchNumberString;
+
+        return new BatchCodeInfo(batchCode, newBatchNumber);
     }
 
     @Override
