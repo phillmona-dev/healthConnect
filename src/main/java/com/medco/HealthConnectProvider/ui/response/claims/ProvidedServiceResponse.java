@@ -16,14 +16,4 @@ public class ProvidedServiceResponse {
     private LocalDate dispensingDate;
     private Double totalAmount;
     List<ItemResponse> itemResponses;
-    private String providedServiceUuid;
-    private String serviceUuid;
-    private String serviceName;
-    private String serviceCode;
-    private Double quantity;
-    private Double unitPrice;
-    private Double totalPrice;
-    private String serviceCategory;
-    private String serviceSubCategory;
-    private BigDecimal negotiatedPrice;
 }

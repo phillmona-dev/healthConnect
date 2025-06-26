@@ -50,6 +50,15 @@ public class ClaimController {
     public ClaimDetailResponse getClaimByUuid(@PathVariable String claimUuid) {
         return claimService.getClaimByUuid(claimUuid);
     }
+    @GetMapping("/allClaims")
+    @Operation(summary = "Get claim details by UUID")
+    public ClaimResponse getAllClaims(@RequestParam(defaultValue = "1") int page,
+                                      @RequestParam(defaultValue = "25") int size,
+                                      @RequestParam(defaultValue = "dispensingDate") String sortBy,
+                                      @RequestParam(defaultValue = "desc") String sortDirection) {
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.fromString(sortDirection), sortBy));
+        return claimService.getAll(pageable);
+    }
     
     @GetMapping("/provider/{providerUuid}")
     @Operation(summary = "Get claims by provider")

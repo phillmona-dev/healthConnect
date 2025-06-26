@@ -34,6 +34,7 @@ import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -262,38 +263,40 @@ public class ClaimServiceImpl implements ClaimService {
         BeanUtils.copyProperties(claim, response);
 
         // Set related entity data from relationships
+        if (claim.getBatchRecord().getMedicationDispensing()!=null) {
+            response.setContractUuid(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractHeaderUuid());
+            response.setContractName(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractName());
+            response.setContractCode(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractCode());
 
-        response.setContractUuid(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractHeaderUuid());
-        response.setContractName(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractName());
-        response.setContractCode(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractCode());
+            Payer payer = claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getPayer();
+            Provider provider = claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getProvider();
+            if (claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getServicelist().getProvider() != null) {
+                response.setProviderUuid(claim.getProviderUuid());
+                response.setProviderName(provider.getProviderName());
+                response.setProviderCode(provider.getProviderCode());
+            }
 
-        Payer payer=claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getPayer();
-        Provider provider=claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getProvider();
-        if (claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getServicelist().getProvider()!=null) {
-            response.setProviderUuid(claim.getProviderUuid());
-            response.setProviderName(provider.getProviderName());
-            response.setProviderCode(provider.getProviderCode());
-        }
-        if (claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getPayer()!=null) {
-            response.setPayerUuid(claim.getPayerUuid());
-            response.setPayerName(payer.getPayerName());
-            response.setPayerCode(payer.getPayerCode());
-        }
-        if (claim.getBatchRecord().getMedicationDispensing().get(0).getInsured()!=null) {
-            Insured insured=claim.getBatchRecord().getMedicationDispensing().get(0).getInsured();
-            response.setInsuredPersonUuid(insured.getInsuredUuid());
-            response.setInsuredPersonName(insured.getFirstName()+" "+insured.getFatherName());
+            if (claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getPayer() != null) {
+                response.setPayerUuid(claim.getPayerUuid());
+                response.setPayerName(payer.getPayerName());
+                response.setPayerCode(payer.getPayerCode());
+            }
+            if (claim.getBatchRecord().getMedicationDispensing().get(0).getInsured() != null) {
+                Insured insured = claim.getBatchRecord().getMedicationDispensing().get(0).getInsured();
+                response.setInsuredPersonUuid(insured.getInsuredUuid());
+                response.setInsuredPersonName(insured.getFirstName() + " " + insured.getFatherName());
 //            response.setInsuredPersonCode(insured.get());
-            response.setInsuredPersonPhone(insured.getPhone());
-            response.setInsuredPersonGender(insured.getGender());
-            response.setInsuredPersonUuid(insured.getInsuredUuid());
+                response.setInsuredPersonPhone(insured.getPhone());
+                response.setInsuredPersonGender(insured.getGender());
+                response.setInsuredPersonUuid(insured.getInsuredUuid());
 
-        }
-        if (claim.getBatchRecord().getMedicationDispensing().get(0).getDependant()!=null) {
-            Dependant dependant=claim.getBatchRecord().getMedicationDispensing().get(0).getDependant();
-            response.setDependantUuid(dependant.getDependantUuid());
-            response.setDependantFullName(dependant.getFirstName());
-            response.setDependantRelationship(dependant.getRelationship().toString());
+            }
+            if (claim.getBatchRecord().getMedicationDispensing().get(0).getDependant() != null) {
+                Dependant dependant = claim.getBatchRecord().getMedicationDispensing().get(0).getDependant();
+                response.setDependantUuid(dependant.getDependantUuid());
+                response.setDependantFullName(dependant.getFirstName());
+                response.setDependantRelationship(dependant.getRelationship().toString());
+            }
         }
         // Use the JPA relationships to get related collections
         // Get attachments - can use the relationship directly
@@ -1021,5 +1024,10 @@ public class ClaimServiceImpl implements ClaimService {
         claimRepository.save(claim);
         return ResponseEntity.ok("claim created successfully");
 
+    }
+
+    @Override
+    public ClaimResponse getAll(Pageable pageable) {
+        Page<ClaimResponse>claims=claimRepository.findClaimServicesByPatientId(pageable);
     }
 }
