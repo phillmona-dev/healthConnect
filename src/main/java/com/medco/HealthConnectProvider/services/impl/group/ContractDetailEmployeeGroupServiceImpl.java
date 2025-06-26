@@ -37,10 +37,10 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
 
     @Autowired
     private EmployeeDependantGroupRepository employeeDependantGroupRepository;
-
-    @Override
-    @Transactional
-    public ResponseEntity<?> createContractDetailEmployeeGroup(ContractDetailEmployeeGroupRequest request) {
+//
+//    @Override
+//    @Transactional
+//    public ResponseEntity<?> createContractDetailEmployeeGroup(ContractDetailEmployeeGroupRequest request) {
 //        // Validate user access
 //        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 //        String payerUuid = userDetails.getPayerUuid();
@@ -84,8 +84,8 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
 //        contractDetailEmployeeGroupRepository.save(association);
 //
 //        return ResponseEntity.ok(new MessageResponse("Contract detail employee group association created successfully"));
-        return null;
-    }
+//        return null;
+//    }
 
     @Override
     public List<ContractDetailEmployeeGroupResponse> getContractDetailEmployeeGroupsByContract(String contractUuid) {

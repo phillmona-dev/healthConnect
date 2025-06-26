@@ -1,8 +1,6 @@
 package com.medco.HealthConnectProvider.services.impl.group;
 
-
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
-import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
@@ -40,7 +38,6 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
 
 
     private final EmployeeDependantGroupRepository groupRepository;
-
     private final PayerRepository payerRepository;
     private final InsuredRepository insuredRepository;
     private final DependantRepository dependantRepository;
@@ -261,8 +258,12 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
         EmployeeDependantGroup employeeDependantGroup=groupRepository.findByGroupUuid(groupUuid);
         if (request.isInsured()) {
             List<Insured>insuredList=insuredRepository.findByInsuredUuidIn(request.getInsuredUuids());
-            Set<Insured> insuredSet = new HashSet<>(insuredList);
-            employeeDependantGroup.getInsureds().addAll(insuredSet);
+            for (Insured insured : insuredList) {
+                insured.setEmployeeDependantGroup(employeeDependantGroup); // 🔥 important
+                employeeDependantGroup.getInsureds().add(insured);          // optional but good to keep both sides in sync
+            }
+//            Set<Insured> insuredSet = new HashSet<>(insuredList);
+//            employeeDependantGroup.getInsureds().addAll(insuredSet);
             groupRepository.save(employeeDependantGroup);
 
         }

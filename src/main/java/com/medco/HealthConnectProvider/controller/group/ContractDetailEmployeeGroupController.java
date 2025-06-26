@@ -4,6 +4,7 @@ import com.medco.HealthConnectProvider.services.group.ContractDetailEmployeeGrou
 import com.medco.HealthConnectProvider.ui.request.group.ContractDetailEmployeeGroupRequest;
 import com.medco.HealthConnectProvider.ui.response.groups.ContractDetailEmployeeGroupResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.util.List;
 
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/v1/healthConnect/contract-detail-employee-groups")
 @Tag(name = "Contract Detail Employee Group Management", description = "APIs for managing associations between contract details and employee groups")
@@ -25,19 +27,19 @@ public class ContractDetailEmployeeGroupController {
     @Autowired
     private ContractDetailEmployeeGroupService contractDetailEmployeeGroupService;
 
-    @PostMapping
-    @PreAuthorize("hasRole('Create-Provider-Contract')")
-    @Operation(summary = "Create association", description = "Creates an association between a contract detail and an employee group")
-    public ResponseEntity<?> createContractDetailEmployeeGroup(
-            @Valid @RequestBody ContractDetailEmployeeGroupRequest request) {
-        return contractDetailEmployeeGroupService.createContractDetailEmployeeGroup(request);
-    }
+//    @PostMapping
+//    @PreAuthorize("hasRole('Create-Provider-Contract')")
+//    @Operation(summary = "Create association", description = "Creates an association between a contract detail and an employee group")
+//    public ResponseEntity<?> createContractDetailEmployeeGroup(
+//            @Valid @RequestBody ContractDetailEmployeeGroupRequest request) {
+//        return contractDetailEmployeeGroupService.createContractDetailEmployeeGroup(request);
+//    }
 
     @PostMapping("/batch/{employeeGroupUuid}")
     @PreAuthorize("hasRole('Create-Provider-Contract')")
     @Operation(summary = "Batch create associations", description = "Creates multiple associations between contract details and employee groups")
     public ResponseEntity<?> batchCreateContractDetailEmployeeGroups(@PathVariable(value = "employeeGroupUuid")String employeeGroupUuid,
-            @RequestParam(value = "eligibleServicesUuid")ContractDetailEmployeeGroupRequest request) {
+            @Valid @RequestBody ContractDetailEmployeeGroupRequest request) {
         return contractDetailEmployeeGroupService.batchCreateContractDetailEmployeeGroups(employeeGroupUuid,request);
     }
 

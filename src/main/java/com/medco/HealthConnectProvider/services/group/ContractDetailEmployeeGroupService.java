@@ -9,13 +9,8 @@ import org.springframework.http.ResponseEntity;
 import java.util.List;
 
 public interface ContractDetailEmployeeGroupService {
-    
-    /**
-     * Create a new contract detail employee group association
-     * @param request The request containing contract detail and employee group UUIDs
-     * @return Response with success message
-     */
-    ResponseEntity<?> createContractDetailEmployeeGroup(ContractDetailEmployeeGroupRequest request);
+
+//    ResponseEntity<?> createContractDetailEmployeeGroup(ContractDetailEmployeeGroupRequest request);
     
     /**
      * Get all contract detail employee group associations for a contract
