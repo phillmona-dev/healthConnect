@@ -1,11 +1,6 @@
 package com.medco.HealthConnectProvider.entity.claims;
 
 import com.medco.HealthConnectProvider.shared.Audit;
-import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
-import com.medco.HealthConnectProvider.entity.payers.Payer;
-import com.medco.HealthConnectProvider.entity.providers.Provider;
-import com.medco.HealthConnectProvider.entity.persons.Insured;
-import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -21,7 +16,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -85,7 +79,9 @@ public class Claim extends Audit {
     private String submittedByName;
 
     private String preparedByProviderUuid;
+
     private String preparedByProviderStatus;
+
     private LocalDateTime preparedByProviderDate;
 
     private String approvedByProviderUuid;

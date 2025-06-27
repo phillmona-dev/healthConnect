@@ -72,6 +72,7 @@ public class MedicationDispensing {
 
     @OneToMany(mappedBy = "dispensing", cascade = CascadeType.ALL)
     private List<MedicationDispensingItem> items;
+
     @ManyToOne
     @JoinColumn(name = "batch_id")
     private BatchRecord batchRecord;

@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.entity.contracts;
 
 import com.medco.HealthConnectProvider.entity.payers.Payer;
+import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.shared.Audit;
@@ -10,10 +11,7 @@ import lombok.*;
 
 import java.io.Serializable;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Getter
 @Setter
@@ -95,19 +93,39 @@ public class ContractHeader extends Audit implements Serializable {
         }
     }
 
+//    @ManyToMany
+//    @JoinTable(
+//            name = "contract_insured",
+//            joinColumns = @JoinColumn(name = "contract_id"),
+//            inverseJoinColumns = @JoinColumn(name = "employee_insured_id")
+//    )
+//    @Builder.Default
+//    private List<Insured> insured = new ArrayList<>();
+
     @ManyToMany
     @JoinTable(
             name = "contract_insured",
-            joinColumns = @JoinColumn(name = "contract_id"),
-            inverseJoinColumns = @JoinColumn(name = "employee_insured_id")
+            joinColumns = @JoinColumn(name = "contract_header_id"),
+            inverseJoinColumns = @JoinColumn(name = "insured_id")
     )
-    @Builder.Default
-    private List<Insured> insured = new ArrayList<>();
+    private Set<Insured> insured = new HashSet<>();
 
-    // Helper methods for the relationship
-    public void addInsured(Insured employee) {
-        insured.add(employee);
-        employee.getContracts().add(this);
+    @ManyToMany
+    @JoinTable(
+            name = "contract_dependant",
+            joinColumns = @JoinColumn(name = "contract_header_id"),
+            inverseJoinColumns = @JoinColumn(name = "dependant_id")
+    )
+    private Set<Dependant> dependants = new HashSet<>();
+
+    public void addInsured(Insured insured) {
+        this.insured.add(insured);
+        insured.getContracts().add(this);
+    }
+
+    public void addDependant(Dependant dependant) {
+        this.dependants.add(dependant);
+        dependant.getContracts().add(this);
     }
 
     public void removeInsured(Insured employee) {

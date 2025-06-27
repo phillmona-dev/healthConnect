@@ -1026,8 +1026,8 @@ public class ClaimServiceImpl implements ClaimService {
 
     }
 
-    @Override
-    public ClaimResponse getAll(Pageable pageable) {
-        Page<ClaimResponse>claims=claimRepository.findClaimServicesByPatientId(pageable);
-    }
+//    @Override
+//    public ClaimResponse getAll(Pageable pageable) {
+//        Page<ClaimResponse>claims=claimRepository.findClaimServicesByPatientId(pageable);
+//    }
 }
