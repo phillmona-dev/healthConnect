@@ -8,6 +8,7 @@ import jakarta.persistence.MappedSuperclass;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.io.Serial;
 import java.io.Serializable;
 
 import org.springframework.data.annotation.CreatedBy;
@@ -25,6 +26,7 @@ import java.time.Instant;
 @JsonIgnoreProperties(value = { "createdBy", "updatedBy", "createdAt", "updatedAt" }, allowGetters = true)
 public abstract class Audit implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @Column

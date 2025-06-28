@@ -659,6 +659,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             for (MedicationDispensing record : dispensingRecords) {
                 record.setClaimStatus("SUBMITTED");
                 record.setBatchCode(batchRecord.getBatchCode());
+                record.setBatchRecord(batchRecord);
             }
 
             message = dispensingRecords.size() + " dispensing record(s) updated to SUBMITTED status. " +
@@ -747,10 +748,17 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Override
     @Transactional
     public ResponseEntity<?> addDispensingRecord(DispensingRecordRequest request) {
+
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         try {
-            Provider provider = validateProvider(request.getProviderUuid());
-            Payer payer = validatePayer(request.getPayerUuid());
-            Insured insured = findInsuredPerson(request);
+            Provider provider = validateProvider(userDetails.getProviderUuid());
+
+            Insured insured = insuredRepository.findByInsuredUuid(request.getInsuredUuid());
+
+
+            if (insured==null)
+                throw new BadRequestException("insured person couldn't be found ");
+            Payer payer = insured.getPayer();
             logger.info("Insured person found: {}", insured.getFirstName());
 
             // Find the active contract for this payer
@@ -1029,36 +1037,37 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return insured;
     }
 
-    private Insured handleMultipleInsuredFound(List<Insured> insuredList, DispensingRecordRequest request) {
-        // Filter by payer UUID
-        List<Insured> filteredByPayer = insuredList.stream()
-                .filter(insured -> insured.getPayerUuid().equals(request.getPayerUuid()))
-                .collect(Collectors.toList());
-
-        if (filteredByPayer.size() == 1) {
-            logger.info("Single insured person found after filtering by payer UUID.");
-            return filteredByPayer.get(0);
-        } else if (filteredByPayer.size() > 1) {
-            logger.warn("Multiple insured persons found even after filtering by payer UUID. Count: {}", filteredByPayer.size());
-
-            // Additional filtering logic using employeeId (idNumber)
-            if (StringUtils.hasText(request.getEmployeeId())) {
-                List<Insured> filteredByEmployeeId = filteredByPayer.stream()
-                        .filter(insured -> insured.getIdNumber().equals(request.getEmployeeId()))
-                        .collect(Collectors.toList());
-
-                if (filteredByEmployeeId.size() == 1) {
-                    logger.info("Single insured person found after filtering by employee ID.");
-                    return filteredByEmployeeId.get(0);
-                }
-            }
-
-            // If still multiple results, throw an exception
-            throw new BadRequestException("Multiple insured persons found with the given identifiers and payer. Please provide more specific information.");
-        } else {
-            throw new BadRequestException("No insured person found for the given payer UUID.");
-        }
-    }
+//    private Insured handleMultipleInsuredFound(List<Insured> insuredList, DispensingRecordRequest request) {
+//        // Filter by payer UUID
+//
+//        List<Insured> filteredByPayer = insuredList.stream()
+//                .filter(insured -> insured.getPayerUuid().equals(request.getPayerUuid()))
+//                .toList();
+//
+//        if (filteredByPayer.size() == 1) {
+//            logger.info("Single insured person found after filtering by payer UUID.");
+//            return filteredByPayer.get(0);
+//        } else if (filteredByPayer.size() > 1) {
+//            logger.warn("Multiple insured persons found even after filtering by payer UUID. Count: {}", filteredByPayer.size());
+//
+//            // Additional filtering logic using employeeId (idNumber)
+//            if (StringUtils.hasText(request.getEmployeeId())) {
+//                List<Insured> filteredByEmployeeId = filteredByPayer.stream()
+//                        .filter(insured -> insured.getIdNumber().equals(request.getEmployeeId()))
+//                        .toList();
+//
+//                if (filteredByEmployeeId.size() == 1) {
+//                    logger.info("Single insured person found after filtering by employee ID.");
+//                    return filteredByEmployeeId.get(0);
+//                }
+//            }
+//
+//            // If still multiple results, throw an exception
+//            throw new BadRequestException("Multiple insured persons found with the given identifiers and payer. Please provide more specific information.");
+//        } else {
+//            throw new BadRequestException("No insured person found for the given payer UUID.");
+//        }
+//    }
 
 
     private MedicationDispensing createDispensingRecord(DispensingRecordRequest request, Insured insured, Payer payer, Provider provider) {
@@ -1078,9 +1087,9 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         record.setPayerUuid(payer.getPayerUuid());
         record.setProviderUuid(provider.getProviderUuid());
-        record.setDispensingDate(request.getDispensingDate());
-        record.setPrescriptionNumber(request.getPrescriptionNumber());
-        record.setPharmacyTransactionId(request.getPharmacyTransactionId());
+        record.setDispensingDate(LocalDate.now());
+//        record.setPrescriptionNumber(request.getPrescriptionNumber());
+//        record.setPharmacyTransactionId(request.getPharmacyTransactionId());
         record.setClaimStatus("DRAFT");
         record.setSource(SourceType.INPUT);
         record.setInvoiceNumber(generateInvoiceNumber());

@@ -58,12 +58,13 @@ public class SecurityUtils {
         UserPrincipal userPrincipal = (UserPrincipal) principal;
         logger.debug("UserPrincipal: {}", userPrincipal);
 
-        if (userPrincipal.getPayerUuid() == null || userPrincipal.getPayerUuid().isEmpty()) {
-            logger.error("PayerUuid is null or empty for user: {}", userPrincipal.getUserUuid());
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Error: User does not have an associated payer UUID.");
-        }
+//        if (userPrincipal.getPayerUuid() == null || userPrincipal.getPayerUuid().isEmpty()) {
+//            logger.error("PayerUuid is null or empty for user: {}", userPrincipal.getUserUuid());
+//            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Error: User does not have an associated payer UUID.");
+//        }
 
         return userPrincipal;
+
     }
 
 

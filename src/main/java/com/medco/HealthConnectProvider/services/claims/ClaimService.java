@@ -3,6 +3,8 @@ package com.medco.HealthConnectProvider.services.claims;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimCommentRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimPaymentRequest;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
+import com.medco.HealthConnectProvider.ui.response.claims.ClaimListResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimDetailResponse;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
@@ -38,5 +40,5 @@ public interface ClaimService {
 
     ResponseEntity<?> createBatchClaim(String batchCode);
 
-//    ClaimResponse getAll(Pageable pageable);
+    PagedResponse<ClaimListResponse> getAll(Pageable pageable);
 }

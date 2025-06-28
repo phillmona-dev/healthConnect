@@ -28,7 +28,9 @@ import com.medco.HealthConnectProvider.ui.request.claims.ClaimRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimCommentRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimPaymentRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.*;
+import com.medco.HealthConnectProvider.ui.response.persons.InsuredWithDependantsResponse;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
@@ -46,6 +48,7 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -110,8 +113,8 @@ public class ClaimServiceImpl implements ClaimService {
     @Override
     @Transactional
     public ResponseEntity<?> submitClaim(ClaimRequest claimRequest) {
-        return  null;
-//        // Get authenticated user
+
+//         Get authenticated user
 //        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 //        String providerUuid = userDetails.getPayerUuid();
 //
@@ -220,22 +223,13 @@ public class ClaimServiceImpl implements ClaimService {
 //        }
 //
 //        // Create claim log
-//        ClaimLogs log = new ClaimLogs();
-//        log.setLogUuid(UUID.randomUUID().toString());
-//        log.setClaim(savedClaim);
-//        log.setActionByUuid(userDetails.getUserUuid());
-//        log.setActionByName(userDetails.getFirstName() + " " + userDetails.getFatherName());
-//        log.setActionByRole(userDetails.getAuthorities().iterator().next().getAuthority());
-//        log.setComment("Claim submitted by provider");
-//        log.setActionDate(Instant.now());
-//        log.setActionStatus(ClaimStatus.SUBMITTED.toString());
-//        log.setPreviousStatus("New");
-//        claimLogsRepository.save(log);
+//      createClaimLog( claim,  userDetails,  ClaimStatus.DRAFT, ClaimStatus.DRAFT, "creating new claim status");
 //
 //        // Notify claim submission
 //        notificationService.notifyClaimSubmitted(savedClaim);
 //
 //        return ResponseEntity.ok(new MessageResponse("Claim submitted successfully with UUID: " + savedClaim.getClaimUuid()));
+        return null;
     }
 
 
@@ -248,21 +242,23 @@ public class ClaimServiceImpl implements ClaimService {
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String institutionUuid = userDetails.getPayerUuid();
 
-        // If user is from provider, check if claim belongs to this provider
-        if (userDetails.getProviderUuid() == null || !claim.getProviderUuid().equals(userDetails.getProviderUuid())) {
-            throw new BadRequestException("You don't have access to this claim");
-        }
+//        // If user is from provider, check if claim belongs to this provider
+//        if (userDetails.getProviderUuid() == null || !claim.getProviderUuid().equals(userDetails.getProviderUuid())) {
+//            throw new BadRequestException("You don't have access to this claim");
+//        }
 
-        // If user is from payer, check if claim belongs to this payer
-        if (userDetails.getPayerUuid() == null || !claim.getPayerUuid().equals(institutionUuid)) {
-            throw new BadRequestException("You don't have access to this claim");
-        }
+//        // If user is from payer, check if claim belongs to this payer
+//        if (userDetails.getPayerUuid() == null || !claim.getPayerUuid().equals(institutionUuid)) {
+//            throw new BadRequestException("You don't have access to this claim");
+//        }
 
         // Map claim to response
         ClaimDetailResponse response = new ClaimDetailResponse();
         BeanUtils.copyProperties(claim, response);
 
         // Set related entity data from relationships
+        System.out.println("medication size "+claim.getBatchRecord().getMedicationDispensing().size());
+        System.out.println("batch code "+claim.getBatchRecord().getBatchCode());
         if (claim.getBatchRecord().getMedicationDispensing()!=null) {
             response.setContractUuid(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractHeaderUuid());
             response.setContractName(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractName());
@@ -1004,14 +1000,14 @@ public class ClaimServiceImpl implements ClaimService {
                     .body(new MessageResponse("Payment verification failed"));
         }
     }
-
+    @Transactional
     @Override
     public ResponseEntity<?> createBatchClaim(String batchCode) {
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
         BatchRecord batch=batchRecordRepository.findByBatchCode(batchCode).orElseThrow(()->new BadRequestException("batch not found"));
         if (userDetails.getProviderUuid()==null)throw new BadRequestException("allowed only for provider ");
-        if (!batch.getStatus().equals(Status.AUTHORIZED.toString()))throw new BadRequestException("batch is not authorized");
+        if (!batch.getStatus().equals(Status.SUBMITTED.toString()))throw new BadRequestException("batch is not submited");
         List<MedicationDispensing> authorizedMedications=new ArrayList<>();
         for (MedicationDispensing medicationDispensing:batch.getMedicationDispensing()){
             medicationDispensing.setStatus(Status.AUTHORIZED);
@@ -1020,14 +1016,34 @@ public class ClaimServiceImpl implements ClaimService {
         medicationDispensingRepository.saveAll(authorizedMedications);
         Claim claim=new Claim();
         claim.setBatchRecord(batch);
+        claim.setClaimNumber(65465884L);
         claim.setPayerUuid(batch.getPayerName());
-        claimRepository.save(claim);
+        claim.setClaimType("CLAIM");
+        claim.setMrnNumber("2");
+        claim.setServiceDate(LocalDate.now());
+        claim.setStatus(ClaimStatus.DRAFT);
+        claim.setSubmittedByUuid(userDetails.getUserUuid());
+        claim.setSubmittedByName("abb");
+        claim.setTotalAmount(BigDecimal.valueOf(1000.00));
+        claim.setVisitDate(LocalDateTime.now());
+//        claim.setCoinsuranceAmount(100);
+        Claim savedClaim =claimRepository.save(claim);
+        createClaimLog( savedClaim,  userDetails,  ClaimStatus.DRAFT, ClaimStatus.DRAFT, "creating new claim status");
         return ResponseEntity.ok("claim created successfully");
 
     }
 
-//    @Override
-//    public ClaimResponse getAll(Pageable pageable) {
-//        Page<ClaimResponse>claims=claimRepository.findClaimServicesByPatientId(pageable);
-//    }
+    @Override
+    public PagedResponse<ClaimListResponse> getAll(Pageable pageable) {
+        Page<ClaimListResponse>claims=claimRepository.findAllClaims(pageable);
+        List<ClaimListResponse> responseList = new ArrayList<>(claims.getContent());
+        return new PagedResponse<>(
+                responseList,
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                claims.getTotalElements(),
+                claims.getTotalPages(),
+                claims.isLast()
+        );
+    }
 }

@@ -59,7 +59,7 @@ public class Claim extends Audit {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal totalAmount;
 
-    @Column(nullable = false)
+//    @Column(nullable = false)
     private String claimType;
 
     @Column(nullable = false)
@@ -108,22 +108,22 @@ public class Claim extends Audit {
     private String cancelledByUuid;
     private LocalDateTime cancelledDate;
 
-    @Column(nullable = false, precision = 10, scale = 2)
+    @Column( precision = 10, scale = 2)
     private BigDecimal copayAmount;
 
-    @Column(nullable = false, precision = 10, scale = 2)
+    @Column( precision = 10, scale = 2)
     private BigDecimal deductibleAmount;
 
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal coinsuranceAmount;
+//    @Column( precision = 10, scale = 2)
+//    private BigDecimal coinsuranceAmount;
+//
+//    @Column(nullable = false, precision = 10, scale = 2)
+//    private BigDecimal payerAmount;
 
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal payerAmount;
-
-    @Column(nullable = false)
+//    @Column(nullable = false)
     private String diagnosisCodes;
 
-    @Column(nullable = false)
+//    @Column(nullable = false)
     private String procedureCodes;
 
     @Column(length = 1000)
@@ -135,8 +135,12 @@ public class Claim extends Audit {
     @Column
     private Instant reviewedAt;
 
-    @OneToOne(mappedBy = "claim")
+//    @OneToOne(mappedBy = "claim")
+//    private BatchRecord batchRecord;
+    @OneToOne
+    @JoinColumn(name = "batch_record_id")  // Add this column to your claims table
     private BatchRecord batchRecord;
+
 //
 //    @ManyToOne(fetch = FetchType.LAZY)
 //    @JoinColumn(name = "contract_id", nullable = false)
@@ -180,7 +184,7 @@ public class Claim extends Audit {
 //    private ProvidedService providedService;
 
 
-    @Column(nullable = false)
+//    @Column(nullable = false)
     @UpdateTimestamp
     private LocalDateTime lastUpdated;
 

@@ -16,15 +16,16 @@ public class DispensingRecordRequest {
 
     private String insuredUuid;
     private String dependantUuid;
-    private String providerUuid;
-    private String payerUuid;
-    private String phone;
-    private String employeeId;
-    private LocalDate dispensingDate;
-    private String prescriptionNumber;
-    private String pharmacyTransactionId;
+//    private String providerUuid;
+//    private String payerUuid;
+//    private String phone;
+//    private String employeeId;
+//    private LocalDate dispensingDate;
+//    private String prescriptionNumber;
+//    private String pharmacyTransactionId;
     private String primaryDiagnosis;
     private String secondaryDiagnosis;
+
     private List<DispensingItemRequest> medicationItems;
 
     @Setter
