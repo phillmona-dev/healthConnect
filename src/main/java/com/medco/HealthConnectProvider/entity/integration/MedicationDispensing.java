@@ -54,7 +54,7 @@ public class MedicationDispensing {
 
     private String branchName;
 
-    private String claimStatus; // PENDING, CLAIMED
+    private String claimStatus;
 
     private Status status;
     private String claimUuid;

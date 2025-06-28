@@ -2,9 +2,11 @@ package com.medco.HealthConnectProvider.services.impl.claims;
 
 
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
+import com.medco.HealthConnectProvider.dto.MedicationDispensingDTO;
 import com.medco.HealthConnectProvider.entity.claims.*;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensing;
+import com.medco.HealthConnectProvider.entity.integration.MedicationDispensingItem;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
@@ -277,22 +279,7 @@ public class ClaimServiceImpl implements ClaimService {
                 response.setPayerName(payer.getPayerName());
                 response.setPayerCode(payer.getPayerCode());
             }
-            if (claim.getBatchRecord().getMedicationDispensing().get(0).getInsured() != null) {
-                Insured insured = claim.getBatchRecord().getMedicationDispensing().get(0).getInsured();
-                response.setInsuredPersonUuid(insured.getInsuredUuid());
-                response.setInsuredPersonName(insured.getFirstName() + " " + insured.getFatherName());
-//            response.setInsuredPersonCode(insured.get());
-                response.setInsuredPersonPhone(insured.getPhone());
-                response.setInsuredPersonGender(insured.getGender());
-                response.setInsuredPersonUuid(insured.getInsuredUuid());
 
-            }
-            if (claim.getBatchRecord().getMedicationDispensing().get(0).getDependant() != null) {
-                Dependant dependant = claim.getBatchRecord().getMedicationDispensing().get(0).getDependant();
-                response.setDependantUuid(dependant.getDependantUuid());
-                response.setDependantFullName(dependant.getFirstName());
-                response.setDependantRelationship(dependant.getRelationship().toString());
-            }
         }
         // Use the JPA relationships to get related collections
         // Get attachments - can use the relationship directly
@@ -313,7 +300,9 @@ public class ClaimServiceImpl implements ClaimService {
                 .collect(Collectors.toList()));
 
         // Get provided services - can use the relationship directly
-//        response.setService(mapToServiceResponse(claim.getProvidedService()));
+        response.setServices(mapToServiceResponse(claim.getBatchRecord().getMedicationDispensing()));
+        response.setStatus(claim.getStatus().toString());
+
 
         return response;
     }
@@ -409,23 +398,70 @@ public class ClaimServiceImpl implements ClaimService {
         return response;
     }
 
-//    private ProvidedServiceResponse mapToServiceResponse(ProvidedService service) {
-//        ProvidedServiceResponse response = new ProvidedServiceResponse();
-//        BeanUtils.copyProperties(service, response);
+    private List <ProvidedServiceResponse> mapToServiceResponse(List <MedicationDispensing> services) {
+        List<ProvidedServiceResponse> providedServiceResponseList=new ArrayList<>();
+        for (MedicationDispensing medicationDispensing:services) {
+            ProvidedServiceResponse response = new ProvidedServiceResponse();
+            BeanUtils.copyProperties(medicationDispensing, response);
+            if (medicationDispensing.getInsured() != null) {
+                Insured insured = medicationDispensing.getInsured();
+                response.setInsuredPersonUuid(insured.getInsuredUuid());
+                response.setInsuredPersonName(insured.getFirstName() + " " + insured.getFatherName());
+//            response.setInsuredPersonCode(insured.get());
+                response.setInsuredPersonPhone(insured.getPhone());
+                response.setInsuredPersonGender(insured.getGender());
+                response.setInsuredPersonUuid(insured.getInsuredUuid());
+
+            }
+            if (medicationDispensing.getDependant() != null) {
+                Dependant dependant = medicationDispensing.getDependant();
+                response.setDependantUuid(dependant.getDependantUuid());
+                response.setDependantFullName(dependant.getFirstName());
+                response.setDependantRelationship(dependant.getRelationship().toString());
+            }
+
+//            if (service.getContractDetail() != null && service.getContractDetail().getServicelist() != null) {
+//                Servicelist servicelist = service.getContractDetail().getServicelist();
+//                response.setServiceUuid(servicelist.getServiceUuid());
+//                response.setServiceName(servicelist.getServiceName());
+//                response.setServiceCode(servicelist.getServiceCode());
+//                response.setServiceCategory(servicelist.getServiceCategory());
+//                response.setServiceSubCategory(servicelist.getServiceSubCategory());
 //
-//        if (service.getContractDetail() != null && service.getContractDetail().getServicelist() != null) {
-//            Servicelist servicelist = service.getContractDetail().getServicelist();
-//            response.setServiceUuid(servicelist.getServiceUuid());
-//            response.setServiceName(servicelist.getServiceName());
-//            response.setServiceCode(servicelist.getServiceCode());
-//            response.setServiceCategory(servicelist.getServiceCategory());
-//            response.setServiceSubCategory(servicelist.getServiceSubCategory());
-//
-//            response.setNegotiatedPrice(service.getContractDetail().getNegotiatedPrice());
-//        }
-//
-//        return response;
-//    }
+//                response.setNegotiatedPrice(service.getContractDetail().getNegotiatedPrice());
+
+//            response.setItemResponses(mapMedicationItems(medicationDispensing.getItems()));
+            response.setMedicationItems(mapMedicationItemss(medicationDispensing.getItems()));
+            providedServiceResponseList.add(response);
+//            }
+        }
+        return providedServiceResponseList;
+    }
+
+    private List<MedicationDispensingDTO.MedicationItemDTO> mapMedicationItemss(List<MedicationDispensingItem> items) {
+        List<MedicationDispensingDTO.MedicationItemDTO> itemResponses=new ArrayList<>();
+        for (MedicationDispensingItem item:items){
+            MedicationDispensingDTO.MedicationItemDTO response=new MedicationDispensingDTO.MedicationItemDTO();
+            BeanUtils.copyProperties(item,response);
+//            response.setServiceName(item.getMedicationName());
+//            response.setServiceUuid(item.getItemUuid());
+            itemResponses.add(response);
+            response.setItemType(item.getItemType().toString());
+        }
+        return itemResponses;
+    }
+
+    private List<ItemResponse> mapMedicationItems(List<MedicationDispensingItem> items) {
+        List<ItemResponse> itemResponses=new ArrayList<>();
+        for (MedicationDispensingItem item:items){
+            ItemResponse response=new ItemResponse();
+            BeanUtils.copyProperties(item,response);
+            response.setServiceName(item.getMedicationName());
+            response.setServiceUuid(item.getItemUuid());
+            itemResponses.add(response);
+        }
+        return itemResponses;
+    }
 
     @Override
     @Transactional
@@ -444,6 +480,13 @@ public class ClaimServiceImpl implements ClaimService {
 
         // Update specific status fields based on the new status
         updateStatusSpecificFields(claim, newStatus, userDetails);
+        for (MedicationDispensing medicationDispensing:claim.getBatchRecord().getMedicationDispensing()){
+            medicationDispensing.setClaimStatus(newStatus.toString());
+            medicationDispensingRepository.save(medicationDispensing);
+        }
+
+
+
 
         // Save updated claim
         claimRepository.save(claim);
@@ -1026,6 +1069,7 @@ public class ClaimServiceImpl implements ClaimService {
         claim.setSubmittedByName("abb");
         claim.setTotalAmount(BigDecimal.valueOf(1000.00));
         claim.setVisitDate(LocalDateTime.now());
+        claim.setPayerUuid(batch.getMedicationDispensing().get(0).getProviderUuid());
 //        claim.setCoinsuranceAmount(100);
         Claim savedClaim =claimRepository.save(claim);
         createClaimLog( savedClaim,  userDetails,  ClaimStatus.DRAFT, ClaimStatus.DRAFT, "creating new claim status");
