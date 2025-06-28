@@ -39,4 +39,6 @@ public class ContractRequest {
 
     @NotNull
     private Date endDate;
+
+    private double negotiatingPrice;
 }

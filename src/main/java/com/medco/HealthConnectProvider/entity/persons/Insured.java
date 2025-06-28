@@ -16,10 +16,7 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Builder
 @Entity
@@ -131,32 +128,10 @@ public class Insured implements Serializable {
     @JoinColumn(name = "group_id")
     @JsonBackReference(value = "employee-insured-groups")
     private EmployeeDependantGroup employeeDependantGroup;
-//    public void addEmployeeInsuredGroup(EmployeeDependantGroup group) {
-//        employeeInsuredGroups.add(group);
-//        group.setInsured(this);
-//        group.setInsured(this.);
-//    }
-
-
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payer_id")
     private Payer payer;
-
-//    @OneToMany(mappedBy = "insured", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-//    @JsonManagedReference(value = "employee-provided-services")
-//    @Builder.Default
-//    private List<Medcation> providedServices = new ArrayList<>();
-//
-//    public void addProvidedService(ProvidedService providedService) {
-//        providedServices.add(providedService);
-//        providedService.setInsured(this);
-//    }
-//
-//    public void removeProvidedService(ProvidedService providedService) {
-//        providedServices.remove(providedService);
-//        providedService.setInsured(null);
-//    }
 
     @OneToMany(mappedBy = "insured", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Dependant> dependants;
@@ -164,7 +139,8 @@ public class Insured implements Serializable {
     @JsonBackReference
     @ManyToMany(mappedBy = "insured")
     @Builder.Default
-    private List<ContractHeader> contracts = new ArrayList<>();
+//    private List<ContractHeader> contracts = new ArrayList<>();
+    private Set<ContractHeader> contracts = new HashSet<>();
 
     public void addContract(ContractHeader contract) {
         contracts.add(contract);

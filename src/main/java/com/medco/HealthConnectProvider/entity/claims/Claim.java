@@ -16,7 +16,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -80,7 +79,9 @@ public class Claim extends Audit {
     private String submittedByName;
 
     private String preparedByProviderUuid;
+
     private String preparedByProviderStatus;
+
     private LocalDateTime preparedByProviderDate;
 
     private String approvedByProviderUuid;

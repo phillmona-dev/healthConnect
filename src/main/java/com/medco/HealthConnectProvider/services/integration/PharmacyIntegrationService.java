@@ -2,11 +2,14 @@ package com.medco.HealthConnectProvider.services.integration;
 
 import com.medco.HealthConnectProvider.dto.MedicationDispensingDTO;
 import com.medco.HealthConnectProvider.dto.PendingDispensingRecordDTO;
+import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordEditRequest;
 import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
+import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordEditRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.MedicationDispensingRequest;
 import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
+import com.medco.HealthConnectProvider.ui.response.integration.DispensingDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
 
 import jakarta.validation.Valid;
@@ -17,14 +20,6 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface PharmacyIntegrationService {
-
-//    /**
-//     * Records medications dispensed to a patient from an external pharmacy system
-//     *
-//     * @param request The dispensing details including medications, patient info, etc.
-//     * @return Response with dispensing record ID and status
-//     */
-//    ResponseEntity<DispensingResponse> recordMedicationDispensing(MedicationDispensingRequest request);
 
     /**
      * Creates a new claim from selected dispensing records
@@ -60,6 +55,13 @@ public interface PharmacyIntegrationService {
     ResponseEntity<?> addDrugDispensingRecord(DrugDispensingRecordRequest request);
 
     ResponseEntity<List<MedicationDispensingDTO>> getMedicationsByBatchCode(String batchCode);
+
+    ResponseEntity<DispensingDetailResponse> getDispensingDetail(String dispensingUuid);
+
+    ResponseEntity<?> editDispensingRecord(String dispensingUuid, @Valid DispensingRecordEditRequest editRequest);
+
+    ResponseEntity<?> editDrugDispensingRecord(String dispensingUuid, @Valid DrugDispensingRecordEditRequest editRequest);
+
 
 //    ResponseEntity<?> createBatchClaim(String batchCode);
 }

@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.entity.persons;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.utils.enums.Relationship;
 import com.medco.HealthConnectProvider.utils.enums.Status;
@@ -14,10 +15,7 @@ import lombok.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Builder
 @Entity
@@ -90,6 +88,9 @@ public class Dependant implements Serializable {
     @JoinColumn(name = "group_id")
     @JsonBackReference(value = "employee-dependant-groups")
     private EmployeeDependantGroup employeeDependantGroup;
+
+    @ManyToMany(mappedBy = "dependants")
+    private Set<ContractHeader> contracts = new HashSet<>();
 
 //    // Helper methods
 //    public void addProvidedService(ProvidedService providedService) {

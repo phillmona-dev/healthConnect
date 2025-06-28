@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DispensingRecordResponse {
+    private String invoiceNumber;
     private String dispensingUuid;
     private String status;
     private String message;
@@ -22,6 +23,7 @@ public class DispensingRecordResponse {
     private Double insuranceCoverage;
 
     public DispensingRecordResponse(MedicationDispensing savedRecord) {
+        this.invoiceNumber = savedRecord.getInvoiceNumber();
         this.dispensingUuid = savedRecord.getDispensingUuid();
         this.status = "SUCCESS";
         this.message = "Dispensing record created successfully";

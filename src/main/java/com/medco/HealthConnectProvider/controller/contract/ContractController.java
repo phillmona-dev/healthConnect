@@ -4,9 +4,11 @@ import com.medco.HealthConnectProvider.services.contract.ContractService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractServiceGroupAssignmentRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
+import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractListPayerResponse;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractResponse;
+import com.medco.HealthConnectProvider.ui.response.contracts.DetailedContractResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.paginationUtils.PaginationUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -146,7 +148,7 @@ public class ContractController {
         return contractService.assignServicesToEmployeeGroups(contractUuid, assignments);
     }
 
-    @GetMapping
+    @GetMapping("/all")
     public ResponseEntity<?> getContracts(
             @RequestParam(required = false) String contractNumber,
             @RequestParam(required = false) String contractName,
@@ -201,6 +203,25 @@ public class ContractController {
 
     private Sort.Direction getSortDirection(String direction) {
         return direction.equals("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
+    }
+
+    @GetMapping("/{contractHeaderUuid}/detailed")
+    @Operation(summary = "Get detailed contract information", description = "Retrieves detailed information about a contract, including services, insured persons, and dependants")
+    public ResponseEntity<DetailedContractResponse> getDetailedContract(
+            @PathVariable String contractHeaderUuid,
+            @RequestParam String userType) {
+
+        DetailedContractResponse detailedContract = contractService.getDetailedContract(contractHeaderUuid, userType);
+        return ResponseEntity.ok(detailedContract);
+    }
+
+    @PostMapping("/{contractUuid}/add-insured")
+    @Operation(summary = "Add insured and dependants to contract",
+            description = "Adds specified insured persons and their dependants to the contract")
+    public ResponseEntity<?> addInsuredToContract(
+            @PathVariable String contractUuid,
+            @Valid @RequestBody AddInsuredToContractRequest request) {
+        return contractService.addInsuredToContract(contractUuid, request);
     }
 
 }

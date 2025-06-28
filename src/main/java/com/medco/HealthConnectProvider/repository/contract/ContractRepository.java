@@ -239,13 +239,6 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
                     cb.equal(root.get("isDeleted"),
                             filter.getIsDeleted() != null ? filter.getIsDeleted() : false));
 
-            // Add additional filters if needed
-//            if (filter.getContractCode() != null) {
-//                predicate = cb.and(predicate,
-//                        cb.like(cb.lower(root.get("contractCode")),
-//                                "%" + filter.getContractCode().toLowerCase() + "%"));
-//            }
-
             return predicate;
         }, pageable);
     }

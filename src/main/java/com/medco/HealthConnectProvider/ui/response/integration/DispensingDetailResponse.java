@@ -1,28 +1,21 @@
-package com.medco.HealthConnectProvider.dto;
+package com.medco.HealthConnectProvider.ui.response.integration;
 
-import lombok.AllArgsConstructor;
+import com.medco.HealthConnectProvider.utils.enums.SourceType;
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class MedicationDispensingDTO {
-
+public class DispensingDetailResponse {
     private String dispensingUuid;
     private String invoiceNumber;
     private String batchCode;
     private String providerUuid;
-    private String providerName;
     private String payerUuid;
-    private String payerName;
     private String insuredUuid;
-    private String insuredName;
-    private String insuranceId;
     private String prescriptionNumber;
     private String pharmacyTransactionId;
     private LocalDate dispensingDate;
@@ -31,18 +24,21 @@ public class MedicationDispensingDTO {
     private LocalDate recordedAt;
     private String branchName;
     private String claimStatus;
+    private Status status;
     private String claimUuid;
     private Double totalAmount;
     private Double patientResponsibility;
     private Double insuranceCoverage;
     private String pharmacistNotes;
-    private List<MedicationItemDTO> medicationItems;
+    private SourceType source;
+    private String primaryDiagnosis;
+    private String secondaryDiagnosis;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private List<DispensingItemDetail> items;
 
     @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class MedicationItemDTO {
-
+    public static class DispensingItemDetail {
         private String itemUuid;
         private String medicationCode;
         private String medicationName;
@@ -57,7 +53,6 @@ public class MedicationDispensingDTO {
         private String route;
         private String formulation;
         private String itemType;
-
+        private String remark;
     }
-
 }

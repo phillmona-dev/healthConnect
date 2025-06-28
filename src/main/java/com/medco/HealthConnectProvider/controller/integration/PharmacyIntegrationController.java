@@ -6,10 +6,13 @@ import com.medco.HealthConnectProvider.dto.PendingDispensingRecordDTO;
 import com.medco.HealthConnectProvider.services.claims.BatchRecordService;
 import com.medco.HealthConnectProvider.services.eligibility.EligibilityService;
 import com.medco.HealthConnectProvider.services.integration.PharmacyIntegrationService;
+import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordEditRequest;
 import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
+import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordEditRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
 import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
+import com.medco.HealthConnectProvider.ui.response.integration.DispensingDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -18,7 +21,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
@@ -212,7 +214,6 @@ public class PharmacyIntegrationController {
         return pharmacyIntegrationService.addDrugDispensingRecord(request);
     }
 
-
     @GetMapping("/medications/{batchCode}")
     @Operation(summary = "Get medications by batch code",
             description = "Retrieves a list of medications associated with a specific batch code")
@@ -220,5 +221,32 @@ public class PharmacyIntegrationController {
         return pharmacyIntegrationService.getMedicationsByBatchCode(batchCode);
     }
 
+    @GetMapping("/getDispensingDetail/{dispensingUuid}")
+    @Operation(summary = "Get dispensing detail",
+            description = "Retrieves detailed information about a specific dispensing record")
+    public ResponseEntity<DispensingDetailResponse> getDispensingDetail(
+            @PathVariable String dispensingUuid) {
+        return pharmacyIntegrationService.getDispensingDetail(dispensingUuid);
+    }
+
+    @PutMapping("/updateDispensing/{dispensingUuid}")
+    @Operation(summary = "Edit a dispensing record",
+            description = "Edits an existing dispensing record identified by its UUID")
+    public ResponseEntity<?> editDispensingRecord(
+            @PathVariable String dispensingUuid,
+            @Valid @RequestBody DispensingRecordEditRequest editRequest) {
+        return pharmacyIntegrationService.editDispensingRecord(dispensingUuid, editRequest);
+    }
+
+
+    @PutMapping("/drug-dispensing/{dispensingUuid}")
+    @Operation(summary = "Edit drug dispensing record",
+            description = "Edits an existing drug dispensing record identified by its UUID")
+    public ResponseEntity<?> editDrugDispensingRecord(
+            @PathVariable String dispensingUuid,
+            @Valid @RequestBody DrugDispensingRecordEditRequest editRequest) {
+        logger.info("Received request to edit drug dispensing record: {}", dispensingUuid);
+        return pharmacyIntegrationService.editDrugDispensingRecord(dispensingUuid, editRequest);
+    }
 
 }

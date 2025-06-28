@@ -44,6 +44,8 @@ public class ContractResponse {
     private String providerName;
     private String providerCode;
 
+    private double negotiatingPrice;
+
     private Instant createdAt;
     private Instant updatedAt;
 }
