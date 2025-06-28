@@ -532,6 +532,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             for (MedicationDispensing record : dispensingRecords) {
                 record.setClaimStatus("SUBMITTED");
                 record.setBatchCode(batchRecord.getBatchCode());
+                record.setBatchRecord(batchRecord);
             }
 
             message = dispensingRecords.size() + " dispensing record(s) updated to SUBMITTED status. " +
@@ -600,7 +601,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 .sum();
         batchRecord.setTotalAmount(BigDecimal.valueOf(totalAmount));
 
-        batchRecord.setStatus("PENDING");
+        batchRecord.setStatus("SUBMITTED");
         return batchRecord;
     }
 

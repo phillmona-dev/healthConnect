@@ -5,7 +5,9 @@ import com.medco.HealthConnectProvider.services.integration.PharmacyIntegrationS
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimCommentRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimPaymentRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimRequest;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimDetailResponse;
+import com.medco.HealthConnectProvider.ui.response.claims.ClaimListResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimResponse;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,28 +40,32 @@ public class ClaimController {
         this.pharmacyIntegrationService = pharmacyIntegrationService;
     }
 
-//
-//    @PostMapping
-//    @Operation(summary = "Submit a new claim")
-//    public ResponseEntity<?> submitClaim(@Valid @RequestBody ClaimRequest claimRequest) {
-//        return claimService.submitClaim(claimRequest);
-//    }
+
+    @PostMapping
+    @Operation(summary = "Submit a new claim")
+    public ResponseEntity<?> submitClaim(@Valid @RequestBody ClaimRequest claimRequest) {
+        return claimService.submitClaim(claimRequest);
+    }
+
 
     @GetMapping("/{claimUuid}")
     @Operation(summary = "Get claim details by UUID")
     public ClaimDetailResponse getClaimByUuid(@PathVariable String claimUuid) {
         return claimService.getClaimByUuid(claimUuid);
     }
+
     @GetMapping("/allClaims")
-    @Operation(summary = "Get claim details by UUID")
-    public ClaimResponse getAllClaims(@RequestParam(defaultValue = "1") int page,
-                                      @RequestParam(defaultValue = "25") int size,
-                                      @RequestParam(defaultValue = "dispensingDate") String sortBy,
-                                      @RequestParam(defaultValue = "desc") String sortDirection) {
+    @Operation(summary = "Get all paginated claims")
+    public PagedResponse<ClaimListResponse> getAllClaims(@RequestParam(value = "Claim Status",required = false) ClaimStatus status,
+                                                         @RequestParam(defaultValue = "1") int page,
+                                                         @RequestParam(defaultValue = "25") int size,
+                                                         @RequestParam(defaultValue = "createdAt") String sortBy,
+                                                         @RequestParam(defaultValue = "desc") String sortDirection) {
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.fromString(sortDirection), sortBy));
         return claimService.getAll(pageable);
     }
-    
+
+
     @GetMapping("/provider/{providerUuid}")
     @Operation(summary = "Get claims by provider")
     public List<ClaimResponse> getClaimsByProvider(
@@ -175,6 +181,7 @@ public class ClaimController {
 
 
 //    TODO NEW APIS FOR THE CLAIM
+
 
 
     @PostMapping("/createBatchClaim/{batchCode}")

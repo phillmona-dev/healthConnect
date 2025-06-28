@@ -44,12 +44,11 @@ public class BatchRecord {
 
     private String claimUuid;
 
-    @OneToOne
-    @JoinColumn(name = "claim_id", referencedColumnName = "id")
+    @OneToOne(mappedBy = "batchRecord")
     private Claim claim;
 
 
-    @OneToMany(mappedBy = "batchRecord", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "batchRecord", cascade = CascadeType.ALL,fetch = FetchType.EAGER)
     private List<MedicationDispensing> medicationDispensing;
 
 }

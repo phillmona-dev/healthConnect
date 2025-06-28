@@ -1,7 +1,7 @@
 package com.medco.HealthConnectProvider.repository.claims;
 
 import com.medco.HealthConnectProvider.entity.claims.Claim;
-import com.medco.HealthConnectProvider.ui.response.claims.ClaimResponse;
+import com.medco.HealthConnectProvider.ui.response.claims.ClaimListResponse;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,29 +21,131 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     Page<Claim> findByPayerUuidAndStatus(String payerUuid, ClaimStatus status, Pageable pageable);
 
 
+
 //
-//    @Query(value = """
-//        SELECT NEW com.your.package.ClaimServiceDto(
-//            c.id as claimId,
-//            c.claimNumber,
-//            s.uuid as providedServiceUuid,
-//            svc.uuid as serviceUuid,
-//            svc.name as serviceName,
-//            svc.code as serviceCode,
-//            s.quantity,
-//            s.unitPrice,
-//            s.totalPrice,
-//            svc.category as serviceCategory,
-//            svc.subCategory as serviceSubCategory,
-//            cd.negotiatedPrice
-//        )
-//        FROM Claim c
-//        LEFT JOIN c.medicationDispensingServices s
-//        LEFT JOIN s.service svc
-//        LEFT JOIN s.contractDetails cd
-//        """,
+//    @Query(value = "SELECT NEW com.medco.HealthConnectProvider.ui.response.claims.ClaimListResponse(" +
+//            "c.claimUuid, " +
+//            "COALESCE(b.batchNumber, 0L), " +  // Handle null batchNumber
+//            "b.claimDatingFrom, " +
+//            "b.claimDatingTo, " +
+//            "c.mrnNumber, " +
+//            "c.claimNumber, " +
+//            "c.visitDate, " +
+//            "COALESCE(c.totalAmount, 0), " +  // Handle null totalAmount
+//            "c.status, " +
+//            "c.submissionDate, " +
+//            "SIZE(c.attachments), " +
+//            "SIZE(c.comments)" +
+//            ") " +
+//            "FROM Claim c " +
+//            "LEFT JOIN c.batchRecord b",
 //            countQuery = "SELECT COUNT(c) FROM Claim c")
-//        Page<ClaimResponse> findClaimServicesByPatientId(
-//                Pageable pageable);
-    }
+//    Page<ClaimListResponse> findAllClaims(Pageable pageable);
+
+
+
+
+//        @Query(value = "SELECT NEW com.medco.HealthConnectProvider.ui.response.claims.ClaimListResponse(" +
+//                "c.claimUuid, " +
+//    //            "p.payerUuid, " +
+//    //            "p.payerName, " +
+//    //            "pr.providerUuid, " +
+//    //            "pr.providerName, " +
+//    //            "ch.contractHeaderUuid, " +
+//    //            "ch.contractCode, " +
+//                "b.batchNumber, " +
+//                "b.claimDatingFrom, " +
+//                "b.claimDatingTo, " +
+//                "c.mrnNumber, " +
+//                "c.claimNumber, " +
+//                "c.visitDate, " +
+//                "c.totalAmount, " +
+//                "c.status, " +
+//                "c.submissionDate, " +
+//                "SIZE(c.attachments), " +
+//                "SIZE(c.comments)" +
+//                ") " +
+//                "FROM Claim c " +
+//                "LEFT JOIN c.batchRecord b " ,
+//    //            "LEFT JOIN b.medicationDispensing m " +
+//    //            "LEFT JOIN m.items i " +  // Verify this matches your entity's property name
+//    //            "JOIN i.contractDetail cd " +  // Changed to INNER JOIN (since nullable=false)
+//    //            "JOIN cd.contractHeader ch " +  // Changed to INNER JOIN
+//    //            "LEFT JOIN ch.payer p " +  // Keep LEFT JOIN for payer
+//    //            "LEFT JOIN ch.provider pr",  // Keep LEFT JOIN for provider
+//                countQuery = "SELECT COUNT(c) FROM Claim c")
+//        Page<ClaimListResponse> findAllClaims(Pageable pageable);
+
+
+
+    @Query(value = "SELECT NEW com.medco.HealthConnectProvider.ui.response.claims.ClaimListResponse(" +
+            "c.claimUuid, " +
+            "b.batchCode, " +
+            "b.claimDatingFrom, " +
+            "b.claimDatingTo, " +
+            "m.dispensingUuid, " +
+            "p.payerUuid, " +
+            "p.payerName, " +
+            "pr.providerUuid, " +
+            "pr.providerName, " +
+            "ch.contractHeaderUuid, " +
+            "ch.contractCode, " +
+            "c.mrnNumber, " +
+            "c.claimNumber, " +
+            "c.visitDate, " +
+            "c.totalAmount, " +
+            "c.status, " +
+            "c.submissionDate, " +
+            "SIZE(c.attachments), " +
+            "SIZE(c.comments), " +
+            "SIZE(b.medicationDispensing)" +
+            ") " +
+            "FROM Claim c " +
+            "LEFT JOIN c.batchRecord b " +
+            "LEFT JOIN b.medicationDispensing m " +
+            "LEFT JOIN m.items i " +
+            "LEFT JOIN i.contractDetail cd " +
+            "LEFT JOIN cd.contractHeader ch " +
+            "LEFT JOIN ch.payer p " +
+            "LEFT JOIN ch.provider pr",
+            countQuery = "SELECT COUNT(c) FROM Claim c")
+    Page<ClaimListResponse> findAllClaims(Pageable pageable);
+
+
+
+
+//    @Query(value = "SELECT NEW com.medco.HealthConnectProvider.ui.response.claims.ClaimListResponse(" +
+//            "c.claimUuid, " +
+//            "p.payerUuid, " +
+//            "p.payerName, " +
+//            "pr.providerUuid, " +
+//            "pr.providerName, " +
+//            "ch.contractHeaderUuid, " +
+//            "ch.contractCode, " +
+////            "i.insuredUuid, " +
+////            "i.firstName, " +
+////            "i.dependant.dependantUuid, " +
+////            "i.dependant.firstName, " +
+//            "c.mrnNumber, " +
+//            "c.claimNumber, " +
+//            "c.visitDate, " +
+//            "c.totalAmount, " +
+//            "c.status, " +
+//            "c.submissionDate, " +
+//            "SIZE(c.attachments), " +
+//            "SIZE(c.comments) " +
+//            ") " +
+//            "FROM Claim c " +
+//            "LEFT JOIN c.batchRecord b " +
+//            "LEFT JOIN b.medicationDispensing m " +
+//            "LEFT JOIN m.items i " +
+//            "LEFT JOIN i.contractDetail cd " +
+//            "LEFT JOIN cd.contractHeader ch " +
+//            "LEFT JOIN ch.payer p " +
+//            "LEFT JOIN ch.provider pr " +
+//            "WHERE i.patient.patientId = :patientId",
+//            countQuery = "SELECT COUNT(c) FROM Claim c WHERE c.items.patient.patientId = :patientId")
+//    Page<ClaimListResponse> findClaimServicesByPatientId(Pageable pageable);
+
+}
 
