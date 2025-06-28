@@ -207,8 +207,11 @@ public class ContractController {
 
     @GetMapping("/{contractHeaderUuid}/detailed")
     @Operation(summary = "Get detailed contract information", description = "Retrieves detailed information about a contract, including services, insured persons, and dependants")
-    public ResponseEntity<DetailedContractResponse> getDetailedContract(@PathVariable String contractHeaderUuid) {
-        DetailedContractResponse detailedContract = contractService.getDetailedContract(contractHeaderUuid);
+    public ResponseEntity<DetailedContractResponse> getDetailedContract(
+            @PathVariable String contractHeaderUuid,
+            @RequestParam String userType) {
+
+        DetailedContractResponse detailedContract = contractService.getDetailedContract(contractHeaderUuid, userType);
         return ResponseEntity.ok(detailedContract);
     }
 

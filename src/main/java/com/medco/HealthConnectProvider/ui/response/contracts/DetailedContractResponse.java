@@ -45,4 +45,7 @@ public class DetailedContractResponse {
         private String fullName;
         private Relationship relationshipType;
     }
+
+    private String payerLogoBase64;
+    private String providerLogoBase64;
 }

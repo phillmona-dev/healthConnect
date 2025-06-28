@@ -63,8 +63,8 @@ public interface ContractService {
 
     ResponseEntity<?> getFilteredContracts(ContractFilterRequest filter, Pageable pageable, int page);
 
-    DetailedContractResponse getDetailedContract(String contractHeaderUuid);
 
     ResponseEntity<?> addInsuredToContract(String contractUuid, @Valid AddInsuredToContractRequest request);
 
+    DetailedContractResponse getDetailedContract(String contractHeaderUuid, String userType);
 }

@@ -42,6 +42,7 @@ import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.service.ServiceResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -60,15 +61,17 @@ import org.json.JSONObject;
 
 import jakarta.validation.Valid;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class ContractServiceImpl implements ContractService {
 
@@ -89,6 +92,12 @@ public class ContractServiceImpl implements ContractService {
 
     @Value("${provider.HostDomain}")
     private String providerHostDomain;
+
+    @Value("${file.upload-dir-payer-logos}")
+    private String payerLogosDirectory;
+
+    @Value("${file.upload-dir-provider-logos}")
+    private String providerLogosDirectory;
 
     public ContractServiceImpl(ContractRepository contractRepository, ProviderRepository providerRepository, ServicelistRepository servicelistRepository, PayerRepository payerRepository, ContractDetailRepository contractDetailRepository, EmployeeDependantGroupRepository employeeDependantGroupRepository,
                                ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, ModelMapper modelMapper) {
@@ -134,6 +143,8 @@ public class ContractServiceImpl implements ContractService {
         contract.setEndDate(contractRequest.getEndDate().toInstant()
                 .atZone(ZoneId.systemDefault())
                 .toLocalDate());
+
+        contract.setNegotiatingPrice(contractRequest.getNegotiatingPrice());
 
         ContractHeader savedContract = contractRepository.save(contract);
 
@@ -933,10 +944,9 @@ public class ContractServiceImpl implements ContractService {
     }
 
     @Override
-    public DetailedContractResponse getDetailedContract(String contractHeaderUuid) {
-
+    public DetailedContractResponse getDetailedContract(String contractHeaderUuid, String userType) {
         ContractHeader contractHeader = contractRepository.findByContractHeaderUuid(contractHeaderUuid);
-        if (contractHeader == null){
+        if (contractHeader == null) {
             throw new ResourceNotFoundException("Contract", "contractHeaderUuid", contractHeaderUuid);
         }
 
@@ -953,6 +963,18 @@ public class ContractServiceImpl implements ContractService {
         response.setProviderName(contractHeader.getProvider().getProviderName());
         response.setCoPaymentPercentage(contractHeader.getCoPaymentPercentage());
 
+        // Set logos based on userType
+        if ("payer".equalsIgnoreCase(userType)) {
+            response.setPayerLogoBase64(getBase64FromPath(contractHeader.getPayer().getLogoPath(), "payer"));
+            response.setProviderLogoBase64(""); // Payers don't need provider logo
+        } else if ("provider".equalsIgnoreCase(userType)) {
+            response.setProviderLogoBase64(getBase64FromPath(contractHeader.getProvider().getLogoPath(), "provider"));
+            response.setPayerLogoBase64(""); // Providers don't need payer logo
+        } else {
+            // Handle invalid userType
+            throw new BadRequestException("Invalid user type: " + userType);
+        }
+
         response.setContractDetails(contractHeader.getContractDetails().stream()
                 .map(this::mapContractDetail)
                 .collect(Collectors.toList()));
@@ -962,6 +984,48 @@ public class ContractServiceImpl implements ContractService {
                 .collect(Collectors.toList()));
 
         return response;
+    }
+
+    private String getBase64FromPath(String logoPath, String logoType) {
+        if (logoPath == null || logoPath.isEmpty()) {
+            return "";
+        }
+
+        try {
+            String baseDirectory;
+            if ("payer".equalsIgnoreCase(logoType)) {
+                baseDirectory = payerLogosDirectory;
+            } else if ("provider".equalsIgnoreCase(logoType)) {
+                baseDirectory = providerLogosDirectory;
+            } else {
+                log.error("Invalid logo type: {}", logoType);
+                return "";
+            }
+
+            Path path = Paths.get(baseDirectory, logoPath);
+            if (!Files.exists(path)) {
+                log.error("Logo file does not exist at path: {}", path.toString());
+                return "";
+            }
+
+            byte[] imageBytes = Files.readAllBytes(path);
+            String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+            String contentType = determineContentType(logoPath);
+            return "data:" + contentType + ";base64," + base64Image;
+        } catch (IOException e) {
+            log.error("Error reading logo: {}", e.getMessage(), e);
+            return "";
+        }
+    }
+
+    private String determineContentType(String fileName) {
+        String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+        return switch (extension) {
+            case "png" -> "image/png";
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "gif" -> "image/gif";
+            default -> "application/octet-stream";
+        };
     }
 
     @Override

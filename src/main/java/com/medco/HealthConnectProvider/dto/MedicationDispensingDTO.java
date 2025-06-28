@@ -12,6 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class MedicationDispensingDTO {
+
     private String dispensingUuid;
     private String invoiceNumber;
     private String batchCode;
