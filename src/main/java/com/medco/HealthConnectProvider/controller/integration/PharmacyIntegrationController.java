@@ -39,13 +39,11 @@ public class PharmacyIntegrationController {
 
     private static final Logger logger = LoggerFactory.getLogger(PharmacyIntegrationController.class);
 
-
     private final PharmacyIntegrationService pharmacyIntegrationService;
 
     private final EligibilityService eligibilityService;
 
     private final BatchRecordService batchRecordService;
-
 
     public PharmacyIntegrationController(PharmacyIntegrationService pharmacyIntegrationService, EligibilityService eligibilityService, BatchRecordService batchRecordService) {
         this.pharmacyIntegrationService = pharmacyIntegrationService;
@@ -237,7 +235,6 @@ public class PharmacyIntegrationController {
             @Valid @RequestBody DispensingRecordEditRequest editRequest) {
         return pharmacyIntegrationService.editDispensingRecord(dispensingUuid, editRequest);
     }
-
 
     @PutMapping("/drug-dispensing/{dispensingUuid}")
     @Operation(summary = "Edit drug dispensing record",

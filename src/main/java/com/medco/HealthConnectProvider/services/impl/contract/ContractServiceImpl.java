@@ -35,10 +35,7 @@ import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractR
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
-import com.medco.HealthConnectProvider.ui.response.contracts.ContractDetailResponse;
-import com.medco.HealthConnectProvider.ui.response.contracts.ContractListPayerResponse;
-import com.medco.HealthConnectProvider.ui.response.contracts.ContractResponse;
-import com.medco.HealthConnectProvider.ui.response.contracts.DetailedContractResponse;
+import com.medco.HealthConnectProvider.ui.response.contracts.*;
 import com.medco.HealthConnectProvider.ui.response.groups.EmployeeGroupResponse;
 import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.service.ServiceResponse;
@@ -141,7 +138,7 @@ public class ContractServiceImpl implements ContractService {
 
         contract.setPayer(payer);
         contract.setProvider(provider);
-        contract.setStatus(Status.ACTIVE);
+        contract.setStatus(Status.PENDING);
         contract.setContractName(contractName);
         contract.setContractCode(contractCode);
         contract.setStartDate(contractRequest.getBeginDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
@@ -183,7 +180,7 @@ public class ContractServiceImpl implements ContractService {
     private String generateContractCode() {
         LocalDate currentDate = LocalDate.now();
         String datePart = currentDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        return datePart + "CT";
+        return "CT" + datePart;
     }
 
     @Override
@@ -215,9 +212,56 @@ public class ContractServiceImpl implements ContractService {
 
         ContractResponse contractResponse = new ContractResponse();
         BeanUtils.copyProperties(contract, contractResponse);
-        contractResponse.setPayerUuid(contract.getPayer().getPayerUuid());
-        return contractResponse;
 
+        contractResponse.setPayerUuid(contract.getPayer().getPayerUuid());
+        contractResponse.setPayerName(contract.getPayer().getPayerName());
+        contractResponse.setPayerCode(contract.getPayer().getPayerCode());
+
+        contractResponse.setProviderUuid(contract.getProvider().getProviderUuid());
+        contractResponse.setProviderName(contract.getProvider().getProviderName());
+        contractResponse.setProviderCode(contract.getProvider().getProviderCode());
+
+        List<ContractResponse.ContractDetailSummary> contractDetails = contract.getContractDetails().stream()
+                .map(this::mapContractDetailSummary)
+                .collect(Collectors.toList());
+        contractResponse.setContractDetails(contractDetails);
+        contractResponse.setTotalServices(contractDetails.size());
+
+        List<ContractResponse.InsuredSummary> insuredSummaries = contract.getInsured().stream()
+                .map(this::mapInsuredSummary)
+                .collect(Collectors.toList());
+        contractResponse.setInsuredSummaries(insuredSummaries);
+        contractResponse.setTotalInsured(insuredSummaries.size());
+        contractResponse.setTotalDependants((int) insuredSummaries.stream()
+                .mapToLong(summary -> summary.getDependants().size())
+                .sum());
+
+        contractResponse.setContractNumber(Optional.ofNullable(contractResponse.getContractNumber()).orElse(""));
+        contractResponse.setContractDescription(Optional.ofNullable(contractResponse.getContractDescription()).orElse(""));
+        contractResponse.setRemark(Optional.ofNullable(contractResponse.getRemark()).orElse(""));
+        contractResponse.setDescription(Optional.ofNullable(contractResponse.getDescription()).orElse(""));
+
+        return contractResponse;
+    }
+
+
+    private ContractResponse.InsuredSummary mapInsuredSummary(Insured insured) {
+        return ContractResponse.InsuredSummary.builder()
+                .insuredUuid(insured.getInsuredUuid())
+                .fullName(insured.getFirstName() + " " + insured.getFatherName())
+                .membershipNumber(insured.getIdNumber())
+                .dependants(insured.getDependants().stream()
+                        .map(this::mapDependantSummary)
+                        .collect(Collectors.toList()))
+                .build();
+    }
+
+    private ContractResponse.DependantSummary mapDependantSummary(Dependant dependant) {
+        return ContractResponse.DependantSummary.builder()
+                .dependantUuid(dependant.getDependantUuid())
+                .fullName(dependant.getFirstName() + " " + dependant.getFatherName())
+                .relationshipType(dependant.getRelationship().toString())
+                .build();
     }
 
     @Override
@@ -742,13 +786,12 @@ public class ContractServiceImpl implements ContractService {
     @Override
     @Transactional
     public ResponseEntity<?> initiateContractRenewal(String contractUuid, @Valid ContractRenewalRequest renewalRequest) {
-        // Validate contract exists
+        
         ContractHeader originalContract = contractRepository.findByContractHeaderUuid(contractUuid);
         if (originalContract == null) {
             throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
         }
 
-        // Validate user has access to this contract
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
 
@@ -756,12 +799,10 @@ public class ContractServiceImpl implements ContractService {
             throw new BadRequestException("Contract does not belong to this payer");
         }
 
-        // Validate dates
         if (renewalRequest.getEndDate().isBefore(renewalRequest.getStartDate())) {
             throw new BadRequestException("End date must be after start date");
         }
 
-        // Create new contract as a renewal
         ContractHeader renewalContract = new ContractHeader();
         renewalContract.setContractName(originalContract.getContractName() + " (Renewal)");
         renewalContract.setContractDescription(originalContract.getContractDescription());
@@ -777,7 +818,6 @@ public class ContractServiceImpl implements ContractService {
 
         contractRepository.save(renewalContract);
 
-        // Copy contract details if requested
         if (renewalRequest.isCopyExistingTerms()) {
             List<ContractDetail> originalDetails = contractDetailRepository.findByContractHeaderContractHeaderUuid(contractUuid);
 
@@ -792,7 +832,6 @@ public class ContractServiceImpl implements ContractService {
 
                 ContractDetail savedDetail = contractDetailRepository.save(newDetail);
 
-                // Copy employee group assignments
                 for (EmployeeDependantGroup group : originalDetail.getEmployeeDependantGroups()) {
                     savedDetail.addEmployeeDependantGroup(group);
                 }
@@ -808,13 +847,12 @@ public class ContractServiceImpl implements ContractService {
     @Override
     @Transactional
     public ResponseEntity<?> cancelRenewal(String renewalUuid) {
-        // Validate renewal contract exists
+
         ContractHeader renewalContract = contractRepository.findByContractHeaderUuid(renewalUuid);
         if (renewalContract == null) {
             throw new ResourceNotFoundException("Contract", "renewalUuid", renewalUuid);
         }
 
-        // Validate user has access to this contract
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
 
@@ -822,16 +860,13 @@ public class ContractServiceImpl implements ContractService {
             throw new BadRequestException("Contract does not belong to this payer");
         }
 
-        // Validate contract is in draft or pending approval state
         if (renewalContract.getStatus() != Status.DRAFT && renewalContract.getStatus() != Status.PENDING_APPROVAL) {
             throw new BadRequestException("Only draft or pending approval contracts can be cancelled");
         }
 
-        // Delete the renewal contract
         renewalContract.setDeleted(true);
         contractRepository.save(renewalContract);
 
-        // Delete associated contract details
         List<ContractDetail> details = contractDetailRepository.findByContractHeaderContractHeaderUuid(renewalUuid);
         for (ContractDetail detail : details) {
             detail.setDeleted(true);
@@ -901,7 +936,6 @@ public class ContractServiceImpl implements ContractService {
             throw new BadRequestException("Only contracts with pending termination can have termination withdrawn");
         }
 
-        // Reset termination details
         contract.setStatus(Status.ACTIVE);
         contract.setTerminationDate(null);
         contract.setTerminationReason(null);
@@ -918,7 +952,6 @@ public class ContractServiceImpl implements ContractService {
 
     @Override
     public ResponseEntity<?> getFilteredContracts(ContractFilterRequest filter, Pageable pageable, int page) {
-
         if (page > 0) {
             page = page - 1;
         }
@@ -929,7 +962,6 @@ public class ContractServiceImpl implements ContractService {
             ContractResponse response = new ContractResponse();
             BeanUtils.copyProperties(contract, response);
 
-            // Explicitly map related entities to avoid null values
             if (contract.getPayer() != null) {
                 response.setPayerUuid(contract.getPayer().getPayerUuid());
                 response.setPayerName(contract.getPayer().getPayerName());
@@ -942,27 +974,51 @@ public class ContractServiceImpl implements ContractService {
                 response.setProviderCode(contract.getProvider().getProviderCode());
             }
 
-            // Ensure dates are properly mapped
-            response.setStartDate(contract.getStartDate());
-            response.setEndDate(contract.getEndDate());
+            if (contract.getContractDetails() != null) {
+                List<ContractResponse.ContractDetailSummary> contractDetails = contract.getContractDetails().stream()
+                        .map(this::mapContractDetailSummary)
+                        .collect(Collectors.toList());
+                response.setContractDetails(contractDetails);
+                response.setTotalServices(contractDetails.size());
+            } else {
+                response.setContractDetails(new ArrayList<>());
+                response.setTotalServices(0);
+            }
 
-            // Map other potentially null fields with defaults if needed
-            response.setContractNumber(contract.getContractNumber() != null ?
-                    contract.getContractNumber() : "");
-            response.setContractDescription(contract.getContractDescription() != null ?
-                    contract.getContractDescription() : "");
-            response.setRemark(contract.getRemark() != null ?
-                    contract.getRemark() : "");
-            response.setDescription(contract.getDescription() != null ?
-                    contract.getDescription() : "");
+            if (contract.getInsured() != null) {
+                response.setTotalInsured(contract.getInsured().size());
+                response.setTotalDependants((int) contract.getInsured().stream()
+                        .flatMap(i -> i.getDependants().stream())
+                        .count());
+            } else {
+                response.setTotalInsured(0);
+                response.setTotalDependants(0);
+            }
 
-            // Set status explicitly
-            response.setStatus(contract.getStatus());
+            response.setContractNumber(Optional.ofNullable(response.getContractNumber()).orElse(""));
+            response.setContractDescription(Optional.ofNullable(response.getContractDescription()).orElse(""));
+            response.setRemark(Optional.ofNullable(response.getRemark()).orElse(""));
+            response.setDescription(Optional.ofNullable(response.getDescription()).orElse(""));
 
             return response;
         });
 
         return ResponseEntity.ok(responsePage);
+    }
+
+    private ContractResponse.ContractDetailSummary mapContractDetailSummary(ContractDetail detail) {
+        ContractResponse.ContractDetailSummary summary = new ContractResponse.ContractDetailSummary();
+        BeanUtils.copyProperties(detail, summary);
+
+        if (detail.getServicelist() != null) {
+            summary.setServiceName(detail.getServicelist().getServiceName());
+        }
+        summary.setNegotiatedPrice(detail.getNegotiatedPrice().doubleValue());
+        summary.setAssignedGroups(detail.getEmployeeDependantGroups().stream()
+                .map(EmployeeDependantGroup::getGroupName)
+                .collect(Collectors.toList()));
+
+        return summary;
     }
 
     @Override
@@ -975,7 +1031,7 @@ public class ContractServiceImpl implements ContractService {
         DetailedContractResponse response = new DetailedContractResponse();
 
         response.setContractHeaderUuid(contractHeader.getContractHeaderUuid());
-        response.setContractNumber(contractHeader.getContractNumber());
+        response.setContractNumber(contractHeader.getContractNumber() != null ? contractHeader.getContractNumber() : "");
         response.setContractName(contractHeader.getContractName());
         response.setContractDescription(contractHeader.getContractDescription());
         response.setStartDate(contractHeader.getStartDate());
@@ -985,15 +1041,13 @@ public class ContractServiceImpl implements ContractService {
         response.setProviderName(contractHeader.getProvider().getProviderName());
         response.setCoPaymentPercentage(contractHeader.getCoPaymentPercentage());
 
-        // Set logos based on userType
         if ("payer".equalsIgnoreCase(userType)) {
             response.setPayerLogoBase64(getBase64FromPath(contractHeader.getPayer().getLogoPath(), "payer"));
-            response.setProviderLogoBase64(""); // Payers don't need provider logo
+            response.setProviderLogoBase64("");
         } else if ("provider".equalsIgnoreCase(userType)) {
             response.setProviderLogoBase64(getBase64FromPath(contractHeader.getProvider().getLogoPath(), "provider"));
-            response.setPayerLogoBase64(""); // Providers don't need payer logo
+            response.setPayerLogoBase64("");
         } else {
-            // Handle invalid userType
             throw new BadRequestException("Invalid user type: " + userType);
         }
 
@@ -1052,8 +1106,7 @@ public class ContractServiceImpl implements ContractService {
 
     @Override
     @Transactional
-    public ResponseEntity<?> addInsuredToContract(String contractUuid, AddInsuredToContractRequest request) {
-
+    public ResponseEntity<AddInsuredToContractResponse> addInsuredToContract(String contractUuid, AddInsuredToContractRequest request) {
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
         if (contract == null) {
             throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
@@ -1066,34 +1119,82 @@ public class ContractServiceImpl implements ContractService {
             throw new BadRequestException("Contract does not belong to this payer");
         }
 
-        List<Insured> insuredList = insuredRepository.findByInsuredUuidIn(request.getInsuredUuids());
-        for (Insured insured : insuredList) {
-            if (!insured.getPayer().getPayerUuid().equals(payerUuid)) {
-                throw new BadRequestException("Insured " + insured.getInsuredUuid() + " does not belong to this payer");
+        List<String> invalidInsuredUuids = new ArrayList<>();
+        List<AddInsuredToContractResponse.InsuredResponse> addedInsured = new ArrayList<>();
+
+        for (String insuredUuid : request.getInsuredUuids()) {
+            Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
+            if (insured == null || !insured.getPayer().getPayerUuid().equals(payerUuid)) {
+                invalidInsuredUuids.add(insuredUuid);
+            } else {
+                contract.addInsured(insured);
+                addedInsured.add(mapInsuredToResponse(insured));
             }
-            contract.addInsured(insured);
         }
 
-        if (request.getDependants() != null) {
+        if (!invalidInsuredUuids.isEmpty()) {
+            throw new BadRequestException("Invalid insured UUIDs: " + String.join(", ", invalidInsuredUuids));
+        }
+
+        List<AddInsuredToContractResponse.DependantResponse> addedDependants = new ArrayList<>();
+
+        if (request.getDependants() != null && !request.getDependants().isEmpty()) {
+            List<String> invalidDependantRequests = new ArrayList<>();
+
             for (AddInsuredToContractRequest.DependantRequest dependantRequest : request.getDependants()) {
+                if ("string".equals(dependantRequest.getInsuredUuid()) || "string".equals(dependantRequest.getDependantUuid())) {
+                    continue;
+                }
+
                 Insured insured = insuredRepository.findByInsuredUuid(dependantRequest.getInsuredUuid());
                 if (insured == null || !insured.getPayer().getPayerUuid().equals(payerUuid)) {
-                    throw new BadRequestException("Invalid insured UUID: " + dependantRequest.getInsuredUuid());
+                    invalidDependantRequests.add("Invalid insured UUID: " + dependantRequest.getInsuredUuid());
+                    continue;
                 }
 
                 Dependant dependant = dependantRepository.findByDependantUuid(dependantRequest.getDependantUuid());
                 if (dependant == null || !dependant.getInsured().equals(insured)) {
-                    throw new BadRequestException("Invalid dependant UUID: " + dependantRequest.getDependantUuid());
+                    invalidDependantRequests.add("Invalid dependant UUID: " + dependantRequest.getDependantUuid());
+                    continue;
                 }
 
                 contract.addDependant(dependant);
+                addedDependants.add(mapDependantToResponse(dependant));
+            }
+
+            if (!invalidDependantRequests.isEmpty()) {
+                throw new BadRequestException("Invalid dependant requests: " + String.join(", ", invalidDependantRequests));
             }
         }
 
         contractRepository.save(contract);
 
-        return ResponseEntity.ok(new MessageResponse("Insured and dependants added to contract successfully"));
+        AddInsuredToContractResponse response = new AddInsuredToContractResponse();
+        response.setMessage("Insured and dependants added to contract successfully");
+        response.setContractUuid(contractUuid);
+        response.setAddedInsured(addedInsured);
+        response.setAddedDependants(addedDependants);
+
+        return ResponseEntity.ok(response);
     }
+
+    private AddInsuredToContractResponse.InsuredResponse mapInsuredToResponse(Insured insured) {
+        AddInsuredToContractResponse.InsuredResponse response = new AddInsuredToContractResponse.InsuredResponse();
+        response.setInsuredUuid(insured.getInsuredUuid());
+        response.setFullName(insured.getFirstName() + " " + insured.getFatherName());
+        response.setMembershipNumber(insured.getIdNumber());
+        return response;
+    }
+
+    private AddInsuredToContractResponse.DependantResponse mapDependantToResponse(Dependant dependant) {
+        AddInsuredToContractResponse.DependantResponse response = new AddInsuredToContractResponse.DependantResponse();
+        response.setDependantUuid(dependant.getDependantUuid());
+        response.setFullName(dependant.getFirstName() + " " + dependant.getFatherName());
+        response.setRelationshipType(String.valueOf(dependant.getRelationship()));
+        return response;
+    }
+
+
     private DetailedContractResponse.ContractDetailResponse mapContractDetail(ContractDetail detail) {
         DetailedContractResponse.ContractDetailResponse response = new DetailedContractResponse.ContractDetailResponse();
         response.setContractDetailUuid(detail.getContractDetailUuid());
