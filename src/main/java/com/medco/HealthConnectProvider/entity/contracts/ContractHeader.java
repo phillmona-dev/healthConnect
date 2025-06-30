@@ -9,6 +9,7 @@ import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.*;
@@ -22,6 +23,7 @@ import java.util.*;
 @Table(name = "contract_headers")
 public class ContractHeader extends Audit implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @Id
