@@ -58,8 +58,6 @@ public class ContractHeader extends Audit implements Serializable {
 
     private String contractCode;
 
-    private double negotiatingPrice;
-
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "payer_id")
     private Payer payer;

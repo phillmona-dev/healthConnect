@@ -4,6 +4,7 @@ package com.medco.HealthConnectProvider.services.impl.contract;
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
+import com.medco.HealthConnectProvider.entity.drug.Drug;
 import com.medco.HealthConnectProvider.entity.groups.ContractDetailEmployeeGroup;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
@@ -15,6 +16,7 @@ import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.contract.ContractDetailRepository;
 import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
+import com.medco.HealthConnectProvider.repository.drug.DrugRepository;
 import com.medco.HealthConnectProvider.repository.group.ContractDetailEmployeeGroupRepository;
 import com.medco.HealthConnectProvider.repository.group.EmployeeDependantGroupRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
@@ -68,6 +70,7 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -84,6 +87,7 @@ public class ContractServiceImpl implements ContractService {
     private final ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository;
     private final InsuredRepository insuredRepository;
     private final DependantRepository dependantRepository;
+    private final DrugRepository drugRepository;
 
     private final ModelMapper modelMapper;
 
@@ -100,7 +104,7 @@ public class ContractServiceImpl implements ContractService {
     private String providerLogosDirectory;
 
     public ContractServiceImpl(ContractRepository contractRepository, ProviderRepository providerRepository, ServicelistRepository servicelistRepository, PayerRepository payerRepository, ContractDetailRepository contractDetailRepository, EmployeeDependantGroupRepository employeeDependantGroupRepository,
-                               ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, ModelMapper modelMapper) {
+                               ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, DrugRepository drugRepository, ModelMapper modelMapper) {
         this.contractRepository = contractRepository;
 
 
@@ -112,57 +116,74 @@ public class ContractServiceImpl implements ContractService {
         this.contractDetailEmployeeGroupRepository = contractDetailEmployeeGroupRepository;
         this.insuredRepository = insuredRepository;
         this.dependantRepository = dependantRepository;
+        this.drugRepository = drugRepository;
         this.modelMapper = modelMapper;
     }
 
     @Transactional
     @Override
     public ResponseEntity<ContractResponse> createContract(ContractRequest contractRequest) {
-        // Fetch provider and payer
-        Provider provider = providerRepository.findByProviderUuid(contractRequest.getProviderUuid());
-        if (provider == null){
-            throw new RuntimeException("Provider not found with uuid: " + contractRequest.getProviderUuid());
-        }
-
         Payer payer = payerRepository.findByPayerUuid(contractRequest.getPayerUuid());
         if (payer == null){
-            throw  new RuntimeException(
-                    "Payer not found with uuid: " + contractRequest.getPayerUuid());
+            throw new ResourceNotFoundException("Payer", "payerUuid", contractRequest.getPayerUuid());
         }
+
+        Provider provider = providerRepository.findByProviderUuid(contractRequest.getProviderUuid());
+        if (provider == null){
+            throw new ResourceNotFoundException("Provider", "providerUuid", contractRequest.getProviderUuid());
+        }
+
+        String contractName = payer.getPayerName() + " - " + provider.getProviderName();
+        String contractCode = generateContractCode();
 
         ContractHeader contract = new ContractHeader();
         modelMapper.map(contractRequest, contract);
 
-        contract.setProvider(provider);
         contract.setPayer(payer);
-
+        contract.setProvider(provider);
         contract.setStatus(Status.ACTIVE);
-        contract.setStartDate(contractRequest.getBeginDate().toInstant()
-                .atZone(ZoneId.systemDefault())
-                .toLocalDate());
-        contract.setEndDate(contractRequest.getEndDate().toInstant()
-                .atZone(ZoneId.systemDefault())
-                .toLocalDate());
-
-        contract.setNegotiatingPrice(contractRequest.getNegotiatingPrice());
+        contract.setContractName(contractName);
+        contract.setContractCode(contractCode);
+        contract.setStartDate(contractRequest.getBeginDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
+        contract.setEndDate(contractRequest.getEndDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
 
         ContractHeader savedContract = contractRepository.save(contract);
 
-        provider.getContractHeaders().add(savedContract);
-        payer.getContractHeaders().add(savedContract);
+        if (contractRequest.getContractItems() != null && !contractRequest.getContractItems().isEmpty()) {
+            for (ContractRequest.ContractItemRequest itemRequest : contractRequest.getContractItems()) {
+                ContractDetail contractDetail = new ContractDetail();
+                contractDetail.setContractHeader(savedContract);
+                contractDetail.setContractHeaderUuid(savedContract.getContractHeaderUuid());
+                contractDetail.setNegotiatedPrice(itemRequest.getNegotiatedPrice());
+                contractDetail.setStatus(Status.ACTIVE);
 
-        ContractResponse response = modelMapper.map(savedContract, ContractResponse.class);
+                if ("DRUG".equalsIgnoreCase(itemRequest.getItemType())) {
+                    Drug drug = drugRepository.findByDrugUuid(itemRequest.getItemUuid())
+                            .orElseThrow(() -> new ResourceNotFoundException("Drug", "drugUuid", itemRequest.getItemUuid()));
+                    contractDetail.setDrug(drug);
+                    contractDetail.setDrugUuid(drug.getDrugUuid());
+                } else if ("SERVICE".equalsIgnoreCase(itemRequest.getItemType())) {
+                    Servicelist service = servicelistRepository.findByServiceUuid(itemRequest.getItemUuid())
+                            .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceUuid", itemRequest.getItemUuid()));
+                    contractDetail.setServicelist(service);
+                    contractDetail.setServiceUuid(service.getServiceUuid());
+                } else {
+                    throw new BadRequestException("Invalid item type: " + itemRequest.getItemType());
+                }
 
-        response.setPayerUuid(payer.getPayerUuid());
-        response.setPayerName(payer.getPayerName());
-        response.setPayerCode(payer.getPayerCode());
+                contractDetailRepository.save(contractDetail);
+            }
+        }
 
-        response.setProviderUuid(provider.getProviderUuid());
-        response.setProviderName(provider.getProviderName());
-        response.setProviderCode(provider.getProviderCode());
+        ContractResponse response = new ContractResponse();
+        modelMapper.map(savedContract, response);
+        return ResponseEntity.ok(response);
+    }
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
+    private String generateContractCode() {
+        LocalDate currentDate = LocalDate.now();
+        String datePart = currentDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        return datePart + "CT";
     }
 
     @Override
@@ -181,6 +202,7 @@ public class ContractServiceImpl implements ContractService {
         contract.setPreparedBy(preparedBy);
         contractRepository.save(contract);
         return ResponseEntity.ok(new MessageResponse("Contract Updated Successfully!"));
+
     }
 
 

@@ -7,7 +7,9 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.Date;
+import java.util.List;
 
 @Getter
 @Setter
@@ -15,14 +17,6 @@ public class ContractRequest {
     @NotBlank
     @Size(min = 36, max = 40)
     private String providerUuid;
-
-    @NotBlank
-    @Size(min = 3, max = 100)
-    private String contractName;
-
-    @NotBlank
-    @Size(min = 3, max = 100)
-    private String contractCode;
 
     @NotBlank
     @Size(min = 3, max = 200)
@@ -40,5 +34,13 @@ public class ContractRequest {
     @NotNull
     private Date endDate;
 
-    private double negotiatingPrice;
+    private List<ContractItemRequest> contractItems;
+
+    @Getter
+    @Setter
+    public static class ContractItemRequest {
+        private String itemUuid;
+        private String itemType; // "DRUG" or "SERVICE"
+        private BigDecimal negotiatedPrice;
+    }
 }

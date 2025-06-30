@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.entity.contracts;
 
+import com.medco.HealthConnectProvider.entity.drug.Drug;
 import com.medco.HealthConnectProvider.entity.groups.ContractDetailEmployeeGroup;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensingItem;
@@ -54,7 +55,7 @@ public class ContractDetail extends Audit implements Serializable {
     @Column(nullable = false)
     private String contractHeaderUuid;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String serviceUuid;
 
     @Column(precision = 19, scale = 2)
@@ -75,6 +76,13 @@ public class ContractDetail extends Audit implements Serializable {
     @JoinColumn(name = "service_id")
     @JsonBackReference(value = "service-details")
     private Servicelist servicelist;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "drug_uuid", referencedColumnName = "drug_uuid")
+    private Drug drug;
+
+    @Column(name = "drug_uuid", insertable = false, updatable = false)
+    private String drugUuid;
 
     @ManyToMany
     @JoinTable(
