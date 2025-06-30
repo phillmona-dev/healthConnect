@@ -261,13 +261,18 @@ public class ClaimServiceImpl implements ClaimService {
         // Set related entity data from relationships
         System.out.println("medication size "+claim.getBatchRecord().getMedicationDispensing().size());
         System.out.println("batch code "+claim.getBatchRecord().getBatchCode());
+        response.setPayerUuid(claim.getPayerUuid());
         if (claim.getBatchRecord().getMedicationDispensing()!=null) {
-            response.setContractUuid(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractHeaderUuid());
-            response.setContractName(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractName());
-            response.setContractCode(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractCode());
+//            response.setContractUuid(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractHeaderUuid());
+//            response.setContractName(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractName());
+//            response.setContractCode(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractCode());
+            Provider provider=new Provider();
+            Payer payer = new Payer();
+            if (!claim.getBatchRecord().getMedicationDispensing().isEmpty()) {
+                 payer = claim.getBatchRecord().getMedicationDispensing().get(0).getInsured().getPayer();
+                 provider = claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getProvider();
+            }
 
-            Payer payer = claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getPayer();
-            Provider provider = claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getProvider();
             if (claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getServicelist().getProvider() != null) {
                 response.setProviderUuid(claim.getProviderUuid());
                 response.setProviderName(provider.getProviderName());
@@ -480,11 +485,12 @@ public class ClaimServiceImpl implements ClaimService {
 
         // Update specific status fields based on the new status
         updateStatusSpecificFields(claim, newStatus, userDetails);
+        List<MedicationDispensing>medicationDispensingList=new ArrayList<>();
         for (MedicationDispensing medicationDispensing:claim.getBatchRecord().getMedicationDispensing()){
             medicationDispensing.setClaimStatus(newStatus.toString());
-            medicationDispensingRepository.save(medicationDispensing);
+            medicationDispensingList.add(medicationDispensing);
         }
-
+        medicationDispensingRepository.saveAll(medicationDispensingList);
 
 
 
