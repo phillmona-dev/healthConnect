@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.entity.drug;
 
+import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
@@ -9,6 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 
 @Data
@@ -22,7 +24,7 @@ public class Drug {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true)
+    @Column(name = "drug_uuid", unique = true, nullable = false)
     private String drugUuid = UUID.randomUUID().toString();
 
     @Column(unique = true)

@@ -1,12 +1,12 @@
 package com.medco.HealthConnectProvider.ui.response.contracts;
 
-import java.io.Serializable;
+import com.medco.HealthConnectProvider.utils.enums.Status;
+import lombok.*;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Date;
-
-import com.medco.HealthConnectProvider.utils.enums.Status;
-import lombok.*;
+import java.util.List;
 
 @Getter
 @Setter
@@ -14,7 +14,6 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class ContractResponse {
-    private Long id;
     private String contractHeaderUuid;
     private String contractNumber;
     private String contractName;
@@ -26,26 +25,50 @@ public class ContractResponse {
     private Status status;
     private String remark;
     private String preparedBy;
-    private String description;
     private String contractCode;
+    private Double coPaymentPercentage;
+    private String description;
+    private boolean isDeleted;
+
+    // Payer information
+    private String payerUuid;
+    private String payerName;
+    private String payerCode;
+
+    // Provider information
+    private String providerUuid;
+    private String providerName;
+    private String providerCode;
+
+    // Termination information
     private Date terminationDate;
     private String terminationReason;
     private String terminationNotes;
     private String terminatedBy;
     private Date terminationRequestDate;
-    private Double coPaymentPercentage;
-    private boolean isDeleted;
 
-    // Related entity information
-    private String payerUuid;
-    private String payerName;
-    private String payerCode;
-    private String providerUuid;
-    private String providerName;
-    private String providerCode;
-
-    private double negotiatingPrice;
-
+    // Audit information
     private Instant createdAt;
     private Instant updatedAt;
+
+    // Summary information
+    private int totalServices;
+    private int totalInsured;
+    private int totalDependants;
+
+    // You might want to include a list of contract details or a summary of them
+    private List<ContractDetailSummary> contractDetails;
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ContractDetailSummary {
+        private String contractDetailUuid;
+        private String serviceUuid;
+        private String serviceName;
+        private Double negotiatedPrice;
+        private List<String> assignedGroups;
+    }
 }
