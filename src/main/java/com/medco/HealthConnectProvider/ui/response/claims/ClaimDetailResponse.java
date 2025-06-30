@@ -31,18 +31,7 @@ public class ClaimDetailResponse {
     private String payerName;
     private String payerCode;
 
-    // Insured person information
-    private String insuredPersonUuid;
-    private String insuredPersonName;
-    private String insuredPersonCode;
-    private String policyNumber;
-    private String insuredPersonPhone;
-    private String insuredPersonGender;
 
-    // Dependant information (if applicable)
-    private String dependantUuid;
-    private String dependantFullName;
-    private String dependantRelationship;
 
     // Claim details
     private String mrnNumber;
@@ -91,4 +80,7 @@ public class ClaimDetailResponse {
     private List<ClaimLogResponse> logs;
     private List<ProvidedServiceResponse> services;
 //    private ProvidedServiceResponse service;
+
+    
+
 }

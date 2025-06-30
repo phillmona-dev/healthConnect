@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.ui.response.claims;
 
+import com.medco.HealthConnectProvider.utils.enums.ItemType;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -18,5 +19,6 @@ public class ItemResponse {
     private String serviceCategory;
     private String serviceSubCategory;
     private BigDecimal negotiatedPrice;
+    private ItemType itemType;
 
 }
