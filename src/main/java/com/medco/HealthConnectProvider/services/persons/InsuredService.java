@@ -66,8 +66,7 @@ public interface InsuredService {
     ResponseEntity<PagedResponse<InsuredWithDependantsResponse>> getAllInsuredPersonsWithDependants(int page, int size, String search);
 
 
-    ResponseEntity<PagedResponse<InsuredDependantResponse>> getAllInsuredPersonsWithDependentsByPayer(String payerUuid, int page, int size, String search);
-
+    
     ResponseEntity<?> softDeleteInsuredPerson(String insuredUuid);
 
 
@@ -75,4 +74,5 @@ public interface InsuredService {
 
     List<InsuredSearchResponse> searchInsuredPersons(String identifier);
 
+    ResponseEntity<PagedResponse<InsuredDependantResponse>> getAllInsuredPersonsWithDependentsByPayer(String payerUuid, int page, int size, String search, String contractUuid);
 }

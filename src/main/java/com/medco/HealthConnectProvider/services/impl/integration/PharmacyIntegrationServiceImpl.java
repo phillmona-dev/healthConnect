@@ -599,7 +599,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             String dosageInstructions = String.format("%s %s for %s", item.getDose(), item.getFrequency(), item.getDuration());
             dispensingItem.setDosageInstructions(dosageInstructions);
 
-            // Find the appropriate ContractDetail
             ContractDetail contractDetail = findContractDetail(contractHeaderUuid, drug.getDrugUuid(), insured);
             if (contractDetail == null) {
                 throw new ResourceNotFoundException("ContractDetail", "drug", drug.getDrugUuid());
@@ -693,11 +692,13 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
             message = dispensingRecords.size() + " dispensing record(s) updated to AUTHORIZED status. " +
                     "Batch " + batchCode + " updated to AUTHORIZED status.";
+
         }
 
         dispensingRepository.saveAll(dispensingRecords);
 
         return ResponseEntity.ok(new MessageResponse(message));
+
     }
 
     private BatchRecord createBatchRecord(Payer payer, List<MedicationDispensing> dispensingRecords, Claim claim) {
@@ -761,7 +762,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             Payer payer = insured.getPayer();
             logger.info("Insured person found: {}", insured.getFirstName());
 
-            // Find the active contract for this payer
             ContractHeader activeContract = contractHeaderRepository.findActiveContractByPayerUuid(payer.getPayerUuid())
                     .orElseThrow(() -> new ResourceNotFoundException("Active contract", "payer", payer.getPayerUuid()));
 
@@ -1091,7 +1091,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     private ContractDetail findContractDetail(String contractHeaderUuid, String serviceUuid, Insured insured) {
-        // First, try to find a contract detail specific to the insured's employee dependant group
+
         if (insured.getEmployeeDependantGroup() != null) {
             ContractDetail detail = contractDetailRepository.findByContractHeaderUuidAndServiceUuidAndEmployeeDependantGroups(
                     contractHeaderUuid, serviceUuid, insured.getEmployeeDependantGroup());

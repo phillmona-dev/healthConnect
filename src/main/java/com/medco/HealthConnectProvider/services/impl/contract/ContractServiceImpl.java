@@ -202,7 +202,6 @@ public class ContractServiceImpl implements ContractService {
 
     }
 
-
     @Override
     public ContractResponse getContract(String contractUuid) {
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
@@ -243,7 +242,6 @@ public class ContractServiceImpl implements ContractService {
 
         return contractResponse;
     }
-
 
     private ContractResponse.InsuredSummary mapInsuredSummary(Insured insured) {
         return ContractResponse.InsuredSummary.builder()
@@ -327,8 +325,6 @@ public class ContractServiceImpl implements ContractService {
 
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
-
-//		String payerUuid = userDetails.getPayerUuid();
         String approver = userDetails.getUserUuid();
         String fullName = userDetails.getFirstName() + " " + userDetails.getFatherName();
 
@@ -498,67 +494,13 @@ public class ContractServiceImpl implements ContractService {
         return ResponseEntity.ok(new MessageResponse("Added " + createdGroups.size() + " employee groups to contract"));
     }
 
-    @Override
-    @Transactional
-    public ResponseEntity<?> assignServicesToEmployeeGroups(String contractUuid,
-                                                            List<ContractServiceGroupAssignmentRequest> assignments) {
-
-        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid = userDetails.getPayerUuid();
-
-        ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
-        if (contract == null) {
-            throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
-        }
-
-        if (!contract.getPayer().getPayerUuid().equals(payerUuid)) {
-            throw new BadRequestException("Contract does not belong to this payer");
-        }
-
-        int assignmentCount = 0;
-
-        for (ContractServiceGroupAssignmentRequest assignment : assignments) {
-
-            ContractDetail detail = contractDetailRepository.findByContractDetailUuid(assignment.getContractDetailUuid());
-            if (detail == null) {
-                throw new ResourceNotFoundException("Contract Detail", "contractDetailUuid", assignment.getContractDetailUuid());
-            }
-
-            if (!detail.getContractHeader().getContractHeaderUuid().equals(contractUuid)) {
-                throw new BadRequestException("Contract detail does not belong to this contract");
-            }
-
-            for (String groupUuid : assignment.getEmployeeGroupUuids()) {
-                EmployeeDependantGroup group = (EmployeeDependantGroup) employeeDependantGroupRepository.findByGroupUuid(groupUuid);
-                if (group == null) {
-                    throw new ResourceNotFoundException("Employee Group", "groupUuid", groupUuid);
-                }
-
-                boolean exists = contractDetailEmployeeGroupRepository.existsByContractDetailAndEmployeeDependantGroup(detail, group);
-                if (!exists) {
-
-                    ContractDetailEmployeeGroup linkage = new ContractDetailEmployeeGroup();
-                    linkage.setContractDetail(detail);
-                    linkage.setEmployeeDependantGroup(group);
-                    linkage.setContractDetailUuid(detail.getContractDetailUuid());
-                    linkage.setEmployeeGroupUuid(group.getGroupUuid());
-
-                    contractDetailEmployeeGroupRepository.save(linkage);
-                    assignmentCount++;
-                }
-            }
-        }
-
-        return ResponseEntity.ok(new MessageResponse("Created " + assignmentCount + " service-group assignments"));
-    }
-
 
     //Filmon
 
     @Override
     @Transactional
     public ResponseEntity<?> addServiceToContract(String contractUuid, @Valid ContractDetailRequest detailRequest) {
-        // Validate contract exists and belongs to the payer
+
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
         System.out.println("payer uuid "+payerUuid);
@@ -591,7 +533,6 @@ public class ContractServiceImpl implements ContractService {
 
         contractDetail = contractDetailRepository.save(contractDetail);
 
-        // Add employee groups if provided
         if (detailRequest.getEmployeeGroupUuids() != null && !detailRequest.getEmployeeGroupUuids().isEmpty()) {
             for (String groupUuid : detailRequest.getEmployeeGroupUuids()) {
                 EmployeeDependantGroup group = (EmployeeDependantGroup) employeeDependantGroupRepository.findByGroupUuid(groupUuid);
@@ -608,13 +549,12 @@ public class ContractServiceImpl implements ContractService {
     @Override
     @Transactional
     public ResponseEntity<?> updateContractDetail(String contractDetailUuid, @Valid ContractDetailRequest detailRequest) {
-        // Validate contract detail exists
+
         ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(contractDetailUuid);
         if (contractDetail == null) {
             throw new ResourceNotFoundException("Contract Detail", "contractDetailUuid", contractDetailUuid);
         }
 
-        // Validate user has access to this contract
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
 
@@ -622,10 +562,8 @@ public class ContractServiceImpl implements ContractService {
             throw new BadRequestException("Contract does not belong to this payer");
         }
 
-        // Update negotiated price
         contractDetail.setNegotiatedPrice(detailRequest.getNegotiatedPrice());
 
-        // Update service if changed
         if (!contractDetail.getServiceUuid().equals(detailRequest.getServiceUuid())) {
             Servicelist service = servicelistRepository.findByServiceUuid(detailRequest.getServiceUuid())
                     .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceUuid", detailRequest.getServiceUuid()));
@@ -634,12 +572,10 @@ public class ContractServiceImpl implements ContractService {
             contractDetail.setServiceUuid(detailRequest.getServiceUuid());
         }
 
-        // Update employee groups
         if (detailRequest.getEmployeeGroupUuids() != null) {
-            // Clear existing groups
+
             contractDetail.getEmployeeDependantGroups().clear();
 
-            // Add new groups
             for (String groupUuid : detailRequest.getEmployeeGroupUuids()) {
                 EmployeeDependantGroup group = (EmployeeDependantGroup) employeeDependantGroupRepository.findByGroupUuid(groupUuid);
                 if (group != null) {
@@ -655,13 +591,12 @@ public class ContractServiceImpl implements ContractService {
     @Override
     @Transactional
     public ResponseEntity<?> removeServiceFromContract(String contractDetailUuid) {
-        // Validate contract detail exists
+
         ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(contractDetailUuid);
         if (contractDetail == null) {
             throw new ResourceNotFoundException("Contract Detail", "contractDetailUuid", contractDetailUuid);
         }
 
-        // Validate user has access to this contract
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
 
@@ -669,7 +604,6 @@ public class ContractServiceImpl implements ContractService {
             throw new BadRequestException("Contract does not belong to this payer");
         }
 
-        // Soft delete the contract detail
         contractDetail.setDeleted(true);
         contractDetailRepository.save(contractDetail);
 
@@ -678,16 +612,14 @@ public class ContractServiceImpl implements ContractService {
 
     @Override
     public List<ContractDetailResponse> getContractDetails(String contractUuid, Pageable pageable) {
-        // Validate contract exists
+
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
         if (contract == null) {
             throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
         }
 
-        // Get contract details
         List<ContractDetail> details = contractDetailRepository.findByContractHeaderContractHeaderUuid(contractUuid);
 
-        // Map to response DTOs
         return details.stream().map(detail -> {
             ContractDetailResponse response = new ContractDetailResponse();
             response.setContractDetailUuid(detail.getContractDetailUuid());
@@ -700,7 +632,6 @@ public class ContractServiceImpl implements ContractService {
             response.setDefaultPrice(detail.getServicelist().getDefaultPrice());
             response.setStatus(detail.getStatus().toString());
 
-            // Map assigned groups
             response.setAssignedGroups(detail.getEmployeeDependantGroups().stream()
                     .map(group -> {
                         EmployeeGroupResponse groupResponse = new EmployeeGroupResponse();
@@ -718,13 +649,12 @@ public class ContractServiceImpl implements ContractService {
     @Override
     @Transactional
     public ResponseEntity<?> submitContractForApproval(String contractUuid) {
-        // Validate contract exists
+
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
         if (contract == null) {
             throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
         }
 
-        // Validate user has access to this contract
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
 
@@ -732,13 +662,11 @@ public class ContractServiceImpl implements ContractService {
             throw new BadRequestException("Contract does not belong to this payer");
         }
 
-        // Validate contract has details
         List<ContractDetail> details = contractDetailRepository.findByContractHeaderContractHeaderUuid(contractUuid);
         if (details.isEmpty()) {
             throw new BadRequestException("Contract must have at least one service before submission");
         }
 
-        // Update contract status
         contract.setStatus(Status.PENDING_APPROVAL);
         contractRepository.save(contract);
 
@@ -750,22 +678,19 @@ public class ContractServiceImpl implements ContractService {
     @Override
     @Transactional
     public ResponseEntity<?> reviewContract(String contractUuid, String reviewerComments, boolean approved) {
-        // Validate contract exists
+
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
         if (contract == null) {
             throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
         }
 
-        // Validate contract is in pending approval state
         if (contract.getStatus() != Status.PENDING_APPROVAL) {
             throw new BadRequestException("Contract is not pending approval");
         }
 
-        // Get current user
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String reviewerUuid = userDetails.getUserUuid();
 
-        // Update contract status based on approval decision
         if (approved) {
             contract.setStatus(Status.APPROVED);
             contract.setApprovedBy(reviewerUuid);
@@ -786,7 +711,7 @@ public class ContractServiceImpl implements ContractService {
     @Override
     @Transactional
     public ResponseEntity<?> initiateContractRenewal(String contractUuid, @Valid ContractRenewalRequest renewalRequest) {
-        
+
         ContractHeader originalContract = contractRepository.findByContractHeaderUuid(contractUuid);
         if (originalContract == null) {
             throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
@@ -1061,6 +986,65 @@ public class ContractServiceImpl implements ContractService {
 
         return response;
     }
+
+    @Override
+    @Transactional
+    public ResponseEntity<AssignServicesToGroupResponse> assignServicesToGroup(String groupUuid, List<String> contractDetailUuids) {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
+
+        EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
+        if (group == null) {
+            throw new ResourceNotFoundException("Employee Group", "groupUuid", groupUuid);
+        }
+
+        if (!group.getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("Group does not belong to this payer");
+        }
+
+        int assignmentCount = 0;
+        List<String> assignedServices = new ArrayList<>();
+        List<String> skippedServices = new ArrayList<>();
+
+        for (String contractDetailUuid : contractDetailUuids) {
+            ContractDetail detail = contractDetailRepository.findByContractDetailUuid(contractDetailUuid);
+            if (detail == null) {
+                throw new ResourceNotFoundException("Contract Detail", "contractDetailUuid", contractDetailUuid);
+            }
+
+            if (!detail.getContractHeader().getPayer().getPayerUuid().equals(payerUuid)) {
+                throw new BadRequestException("Contract detail does not belong to this payer");
+            }
+
+            String serviceName = detail.getServicelist().getServiceName();
+
+            boolean exists = contractDetailEmployeeGroupRepository.existsByContractDetailAndEmployeeDependantGroup(detail, group);
+            if (!exists) {
+                ContractDetailEmployeeGroup linkage = new ContractDetailEmployeeGroup();
+                linkage.setContractDetail(detail);
+                linkage.setEmployeeDependantGroup(group);
+                linkage.setContractDetailUuid(detail.getContractDetailUuid());
+                linkage.setEmployeeGroupUuid(group.getGroupUuid());
+
+                contractDetailEmployeeGroupRepository.save(linkage);
+                assignmentCount++;
+                assignedServices.add(serviceName);
+            } else {
+                skippedServices.add(serviceName);
+            }
+        }
+
+        AssignServicesToGroupResponse response = AssignServicesToGroupResponse.builder()
+                .message("Services assignment completed")
+                .assignedCount(assignmentCount)
+                .totalCount(contractDetailUuids.size())
+                .assignedServices(assignedServices)
+                .skippedServices(skippedServices)
+                .build();
+
+        return ResponseEntity.ok(response);
+    }
+
 
     private String getBase64FromPath(String logoPath, String logoType) {
         if (logoPath == null || logoPath.isEmpty()) {

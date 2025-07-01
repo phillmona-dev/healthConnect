@@ -200,4 +200,34 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
     List<Insured> findByInsuredUuidIn(List<String> insuredUuids);
 
     boolean existsByPhoneAndPayerUuid(String phone, String payerUuid);
+
+    @Query("SELECT i FROM Insured i " +
+            "WHERE i.payer.payerUuid = :payerUuid " +
+            "AND i.isDeleted = :isDeleted " +
+            "AND i NOT IN (SELECT ci FROM ContractHeader ch JOIN ch.insured ci " +
+            "              WHERE ch.contractHeaderUuid = :contractUuid)")
+    Page<Insured> findByPayerAndNotInContract(
+            @Param("payerUuid") String payerUuid,
+            @Param("contractUuid") String contractUuid,
+            @Param("isDeleted") boolean isDeleted,
+            Pageable pageable
+    );
+
+    @Query("SELECT DISTINCT i FROM Insured i " +
+            "LEFT JOIN i.contracts c " +
+            "WHERE i.payer.payerUuid = :payerUuid " +
+            "AND i.isDeleted = :isDeleted " +
+            "AND (c.contractHeaderUuid != :contractUuid OR c IS NULL) " +
+            "AND (:searchKey IS NULL OR :searchKey = '' OR " +
+            "  LOWER(i.firstName) LIKE LOWER(CONCAT('%', :searchKey, '%')) " +
+            "  OR LOWER(i.fatherName) LIKE LOWER(CONCAT('%', :searchKey, '%')) " +
+            "  OR LOWER(i.grandFatherName) LIKE LOWER(CONCAT('%', :searchKey, '%')) " +
+            "  OR LOWER(i.phone) LIKE LOWER(CONCAT('%', :searchKey, '%')) " +
+            "  OR LOWER(i.insuranceId) LIKE LOWER(CONCAT('%', :searchKey, '%')))")
+    Page<Insured> findByPayerAndNotInContractAndSearchKey(
+            @Param("payerUuid") String payerUuid,
+            @Param("contractUuid") String contractUuid,
+            @Param("isDeleted") boolean isDeleted,
+            @Param("searchKey") String searchKey,
+            Pageable pageable);
 }

@@ -4,6 +4,7 @@ import com.medco.HealthConnectProvider.ui.request.group.EmployeeDependantGroupRe
 
 import com.medco.HealthConnectProvider.ui.request.group.GroupMembersRequest;
 import com.medco.HealthConnectProvider.ui.response.groups.EmployeeDependantGroupResponse;
+import com.medco.HealthConnectProvider.ui.response.groups.GroupContractDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.GroupMembersAndServicesResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import org.springframework.data.domain.Page;
@@ -56,4 +57,8 @@ public interface EmployeeDependantGroupService {
     ResponseEntity<?> addMembersToGroup(String groupUuid, GroupMembersRequest request);
 
     ResponseEntity<?> addServicesToGroup(String groupUuid, List<String> services);
+
+    ResponseEntity<List<GroupContractDetailResponse>> getContractDetailsByGroup(String groupUuid);
+
+    ResponseEntity<List<GroupContractDetailResponse>> getContractDetailsByGroupAndContract(String groupUuid, String contractUuid);
 }

@@ -1,6 +1,9 @@
 package com.medco.HealthConnectProvider.services.impl.group;
 
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
+import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
+import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
+import com.medco.HealthConnectProvider.entity.groups.ContractDetailEmployeeGroup;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
@@ -8,6 +11,8 @@ import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.contract.ContractDetailRepository;
+import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
+import com.medco.HealthConnectProvider.repository.group.ContractDetailEmployeeGroupRepository;
 import com.medco.HealthConnectProvider.repository.group.EmployeeDependantGroupRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
@@ -17,6 +22,7 @@ import com.medco.HealthConnectProvider.ui.request.group.EmployeeDependantGroupRe
 import com.medco.HealthConnectProvider.ui.request.group.GroupMembersRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.EmployeeDependantGroupResponse;
+import com.medco.HealthConnectProvider.ui.response.groups.GroupContractDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.GroupMembersAndServicesResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.DependantResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredResponse;
@@ -32,6 +38,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroupService {
@@ -42,14 +49,20 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
     private final InsuredRepository insuredRepository;
     private final DependantRepository dependantRepository;
     private final ContractDetailRepository contractDetailRepository;
+    private final EmployeeDependantGroupRepository employeeDependantGroupRepository;
+    private final ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository;
+    private final ContractRepository contractRepository;
 
 
-    public EmployeeDependantGroupServiceImpl(EmployeeDependantGroupRepository groupRepository, PayerRepository payerRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, ContractDetailRepository contractDetailRepository) {
+    public EmployeeDependantGroupServiceImpl(EmployeeDependantGroupRepository groupRepository, PayerRepository payerRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, ContractDetailRepository contractDetailRepository, EmployeeDependantGroupRepository employeeDependantGroupRepository, ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository, ContractRepository contractRepository) {
         this.groupRepository = groupRepository;
         this.payerRepository = payerRepository;
         this.insuredRepository = insuredRepository;
         this.dependantRepository = dependantRepository;
         this.contractDetailRepository = contractDetailRepository;
+        this.employeeDependantGroupRepository = employeeDependantGroupRepository;
+        this.contractDetailEmployeeGroupRepository = contractDetailEmployeeGroupRepository;
+        this.contractRepository = contractRepository;
     }
 
     @Override
@@ -282,12 +295,80 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
         return null;
     }
 
-    // Helper method to map entity to response
+    @Override
+    public ResponseEntity<List<GroupContractDetailResponse>> getContractDetailsByGroup(String groupUuid) {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
+
+        EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
+        if (group == null) {
+            throw new ResourceNotFoundException("Employee Group", "groupUuid", groupUuid);
+        }
+
+        if (!group.getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("Group does not belong to this payer");
+        }
+
+        List<ContractDetailEmployeeGroup> linkages = contractDetailEmployeeGroupRepository.findByEmployeeDependantGroup(group);
+
+        List<GroupContractDetailResponse> responses = linkages.stream()
+                .map(linkage -> {
+                    ContractDetail detail = linkage.getContractDetail();
+                    return GroupContractDetailResponse.builder()
+                            .contractDetailUuid(detail.getContractDetailUuid())
+                            .serviceName(detail.getServicelist().getServiceName())
+                            .serviceCode(detail.getServicelist().getServiceCode())
+                            .negotiatedPrice(detail.getNegotiatedPrice())
+                            .status(detail.getStatus().toString())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(responses);
+    }
+
+    @Override
+    public ResponseEntity<List<GroupContractDetailResponse>> getContractDetailsByGroupAndContract(String groupUuid, String contractUuid) {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
+
+        EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
+        if (group == null) {
+            throw new ResourceNotFoundException("Employee Group", "groupUuid", groupUuid);
+        }
+
+        ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
+        if (contract == null) {
+            throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
+        }
+
+        if (!group.getPayerUuid().equals(payerUuid) || !contract.getPayer().getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("Group or Contract does not belong to this payer");
+        }
+
+        List<ContractDetailEmployeeGroup> linkages = contractDetailEmployeeGroupRepository
+                .findByEmployeeDependantGroupAndContractDetail_ContractHeader(group, contract);
+
+        List<GroupContractDetailResponse> responses = linkages.stream()
+                .map(linkage -> {
+                    ContractDetail detail = linkage.getContractDetail();
+                    return GroupContractDetailResponse.builder()
+                            .contractDetailUuid(detail.getContractDetailUuid())
+                            .serviceName(detail.getServicelist().getServiceName())
+                            .serviceCode(detail.getServicelist().getServiceCode())
+                            .negotiatedPrice(detail.getNegotiatedPrice())
+                            .status(detail.getStatus().toString())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(responses);
+    }
+
     private EmployeeDependantGroupResponse mapToResponse(EmployeeDependantGroup group) {
         EmployeeDependantGroupResponse response = new EmployeeDependantGroupResponse();
         BeanUtils.copyProperties(group, response);
-        
-        // Add additional fields if needed
+
         response.setPayerName(group.getPayer() != null ? group.getPayer().getPayerName() : null);
         
         return response;

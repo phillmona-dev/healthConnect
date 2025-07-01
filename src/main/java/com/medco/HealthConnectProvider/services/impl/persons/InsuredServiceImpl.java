@@ -104,15 +104,13 @@ public class InsuredServiceImpl implements InsuredService {
             if (payer == null) throw new BadRequestException("Institution not found");
             insured.setPayer(payer);
 
-            // Generate a unique insured UUID if not already set
             if (insured.getInsuredUuid() == null || insured.getInsuredUuid().isEmpty()) {
                 insured.setInsuredUuid(UUID.randomUUID().toString());
             }
 
-            // Process photo if provided
             if (photo != null && !photo.isEmpty()) {
                 try {
-                    // Ensure directory exists
+
                     File directory = new File(payerLogosDirectory);
                     if (!directory.exists()) {
                         directory.mkdirs();
@@ -143,7 +141,6 @@ public class InsuredServiceImpl implements InsuredService {
             response.setNationalId(savedInsured.getNationalId());
             response.setProfilePicturePath(savedInsured.getProfilePicturePath());
 
-            // Add base64 encoded photo to response if available
             if (savedInsured.getProfilePicturePath() != null) {
                 try {
                     Path path = Paths.get(payerLogosDirectory + "/" + savedInsured.getProfilePicturePath());
@@ -348,22 +345,32 @@ public class InsuredServiceImpl implements InsuredService {
 
     @Override
     public ResponseEntity<PagedResponse<InsuredDependantResponse>> getAllInsuredPersonsWithDependentsByPayer(
-            String payerUuid, int page, int size, String search) {
-        log.info("Fetching insured persons with dependents for payer UUID: {}, page: {}, size: {}, search: {}",
-                payerUuid, page, size, search);
+            String payerUuid, int page, int size, String search, String contractUuid) {
+        log.info("Fetching insured persons with dependents for payer UUID: {}, page: {}, size: {}, search: {}, contractUuid: {}",
+                payerUuid, page, size, search, contractUuid);
 
         Payer payer = payerRepository.findByPayerUuid(payerUuid);
-        if (payer == null){
-            throw new RuntimeException("Payer not found");
+        if (payer == null) {
+            throw new ResourceNotFoundException("Payer", "payerUuid", payerUuid);
         }
 
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by("firstName").ascending());
 
         Page<Insured> insuredPage;
-        if (StringUtils.hasText(search)) {
-            insuredPage = insuredRepository.findByPayerAndSearchKey(payerUuid, false, search, pageable);
+        if (StringUtils.hasText(contractUuid)) {
+
+            if (StringUtils.hasText(search)) {
+                insuredPage = insuredRepository.findByPayerAndNotInContractAndSearchKey(payerUuid, contractUuid, false, search, pageable);
+            } else {
+                insuredPage = insuredRepository.findByPayerAndNotInContract(payerUuid, contractUuid, false, pageable);
+            }
         } else {
-            insuredPage = insuredRepository.findByPayerPayerUuidAndIsDeleted(payerUuid, false, pageable);
+
+            if (StringUtils.hasText(search)) {
+                insuredPage = insuredRepository.findByPayerAndSearchKey(payerUuid, false, search, pageable);
+            } else {
+                insuredPage = insuredRepository.findByPayerPayerUuidAndIsDeleted(payerUuid, false, pageable);
+            }
         }
 
         List<InsuredDependantResponse> insuredDependantResponses = insuredPage.getContent().stream()

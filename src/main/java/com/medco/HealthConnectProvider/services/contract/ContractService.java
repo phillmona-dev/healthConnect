@@ -8,10 +8,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractSe
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
-import com.medco.HealthConnectProvider.ui.response.contracts.ContractDetailResponse;
-import com.medco.HealthConnectProvider.ui.response.contracts.ContractListPayerResponse;
-import com.medco.HealthConnectProvider.ui.response.contracts.ContractResponse;
-import com.medco.HealthConnectProvider.ui.response.contracts.DetailedContractResponse;
+import com.medco.HealthConnectProvider.ui.response.contracts.*;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
@@ -41,8 +38,6 @@ public interface ContractService {
     ResponseEntity<?> getAvailableProvidersForContract(String searchKey, Pageable pageable);
     ResponseEntity<?> getAvailableServicesForProvider(String providerUuid, String searchKey, Pageable pageable);
     ResponseEntity<?> addEmployeeGroupsToContract(String contractUuid, List<EmployeeGroupRequest> groups);
-    ResponseEntity<?> assignServicesToEmployeeGroups(String contractUuid, List<ContractServiceGroupAssignmentRequest> assignments);
-
 
     ResponseEntity<?> addServiceToContract(String contractUuid, @Valid ContractDetailRequest detailRequest);
     ResponseEntity<?> updateContractDetail(String contractDetailUuid, @Valid ContractDetailRequest detailRequest);
@@ -67,4 +62,7 @@ public interface ContractService {
     ResponseEntity<?> addInsuredToContract(String contractUuid, @Valid AddInsuredToContractRequest request);
 
     DetailedContractResponse getDetailedContract(String contractHeaderUuid, String userType);
+
+
+    ResponseEntity<AssignServicesToGroupResponse> assignServicesToGroup(String groupUuid, @Valid List<String> contractDetailUuids);
 }
