@@ -10,6 +10,7 @@ import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -247,5 +248,5 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
     Optional<ContractHeader> findActiveContractByPayerUuid(@Param("payerUuid") String payerUuid);
 
 
-    Optional<ContractHeader> findByPayerPayerUuidAndProviderProviderUuidAndStatus(String payerUuid, String providerUuid, Status status);
+    Optional<ContractHeader> findActiveContractByProviderProviderUuidAndPayerPayerUuid(@Size(min = 36, max = 40, message = "Provided Uuid Must be between 36 and 40") String providerUuid, String payerUuid);
 }
