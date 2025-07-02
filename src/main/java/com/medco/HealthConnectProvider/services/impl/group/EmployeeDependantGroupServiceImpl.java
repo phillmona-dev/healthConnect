@@ -12,6 +12,7 @@ import com.medco.HealthConnectProvider.repository.group.EmployeeDependantGroupRe
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
 import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
+import com.medco.HealthConnectProvider.repository.service.ServicelistRepository;
 import com.medco.HealthConnectProvider.services.group.EmployeeDependantGroupService;
 import com.medco.HealthConnectProvider.ui.request.group.EmployeeDependantGroupRequest;
 import com.medco.HealthConnectProvider.ui.request.group.GroupMembersRequest;
@@ -42,14 +43,16 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
     private final InsuredRepository insuredRepository;
     private final DependantRepository dependantRepository;
     private final ContractDetailRepository contractDetailRepository;
+    private final ServicelistRepository servicelistRepository;
 
 
-    public EmployeeDependantGroupServiceImpl(EmployeeDependantGroupRepository groupRepository, PayerRepository payerRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, ContractDetailRepository contractDetailRepository) {
+    public EmployeeDependantGroupServiceImpl(EmployeeDependantGroupRepository groupRepository, PayerRepository payerRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, ContractDetailRepository contractDetailRepository, ServicelistRepository servicelistRepository) {
         this.groupRepository = groupRepository;
         this.payerRepository = payerRepository;
         this.insuredRepository = insuredRepository;
         this.dependantRepository = dependantRepository;
         this.contractDetailRepository = contractDetailRepository;
+        this.servicelistRepository = servicelistRepository;
     }
 
     @Override
@@ -278,7 +281,9 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
 
     @Override
     public ResponseEntity<?> addServicesToGroup(String groupUuid, List<String> services) {
-
+        List<Service>serviceList=servicelistRepository.findByServiceUuidIn(services);
+        EmployeeDependantGroup employeeDependantGroup=groupRepository.findByGroupUuid(groupUuid);
+//        employeeDependantGroup.set
         return null;
     }
 

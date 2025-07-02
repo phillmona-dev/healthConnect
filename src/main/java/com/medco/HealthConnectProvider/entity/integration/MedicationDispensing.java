@@ -55,6 +55,7 @@ public class MedicationDispensing {
     private String branchName;
 
     private String claimStatus;
+    private String remark;
 
     private Status status;
     private String claimUuid;

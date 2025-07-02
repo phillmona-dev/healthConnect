@@ -40,5 +40,5 @@ public interface ClaimService {
 
     ResponseEntity<?> createBatchClaim(String batchCode);
 
-    PagedResponse<ClaimListResponse> getAll(Pageable pageable);
+    PagedResponse<ClaimListResponse> getAll(String payer ,String provider,ClaimStatus status,Pageable pageable);
 }

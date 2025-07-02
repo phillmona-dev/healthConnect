@@ -1,6 +1,5 @@
 package com.medco.HealthConnectProvider.services.impl.integration;
 
-
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.repository.contract.ContractDetailRepository;
@@ -76,14 +75,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -195,9 +192,9 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 List<Predicate> predicates = new ArrayList<>();
 
                 predicates.add(cb.equal(root.get("providerUuid"), providerUuid));
-
+//TODO CHANGING THE CLAIM STATUS TO STATUS
                 if (status != null && !status.isEmpty()) {
-                    predicates.add(cb.equal(root.get("claimStatus"), status));
+                    predicates.add(cb.equal(root.get("status"), Status.valueOf(status)));
                 }
 
                 if (startDate != null) {
@@ -446,6 +443,15 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return ResponseEntity.ok(new MessageResponse("Drug dispensing record updated successfully"));
     }
 
+    @Override
+    public ResponseEntity<?> updateServiceClaimStatus(String medicationDispensingUuid, String newStatus,String remark) {
+        MedicationDispensing medicationDispensing=dispensingRepository.findByDispensingUuid(medicationDispensingUuid);
+        medicationDispensing.setClaimStatus(newStatus);
+        medicationDispensing.setRemark(remark);
+        dispensingRepository.save(medicationDispensing);
+        return ResponseEntity.ok("claim status  updated successfully ");
+    }
+
     private DispensingDetailResponse.DispensingItemDetail convertToItemDetail(MedicationDispensingItem item) {
         DispensingDetailResponse.DispensingItemDetail itemDetail = new DispensingDetailResponse.DispensingItemDetail();
         BeanUtils.copyProperties(item, itemDetail);
@@ -570,6 +576,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensing.setPharmacyTransactionId(request.getPharmacyTransactionId());
         dispensing.setClaimStatus("DRAFT");
         dispensing.setSource(SourceType.INPUT);
+        dispensing.setStatus(Status.DRAFT);
         dispensing.setInvoiceNumber(generateInvoiceNumber());
 
         dispensing.setRecordedAt(LocalDate.now());
@@ -639,7 +646,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         if (newStatus.equals("SUBMITTED")) {
             for (MedicationDispensing record : dispensingRecords) {
-                if (!record.getClaimStatus().equals("DRAFT")) {
+                if (!record.getStatus().equals(Status.valueOf("DRAFT"))) {
                     throw new BadRequestException("Dispensing record " + record.getDispensingUuid() +
                             " is not in DRAFT status");
                 }
@@ -658,6 +665,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             // Update dispensing records
             for (MedicationDispensing record : dispensingRecords) {
                 record.setClaimStatus("SUBMITTED");
+                record.setStatus(Status.SUBMITTED);
                 record.setBatchCode(batchRecord.getBatchCode());
                 record.setBatchRecord(batchRecord);
             }
@@ -665,35 +673,36 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             message = dispensingRecords.size() + " dispensing record(s) updated to SUBMITTED status. " +
                     "Batch created with code: " + batchRecord.getBatchCode();
 
-        } else {
-            String batchCode = null;
-            for (MedicationDispensing record : dispensingRecords) {
-                if (!record.getClaimStatus().equals("SUBMITTED")) {
-                    throw new BadRequestException("Dispensing record " + record.getDispensingUuid() +
-                            " is not in SUBMITTED status");
-                }
-                if (batchCode == null) {
-                    batchCode = record.getBatchCode();
-                } else if (!batchCode.equals(record.getBatchCode())) {
-                    throw new BadRequestException("All records must belong to the same batch");
-                }
-            }
-
-            // Update dispensing records
-            for (MedicationDispensing record : dispensingRecords) {
-                record.setClaimStatus("AUTHORIZED");
-            }
-
-            // Update batch record status
-            String finalBatchCode = batchCode;
-            batchRecord = batchRecordRepository.findByBatchCode(batchCode)
-                    .orElseThrow(() -> new ResourceNotFoundException("BatchRecord", "batchCode", finalBatchCode));
-            batchRecord.setStatus("AUTHORIZED");
-            batchRecordRepository.save(batchRecord);
-
-            message = dispensingRecords.size() + " dispensing record(s) updated to AUTHORIZED status. " +
-                    "Batch " + batchCode + " updated to AUTHORIZED status.";
         }
+//        else {
+//            String batchCode = null;
+//            for (MedicationDispensing record : dispensingRecords) {
+//                if (!record.getClaimStatus().equals("SUBMITTED")) {
+//                    throw new BadRequestException("Dispensing record " + record.getDispensingUuid() +
+//                            " is not in SUBMITTED status");
+//                }
+//                if (batchCode == null) {
+//                    batchCode = record.getBatchCode();
+//                } else if (!batchCode.equals(record.getBatchCode())) {
+//                    throw new BadRequestException("All records must belong to the same batch");
+//                }
+//            }
+//
+//            // Update dispensing records
+//            for (MedicationDispensing record : dispensingRecords) {
+//                record.setClaimStatus("AUTHORIZED");
+//            }
+//
+//            // Update batch record status
+//            String finalBatchCode = batchCode;
+//            batchRecord = batchRecordRepository.findByBatchCode(batchCode)
+//                    .orElseThrow(() -> new ResourceNotFoundException("BatchRecord", "batchCode", finalBatchCode));
+//            batchRecord.setStatus("AUTHORIZED");
+//            batchRecordRepository.save(batchRecord);
+//
+//            message = dispensingRecords.size() + " dispensing record(s) updated to AUTHORIZED status. " +
+//                    "Batch " + batchCode + " updated to AUTHORIZED status.";
+//        }
 
         dispensingRepository.saveAll(dispensingRecords);
 
@@ -762,7 +771,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             logger.info("Insured person found: {}", insured.getFirstName());
 
             // Find the active contract for this payer
-            ContractHeader activeContract = contractHeaderRepository.findActiveContractByPayerUuid(payer.getPayerUuid())
+            ContractHeader activeContract = contractHeaderRepository.findByPayerPayerUuidAndProviderProviderUuidAndStatus(payer.getPayerUuid(),userDetails.getProviderUuid(),Status.ACTIVE)
                     .orElseThrow(() -> new ResourceNotFoundException("Active contract", "payer", payer.getPayerUuid()));
 
             MedicationDispensing dispensingRecord = createDispensingRecord(request, insured, payer, provider);
@@ -1008,7 +1017,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         record.setDispensingDate(LocalDate.now());
 //        record.setPrescriptionNumber(request.getPrescriptionNumber());
 //        record.setPharmacyTransactionId(request.getPharmacyTransactionId());
-        record.setClaimStatus("DRAFT");
+
+        record.setStatus(Status.DRAFT);
         record.setSource(SourceType.INPUT);
         record.setInvoiceNumber(generateInvoiceNumber());
         record.setRecordedAt(LocalDate.now());
@@ -1109,7 +1119,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dto.setDispensingUuid(dispensing.getDispensingUuid());
         dto.setCreatedAt(dispensing.getRecordedAt());
         dto.setBranchName(dispensing.getBranchName());
-        dto.setStatus(Status.valueOf(dispensing.getClaimStatus()));
+        dto.setStatus(dispensing.getStatus());
+//        dto.setStatus(Status.valueOf(dispensing.getClaimStatus()));
         dto.setInvoiceNumber(dispensing.getInvoiceNumber());
 
         Insured insured = insuredRepository.findByInsuredUuid(dispensing.getInsuredUuid());

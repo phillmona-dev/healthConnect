@@ -1,19 +1,15 @@
 package com.medco.HealthConnectProvider.services.impl.claims;
 
-
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.dto.MedicationDispensingDTO;
 import com.medco.HealthConnectProvider.entity.claims.*;
-import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensing;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensingItem;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
-
-
-import com.medco.HealthConnectProvider.entity.services.Servicelist;
+import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.claims.*;
@@ -22,23 +18,25 @@ import com.medco.HealthConnectProvider.repository.integration.MedicationDispensi
 import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
 import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
-
+import com.medco.HealthConnectProvider.repository.user.UserRepository;
 import com.medco.HealthConnectProvider.services.claims.ClaimService;
 import com.medco.HealthConnectProvider.services.notification.NotificationService;
 import com.medco.HealthConnectProvider.services.payment.PaymentService;
+import com.medco.HealthConnectProvider.services.providers.ProviderService;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimCommentRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimPaymentRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.*;
-import com.medco.HealthConnectProvider.ui.response.persons.InsuredWithDependantsResponse;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -87,15 +85,17 @@ public class ClaimServiceImpl implements ClaimService {
     
 
     private final ProviderRepository providerRepository;
+    private final ProviderService providerService;
 
 
     private final PaymentService paymentService;
+    private final UserRepository userRepository;
 
     private final NotificationService notificationService;
     private final BatchRecordRepository batchRecordRepository;
     private final MedicationDispensingRepository medicationDispensingRepository;
 
-    public ClaimServiceImpl(ClaimRepository claimRepository, ClaimAttachmentRepository claimAttachmentRepository, ClaimCommentRepository claimCommentRepository, ClaimLogsRepository claimLogsRepository, ClaimPaymentRepository claimPaymentRepository, ContractRepository contractRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, ProviderRepository providerRepository, PaymentService paymentService, NotificationService notificationService, BatchRecordRepository batchRecordRepository, MedicationDispensingRepository medicationDispensingRepository) {
+    public ClaimServiceImpl(ClaimRepository claimRepository, ClaimAttachmentRepository claimAttachmentRepository, ClaimCommentRepository claimCommentRepository, ClaimLogsRepository claimLogsRepository, ClaimPaymentRepository claimPaymentRepository, ContractRepository contractRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, ProviderRepository providerRepository, ProviderService providerService, PaymentService paymentService, UserRepository userRepository, NotificationService notificationService, BatchRecordRepository batchRecordRepository, MedicationDispensingRepository medicationDispensingRepository) {
         this.claimRepository = claimRepository;
         this.claimAttachmentRepository = claimAttachmentRepository;
         this.claimCommentRepository = claimCommentRepository;
@@ -105,7 +105,9 @@ public class ClaimServiceImpl implements ClaimService {
         this.insuredRepository = insuredRepository;
         this.dependantRepository = dependantRepository;
         this.providerRepository = providerRepository;
+        this.providerService = providerService;
         this.paymentService = paymentService;
+        this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.batchRecordRepository = batchRecordRepository;
         this.medicationDispensingRepository = medicationDispensingRepository;
@@ -263,9 +265,9 @@ public class ClaimServiceImpl implements ClaimService {
         System.out.println("batch code "+claim.getBatchRecord().getBatchCode());
         response.setPayerUuid(claim.getPayerUuid());
         if (claim.getBatchRecord().getMedicationDispensing()!=null) {
-//            response.setContractUuid(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractHeaderUuid());
-//            response.setContractName(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractName());
-//            response.setContractCode(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractCode());
+            response.setContractUuid(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractHeaderUuid());
+            response.setContractName(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractName());
+            response.setContractCode(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractCode());
             Provider provider=new Provider();
             Payer payer = new Payer();
             if (!claim.getBatchRecord().getMedicationDispensing().isEmpty()) {
@@ -274,9 +276,22 @@ public class ClaimServiceImpl implements ClaimService {
             }
 
             if (claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getServicelist().getProvider() != null) {
-                response.setProviderUuid(claim.getProviderUuid());
+                response.setProviderUuid(provider.getProviderUuid());
                 response.setProviderName(provider.getProviderName());
                 response.setProviderCode(provider.getProviderCode());
+                response.setProviderCategory(provider.getCategory());
+                response.setProviderEmail(provider.getEmail());
+                response.setProviderPhone(provider.getTelephone());
+                ResponseEntity<ByteArrayResource> providerLogo=providerService.getProviderLogo(provider.getProviderUuid());
+
+                if (providerLogo != null && providerLogo.getBody() != null) {
+                    byte[] logoBytes = providerLogo.getBody().getByteArray();
+                    String base64Logo = Base64.getEncoder().encodeToString(logoBytes);
+                    response.setProviderLogo(base64Logo);
+
+
+                }
+
             }
 
             if (claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getPayer() != null) {
@@ -286,25 +301,27 @@ public class ClaimServiceImpl implements ClaimService {
             }
 
         }
-        // Use the JPA relationships to get related collections
-        // Get attachments - can use the relationship directly
+        if (claim.getBatchRecord().getMedicationDispensing()!=null)
+            response.setTotalClaims(claim.getBatchRecord().getMedicationDispensing().size());
+
+        response.setTotalAmount(claim.getTotalAmount().doubleValue());
+        response.setClaimFromDate(claim.getBatchRecord().getClaimDatingFrom());
+        response.setClaimFromDate(claim.getBatchRecord().getClaimDatingTo());
         response.setAttachments(claim.getAttachments().stream()
                 .map(this::mapToAttachmentResponse)
                 .collect(Collectors.toList()));
 
-        // Get comments - can use the relationship directly
+
         response.setComments(claim.getComments().stream()
                 .sorted(Comparator.comparing(ClaimComment::getCommentDate).reversed())
                 .map(this::mapToCommentResponse)
                 .collect(Collectors.toList()));
 
-        // Get logs - can use the relationship directly
         response.setLogs(claim.getLogs().stream()
                 .sorted(Comparator.comparing(ClaimLogs::getActionDate).reversed())
                 .map(this::mapToLogResponse)
                 .collect(Collectors.toList()));
 
-        // Get provided services - can use the relationship directly
         response.setServices(mapToServiceResponse(claim.getBatchRecord().getMedicationDispensing()));
         response.setStatus(claim.getStatus().toString());
 
@@ -416,8 +433,11 @@ public class ClaimServiceImpl implements ClaimService {
                 response.setInsuredPersonPhone(insured.getPhone());
                 response.setInsuredPersonGender(insured.getGender());
                 response.setInsuredPersonUuid(insured.getInsuredUuid());
+                response.setEncounterDate(medicationDispensing.getDispensingDate());
+                response.setInvoiceNumber(medicationDispensing.getInvoiceNumber());
 
             }
+
             if (medicationDispensing.getDependant() != null) {
                 Dependant dependant = medicationDispensing.getDependant();
                 response.setDependantUuid(dependant.getDependantUuid());
@@ -624,7 +644,7 @@ public class ClaimServiceImpl implements ClaimService {
             case SUBMITTED:
                 claim.setPreparedByProviderUuid(userDetails.getUserUuid());
                 claim.setPreparedByProviderStatus("Submitted");
-                claim.setPreparedByProviderDate(LocalDateTime.from(Instant.now()));
+                claim.setPreparedByProviderDate(LocalDateTime.now());
                 break;
             case UNDER_REVIEW:
                 // Already handled in reviewClaim method
@@ -633,7 +653,7 @@ public class ClaimServiceImpl implements ClaimService {
                 // Already handled in reviewClaim method
                 break;
             case PAYMENT_REQUESTED:
-                claim.setPaymentRequestedDate(LocalDateTime.from(Instant.now()));
+                claim.setCancelledDate(LocalDateTime.now());
                 claim.setPaymentRequestedByUuid(userDetails.getUserUuid());
                 break;
             case PAID:
@@ -1025,7 +1045,7 @@ public class ClaimServiceImpl implements ClaimService {
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 
-        if (!claim.getStatus().equals(ClaimStatus.PAYMENT_INITIATED.toString())) {
+        if (!claim.getStatus().equals(ClaimStatus.PAYMENT_INITIATED)) {
             throw new BadRequestException("Payment verification can only be done for claims with initiated payments");
         }
 
@@ -1049,6 +1069,7 @@ public class ClaimServiceImpl implements ClaimService {
                     .body(new MessageResponse("Payment verification failed"));
         }
     }
+
     @Transactional
     @Override
     public ResponseEntity<?> createBatchClaim(String batchCode) {
@@ -1056,26 +1077,32 @@ public class ClaimServiceImpl implements ClaimService {
 
         BatchRecord batch=batchRecordRepository.findByBatchCode(batchCode).orElseThrow(()->new BadRequestException("batch not found"));
         if (userDetails.getProviderUuid()==null)throw new BadRequestException("allowed only for provider ");
-        if (!batch.getStatus().equals(Status.SUBMITTED.toString()))throw new BadRequestException("batch is not submited");
+        if (!batch.getStatus().equals(Status.SUBMITTED.toString()))throw new BadRequestException("batch is not submitted");
         List<MedicationDispensing> authorizedMedications=new ArrayList<>();
+
         for (MedicationDispensing medicationDispensing:batch.getMedicationDispensing()){
             medicationDispensing.setStatus(Status.AUTHORIZED);
+            medicationDispensing.setClaimStatus(ClaimStatus.DRAFT.toString());
             authorizedMedications.add(medicationDispensing);
         }
+
+        double totalClaimAmount=authorizedMedications.stream().mapToDouble(MedicationDispensing::getTotalAmount).sum();
+        User user =userRepository.findByUserUuid(userDetails.getUserUuid()).orElseThrow(()->new BadRequestException("you are not identified please login again"));
         medicationDispensingRepository.saveAll(authorizedMedications);
         Claim claim=new Claim();
         claim.setBatchRecord(batch);
-        claim.setClaimNumber(65465884L);
-        claim.setPayerUuid(batch.getPayerName());
+//        claim.setClaimNumber(6546588484L);
+
         claim.setClaimType("CLAIM");
         claim.setMrnNumber("2");
         claim.setServiceDate(LocalDate.now());
         claim.setStatus(ClaimStatus.DRAFT);
         claim.setSubmittedByUuid(userDetails.getUserUuid());
-        claim.setSubmittedByName("abb");
-        claim.setTotalAmount(BigDecimal.valueOf(1000.00));
+        claim.setSubmittedByName(user.getFirstName()+ " "+userDetails.getFatherName());
+        claim.setTotalAmount(BigDecimal.valueOf(totalClaimAmount));
         claim.setVisitDate(LocalDateTime.now());
-        claim.setPayerUuid(batch.getMedicationDispensing().get(0).getProviderUuid());
+        claim.setPayerUuid(batch.getMedicationDispensing().get(0).getPayerUuid());
+        claim.setProviderUuid(userDetails.getProviderUuid());
 //        claim.setCoinsuranceAmount(100);
         Claim savedClaim =claimRepository.save(claim);
         createClaimLog( savedClaim,  userDetails,  ClaimStatus.DRAFT, ClaimStatus.DRAFT, "creating new claim status");
@@ -1084,8 +1111,27 @@ public class ClaimServiceImpl implements ClaimService {
     }
 
     @Override
-    public PagedResponse<ClaimListResponse> getAll(Pageable pageable) {
-        Page<ClaimListResponse>claims=claimRepository.findAllClaims(pageable);
+    public PagedResponse<ClaimListResponse> getAll(String provider,String payer,ClaimStatus status,Pageable pageable) {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid=userDetails.getPayerUuid();
+        String providerUuid=userDetails.getProviderUuid();
+
+        Page<ClaimListResponse> claims =new PageImpl<>(new ArrayList<>());
+        if (payerUuid!=null) {
+            if (provider!=null) {
+                claims = status == null ? claimRepository.findAllPayerProviderClaims(payerUuid,provider,pageable) : claimRepository.findAllPayerProviderClaimsByStatus(payerUuid, provider, status, pageable);
+            }else {
+                claims = status == null ? claimRepository.findAllPayerClaims(payerUuid,pageable) : claimRepository.findAllPayerClaimsByStatus(payerUuid, status, pageable);
+            }
+        }
+//        else if (providerUuid!=null) {
+//            if (payer!=null) {
+//                claims = status == null ? claimRepository.findAllPayerProviderClaims(provider,providerUuid,pageable) : claimRepository.findAllPayerProviderClaimsByStatus(payer, providerUuid, status, pageable);
+//            }else {
+//                claims = status == null ? claimRepository.findAllProviderClaims(providerUuid,pageable) : claimRepository.findAllProviderClaimsByStatus(providerUuid, status, pageable);
+//            }
+//
+//        }
         List<ClaimListResponse> responseList = new ArrayList<>(claims.getContent());
         return new PagedResponse<>(
                 responseList,

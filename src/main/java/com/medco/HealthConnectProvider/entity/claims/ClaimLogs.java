@@ -33,7 +33,7 @@ public class ClaimLogs extends Audit {
     private String claimUuid;
 
     @ManyToOne
-    @JoinColumn(name = "claim_id", nullable = false)
+    @JoinColumn(name = "claim_id",referencedColumnName = "id", nullable = false)
     private Claim claim;
 
     @Column(nullable = false)

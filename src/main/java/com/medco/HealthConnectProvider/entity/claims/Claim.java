@@ -37,7 +37,7 @@ public class Claim extends Audit {
     @Column(nullable = false, unique = true, updatable = false)
     private String claimUuid = UUID.randomUUID().toString();
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     private Long claimNumber;
 
     @Column(nullable = false)

@@ -246,4 +246,6 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
     @Query("SELECT ch FROM ContractHeader ch WHERE ch.payer.payerUuid = :payerUuid AND ch.status = 'ACTIVE' AND ch.endDate >= CURRENT_DATE ORDER BY ch.startDate DESC")
     Optional<ContractHeader> findActiveContractByPayerUuid(@Param("payerUuid") String payerUuid);
 
+
+    Optional<ContractHeader> findByPayerPayerUuidAndProviderProviderUuidAndStatus(String payerUuid, String providerUuid, Status status);
 }
