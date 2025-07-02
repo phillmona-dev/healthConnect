@@ -24,7 +24,13 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "claims")
+
+
+@Table(name = "claims", indexes = {
+        @Index(name = "idx_claim_payer_status", columnList = "payer_uuid, status"),
+        @Index(name = "idx_claim_provider_status", columnList = "provider_uuid, status"),
+        @Index(name = "idx_claim_payer_provider_status", columnList = "payer_uuid, provider_uuid, status")
+})
 public class Claim extends Audit {
 
     @Serial
@@ -37,7 +43,7 @@ public class Claim extends Audit {
     @Column(nullable = false, unique = true, updatable = false)
     private String claimUuid = UUID.randomUUID().toString();
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     private Long claimNumber;
 
     @Column(nullable = false)

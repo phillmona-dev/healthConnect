@@ -205,8 +205,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
                 return serveDefaultLogo();
             }
 
-            Provider provider = providerOpt;
-            String logoPath = providerLogosDirectory + "/" + provider.getLogoPath();
+            String logoPath = providerLogosDirectory + "/" + providerOpt.getLogoPath();
             log.debug("Attempting to load logo from path: {}", logoPath);
 
             File logoFile = new File(logoPath);

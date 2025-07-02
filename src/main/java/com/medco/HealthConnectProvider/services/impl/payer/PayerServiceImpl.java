@@ -148,6 +148,7 @@ public class PayerServiceImpl implements PayerService {
                 }
 
                 String fileName = logo.getOriginalFilename();
+                assert fileName != null;
                 String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
                 String newFileName = "logo_" + UUID.randomUUID().toString() + "." + extension;
 

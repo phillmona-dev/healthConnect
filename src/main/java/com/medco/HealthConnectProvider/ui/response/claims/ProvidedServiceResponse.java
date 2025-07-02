@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 
 @Data
@@ -15,6 +16,7 @@ import java.util.List;
 @AllArgsConstructor
 public class ProvidedServiceResponse {
     // Insured person information
+    private String dispensingUuid;
     private String insuredPersonUuid;
     private String insuredPersonName;
     private String insuredPersonCode;
@@ -29,6 +31,7 @@ public class ProvidedServiceResponse {
 
     private LocalDate dispensingDate;
     private Double totalAmount;
+    private LocalDate encounterDate;
 //    List<ItemResponse> itemResponses;
     private List<MedicationDispensingDTO.MedicationItemDTO> medicationItems;
 

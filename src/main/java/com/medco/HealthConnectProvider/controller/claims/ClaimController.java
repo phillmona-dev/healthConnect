@@ -55,12 +55,14 @@ public class ClaimController {
     @GetMapping("/allClaims")
     @Operation(summary = "Get all paginated claims")
     public PagedResponse<ClaimListResponse> getAllClaims(@RequestParam(value = "Claim Status",required = false) ClaimStatus status,
+                                                         @RequestParam(value = "payerUuid",required = false) String payerUuid,
+                                                         @RequestParam(value = "providerUuid",required = false) String providerUuid,
                                                          @RequestParam(defaultValue = "1") int page,
                                                          @RequestParam(defaultValue = "25") int size,
                                                          @RequestParam(defaultValue = "createdAt") String sortBy,
                                                          @RequestParam(defaultValue = "desc") String sortDirection) {
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.fromString(sortDirection), sortBy));
-        return claimService.getAll(pageable);
+        return claimService.getAll(payerUuid,providerUuid,status,pageable);
     }
 
 
@@ -161,6 +163,7 @@ public class ClaimController {
 
     //payment
 
+
     @PostMapping("/claims/{claimUuid}/payment")
     public ResponseEntity<?> initiatePayment(@PathVariable String claimUuid, @RequestBody ClaimPaymentRequest paymentRequest) {
         return claimService.processPayment(claimUuid, paymentRequest);
@@ -176,9 +179,10 @@ public class ClaimController {
         return pharmacyIntegrationService.reconcilePayment(claimUuid);
     }
 
-
-
 //    TODO NEW APIS FOR THE CLAIM
+
+
+
 
     @PostMapping("/createBatchClaim/{batchCode}")
     @Operation(summary = "Create claim from a batch",
@@ -187,4 +191,6 @@ public class ClaimController {
             @PathVariable String batchCode) {
         return claimService.createBatchClaim(batchCode);
     }
+
+
 }

@@ -12,6 +12,7 @@ import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
 
+import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -61,6 +62,8 @@ public interface PharmacyIntegrationService {
     ResponseEntity<?> editDispensingRecord(String dispensingUuid, @Valid DispensingRecordEditRequest editRequest);
 
     ResponseEntity<?> editDrugDispensingRecord(String dispensingUuid, @Valid DrugDispensingRecordEditRequest editRequest);
+
+    ResponseEntity<?> updateServiceClaimStatus(String medicationDispensingUuid, String newStatus ,String remark);
 
 
 //    ResponseEntity<?> createBatchClaim(String batchCode);

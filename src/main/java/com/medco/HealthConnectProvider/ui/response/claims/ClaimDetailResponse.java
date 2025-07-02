@@ -3,7 +3,9 @@ package com.medco.HealthConnectProvider.ui.response.claims;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.core.io.ByteArrayResource;
 
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 
@@ -15,6 +17,8 @@ public class ClaimDetailResponse {
     private String claimUuid;
     private Long claimNumber;
     private String status;
+    private LocalDate claimFromDate;
+    private LocalDate claimToDate;
 
     // Contract information
     private String contractUuid;
@@ -25,6 +29,10 @@ public class ClaimDetailResponse {
     private String providerUuid;
     private String providerName;
     private String providerCode;
+    private String providerPhone;
+    private String ProviderEmail;
+    private String ProviderCategory;
+    private String providerLogo;
 
     // Payer information
     private String payerUuid;
@@ -35,7 +43,7 @@ public class ClaimDetailResponse {
 
     // Claim details
     private String mrnNumber;
-    private Date visitDate;
+
     private Double totalAmount;
     private String providerComment;
 
@@ -73,6 +81,7 @@ public class ClaimDetailResponse {
     // Cancellation information
     private String cancelledByUuid;
     private Date cancelledDate;
+    private int totalClaims;
 
     // Related data
     private List<ClaimAttachmentResponse> attachments;

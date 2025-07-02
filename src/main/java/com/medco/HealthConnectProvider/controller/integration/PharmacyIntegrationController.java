@@ -14,6 +14,7 @@ import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDisp
 import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
+import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -145,6 +146,18 @@ public class PharmacyIntegrationController {
             @RequestBody String[] dispensingUuids) {
         return pharmacyIntegrationService.updateDispensingRecordsStatus(providerUuid, newStatus, dispensingUuids);
     }
+    @PutMapping("/claim/update-status/{medicationDispensingUuid}")
+    @Operation(summary = "Update claim status of dispensing records",
+            description = "Changes the status a service or a drug claim")
+    public ResponseEntity<?> updateDispensingRecordsStatus(
+            @PathVariable String medicationDispensingUuid,
+            @RequestParam String newStatus,
+            @RequestParam(value = "remark",required = false)String remark) {
+        return pharmacyIntegrationService.updateServiceClaimStatus( medicationDispensingUuid,newStatus,remark);
+    }
+
+
+
 
     @PostMapping(value = "/dispensing-records", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Add a new dispensing record", security = @SecurityRequirement(name = "bearerAuth"))
@@ -173,6 +186,8 @@ public class PharmacyIntegrationController {
     public ResponseEntity<Page<BatchRecordDTO>> searchBatchRecords(
             @Parameter(description = "Search term for batch code, payer name, total amount, status, or claim UUID")
             @RequestParam(required = false) String search,
+
+            @RequestParam(required = false) String status,
 
             @Parameter(description = "Start date for requested on range")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime requestedOnStart,
