@@ -138,6 +138,14 @@ public class Insured implements Serializable {
     @JsonIgnore
     private Set<ContractHeader> contracts = new HashSet<>();
 
+    @ManyToMany
+    @JoinTable(
+            name = "insured_employee_dependant_group",
+            joinColumns = @JoinColumn(name = "insured_id"),
+            inverseJoinColumns = @JoinColumn(name = "employee_dependant_group_id")
+    )
+    private List<EmployeeDependantGroup> employeeDependantGroups = new ArrayList<>();
+
     public void addContract(ContractHeader contract) {
         contracts.add(contract);
         if (!contract.getInsured().contains(this)) {

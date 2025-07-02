@@ -74,7 +74,6 @@ public class EmployeeDependantGroupController {
         return groupService.payerGroups(payerUuid,search, pageable);
     }
 
-
     @PutMapping("/{groupUuid}")
 //    @PreAuthorize("hasRole('Manage-Groups')")
     @Operation(summary = "Update group", description = "Updates an existing employee/dependant group")

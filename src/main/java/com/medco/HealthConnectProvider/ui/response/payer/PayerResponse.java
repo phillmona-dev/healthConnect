@@ -4,6 +4,8 @@ import com.medco.HealthConnectProvider.utils.enums.Status;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 public class PayerResponse {
@@ -32,6 +34,16 @@ public class PayerResponse {
 
     private Status status;
     private long totalPages;
+
+    private List<ContractSummary> contracts;
+
+
+    @Getter
+    @Setter
+    public static class ContractSummary {
+        private String contractHeaderUuid;
+        private String contractName;
+    }
 
     private String logoPath;
     private String logoBase64;

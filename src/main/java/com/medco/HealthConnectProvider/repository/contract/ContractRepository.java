@@ -10,6 +10,7 @@ import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,6 +19,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -246,4 +248,14 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
     @Query("SELECT ch FROM ContractHeader ch WHERE ch.payer.payerUuid = :payerUuid AND ch.status = 'ACTIVE' AND ch.endDate >= CURRENT_DATE ORDER BY ch.startDate DESC")
     Optional<ContractHeader> findActiveContractByPayerUuid(@Param("payerUuid") String payerUuid);
 
+    @Query("SELECT ch FROM ContractHeader ch " +
+            "WHERE ch.provider.providerUuid = :providerUuid " +
+            "AND ch.payer.payerUuid = :payerUuid " +
+            "AND ch.status = 'ACTIVE' " +
+            "AND ch.startDate <= :currentDate " +
+            "AND ch.endDate >= :currentDate")
+    Optional<ContractHeader> findActiveContractByProviderUuidAndPayerUuid(
+            @Param("providerUuid") String providerUuid,
+            @Param("payerUuid") String payerUuid,
+            @Param("currentDate") LocalDate currentDate);
 }

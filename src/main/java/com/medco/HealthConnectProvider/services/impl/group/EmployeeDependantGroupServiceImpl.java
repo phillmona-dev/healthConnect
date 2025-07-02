@@ -30,6 +30,7 @@ import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import com.medco.HealthConnectProvider.utils.enums.GroupType;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroupService {
 
@@ -349,18 +351,27 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
         List<ContractDetailEmployeeGroup> linkages = contractDetailEmployeeGroupRepository
                 .findByEmployeeDependantGroupAndContractDetail_ContractHeader(group, contract);
 
+        log.info("Found {} linkages for group {} and contract {}", linkages.size(), groupUuid, contractUuid);
+
         List<GroupContractDetailResponse> responses = linkages.stream()
                 .map(linkage -> {
                     ContractDetail detail = linkage.getContractDetail();
+                    if (detail == null) {
+                        log.warn("ContractDetail is null for linkage: {}", linkage.getId());
+                        return null;
+                    }
                     return GroupContractDetailResponse.builder()
                             .contractDetailUuid(detail.getContractDetailUuid())
-                            .serviceName(detail.getServicelist().getServiceName())
-                            .serviceCode(detail.getServicelist().getServiceCode())
+                            .serviceName(detail.getServicelist() != null ? detail.getServicelist().getServiceName() : null)
+                            .serviceCode(detail.getServicelist() != null ? detail.getServicelist().getServiceCode() : null)
                             .negotiatedPrice(detail.getNegotiatedPrice())
-                            .status(detail.getStatus().toString())
+                            .status(detail.getStatus() != null ? detail.getStatus().toString() : null)
                             .build();
                 })
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+
+        log.info("Returning {} GroupContractDetailResponses", responses.size());
 
         return ResponseEntity.ok(responses);
     }

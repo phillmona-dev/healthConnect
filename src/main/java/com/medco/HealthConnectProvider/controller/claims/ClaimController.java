@@ -14,7 +14,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -46,7 +45,6 @@ public class ClaimController {
     public ResponseEntity<?> submitClaim(@Valid @RequestBody ClaimRequest claimRequest) {
         return claimService.submitClaim(claimRequest);
     }
-
 
     @GetMapping("/{claimUuid}")
     @Operation(summary = "Get claim details by UUID")

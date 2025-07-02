@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ContractDetailRepository extends JpaRepository<ContractDetail, Long> {
@@ -70,4 +71,17 @@ public interface ContractDetailRepository extends JpaRepository<ContractDetail, 
     ContractDetail findByContractHeaderUuidAndServiceUuidAndEmployeeDependantGroups(String contractHeaderUuid, String serviceUuid, EmployeeDependantGroup employeeDependantGroup);
 
     ContractDetail findByContractHeaderUuidAndServiceUuid(String contractHeaderUuid, String serviceUuid);
+
+    Optional<ContractDetail> findByContractHeaderAndServiceUuid(ContractHeader activeContract, String serviceUuid);
+
+    @Query("SELECT cd FROM ContractDetail cd " +
+            "WHERE cd.contractHeader = :contract " +
+            "AND cd.status = 'ACTIVE' " +
+            "AND EXISTS (SELECT 1 FROM cd.employeeDependantGroups edg WHERE edg IN :groups)")
+    List<ContractDetail> findEligibleServicesByContractAndGroups(
+            @Param("contract") ContractHeader contract,
+            @Param("groups") List<EmployeeDependantGroup> groups);
+
+    void deleteByContractHeader(ContractHeader contract);
+
 }

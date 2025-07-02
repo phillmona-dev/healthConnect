@@ -49,5 +49,13 @@ public interface ContractDetailEmployeeGroupRepository extends JpaRepository<Con
 
     List<ContractDetailEmployeeGroup> findByEmployeeDependantGroup(EmployeeDependantGroup group);
 
-    List<ContractDetailEmployeeGroup> findByEmployeeDependantGroupAndContractDetail_ContractHeader(EmployeeDependantGroup group, ContractHeader contract);
+    @Query("SELECT cdeg FROM ContractDetailEmployeeGroup cdeg " +
+            "WHERE cdeg.employeeDependantGroup = :group " +
+            "AND cdeg.contractDetail.contractHeader = :contract")
+    List<ContractDetailEmployeeGroup> findByEmployeeDependantGroupAndContractDetail_ContractHeader(
+            @Param("group") EmployeeDependantGroup group,
+            @Param("contract") ContractHeader contract);
+
+    List<ContractDetailEmployeeGroup> findByEmployeeGroupUuidAndContractDetail_ContractHeader(String groupUuid, ContractHeader contract);
+
 }

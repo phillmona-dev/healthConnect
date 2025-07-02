@@ -1,20 +1,21 @@
 package com.medco.HealthConnectProvider.services.impl.provider;
 
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
+import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.entity.user.Role;
-import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
+import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
 import com.medco.HealthConnectProvider.repository.user.RoleRepository;
 import com.medco.HealthConnectProvider.repository.user.UserRepository;
 import com.medco.HealthConnectProvider.services.mail.EmailService;
 import com.medco.HealthConnectProvider.services.providers.ProviderService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.providers.ProviderRequest;
-import com.medco.HealthConnectProvider.ui.request.auth.password.user.SignUpRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
+import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PayersNameForProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
@@ -37,6 +38,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -65,6 +67,9 @@ public class ProviderServiceImpl implements ProviderService {
 private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
     @Autowired
     ProviderRepository providerRepository;
+
+    @Autowired
+    PayerRepository payerRepository;
 
     @Autowired
     ContractRepository contractRepository;
@@ -316,6 +321,63 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         pagedResponse.setHasPrevious(providerPage.hasPrevious());
 
         return pagedResponse;
+    }
+
+    @Override
+    public ResponseEntity<PagedResponse<PayerResponse>> getPayersWithContract(String providerUuid, int page, int size, String sortBy, String sortDir, String search) {
+        log.info("Fetching payers with contract for provider UUID: {}", providerUuid);
+
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider == null) {
+            throw new ResourceNotFoundException("Provider", "UUID", providerUuid);
+        }
+
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name()) ? Sort.by(sortBy).ascending() :
+                Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page - 1, size, sort);
+
+        Page<Payer> payerPage;
+        if (StringUtils.hasText(search)) {
+            payerPage = payerRepository.findPayersWithContractByProvider(providerUuid, search, pageable);
+        } else {
+            payerPage = payerRepository.findPayersWithContractByProvider(providerUuid, pageable);
+        }
+
+        List<PayerResponse> payerResponses = payerPage.getContent().stream()
+                .map(this::mapToPayerResponse)
+                .collect(Collectors.toList());
+
+        PagedResponse<PayerResponse> pagedResponse = new PagedResponse<>(
+                payerResponses,
+                page,
+                size,
+                payerPage.getTotalElements(),
+                payerPage.getTotalPages(),
+                payerPage.hasNext(),
+                payerPage.hasPrevious()
+        );
+
+        log.info("Successfully fetched {} payers with contract for provider UUID: {}", payerResponses.size(), providerUuid);
+        return ResponseEntity.ok(pagedResponse);
+    }
+
+    private PayerResponse mapToPayerResponse(Payer payer) {
+        PayerResponse response = new PayerResponse();
+        BeanUtils.copyProperties(payer, response);
+        response.setTotalContracts((long) payer.getContractHeaders().size());
+
+        List<PayerResponse.ContractSummary> contractSummaries = payer.getContractHeaders().stream()
+                .map(contract -> {
+                    PayerResponse.ContractSummary summary = new PayerResponse.ContractSummary();
+                    summary.setContractHeaderUuid(contract.getContractHeaderUuid());
+                    summary.setContractName(contract.getContractName());
+                    return summary;
+                })
+                .collect(Collectors.toList());
+
+        response.setContracts(contractSummaries);
+
+        return response;
     }
 
     private ResponseEntity<ByteArrayResource> serveDefaultLogo() {

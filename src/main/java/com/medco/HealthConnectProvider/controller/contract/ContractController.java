@@ -6,10 +6,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractSe
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
-import com.medco.HealthConnectProvider.ui.response.contracts.AssignServicesToGroupResponse;
-import com.medco.HealthConnectProvider.ui.response.contracts.ContractListPayerResponse;
-import com.medco.HealthConnectProvider.ui.response.contracts.ContractResponse;
-import com.medco.HealthConnectProvider.ui.response.contracts.DetailedContractResponse;
+import com.medco.HealthConnectProvider.ui.response.contracts.*;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.paginationUtils.PaginationUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -226,4 +223,13 @@ public class ContractController {
         return contractService.addInsuredToContract(contractUuid, request);
     }
 
+
+    @GetMapping("/eligible-services")
+    @Operation(summary = "Get eligible services for a contract and insured/dependant")
+    public ResponseEntity<List<EligibleServiceResponse>> getEligibleServices(
+            @RequestParam String contractHeaderUuid,
+            @RequestParam(required = false) String insuredUuid,
+            @RequestParam(required = false) String dependantUuid) {
+        return contractService.getEligibleServices(contractHeaderUuid, insuredUuid, dependantUuid);
+    }
 }

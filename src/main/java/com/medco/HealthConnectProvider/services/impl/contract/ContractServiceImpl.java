@@ -159,11 +159,13 @@ public class ContractServiceImpl implements ContractService {
                             .orElseThrow(() -> new ResourceNotFoundException("Drug", "drugUuid", itemRequest.getItemUuid()));
                     contractDetail.setDrug(drug);
                     contractDetail.setDrugUuid(drug.getDrugUuid());
+                    contractDetail.setServiceUuid(null); // Explicitly set to null for drugs
                 } else if ("SERVICE".equalsIgnoreCase(itemRequest.getItemType())) {
                     Servicelist service = servicelistRepository.findByServiceUuid(itemRequest.getItemUuid())
                             .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceUuid", itemRequest.getItemUuid()));
                     contractDetail.setServicelist(service);
                     contractDetail.setServiceUuid(service.getServiceUuid());
+                    contractDetail.setDrugUuid(null); // Explicitly set to null for services
                 } else {
                     throw new BadRequestException("Invalid item type: " + itemRequest.getItemType());
                 }
@@ -183,23 +185,58 @@ public class ContractServiceImpl implements ContractService {
         return "CT" + datePart;
     }
 
+    @Transactional
     @Override
     public ResponseEntity<?> updateContract(String contractUuid, @Valid ContractRequest contractRequest) {
-
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
-
-        if (contract == null)
+        if (contract == null) {
             throw new ResourceNotFoundException("Payer Provider Contract", "contractUuid", contractUuid);
+        }
 
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String preparedBy = userDetails.getUserUuid();
 
-        BeanUtils.copyProperties(contractRequest, contract);
+        contract.setStartDate(contractRequest.getBeginDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
+        contract.setEndDate(contractRequest.getEndDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
         contract.setStatus(Status.ACTIVE);
         contract.setPreparedBy(preparedBy);
-        contractRepository.save(contract);
-        return ResponseEntity.ok(new MessageResponse("Contract Updated Successfully!"));
 
+        if (contractRequest.getContractItems() != null && !contractRequest.getContractItems().isEmpty()) {
+
+            contractDetailRepository.deleteByContractHeader(contract);
+
+            for (ContractRequest.ContractItemRequest itemRequest : contractRequest.getContractItems()) {
+                ContractDetail contractDetail = new ContractDetail();
+                contractDetail.setContractHeader(contract);
+                contractDetail.setContractHeaderUuid(contract.getContractHeaderUuid());
+                contractDetail.setNegotiatedPrice(itemRequest.getNegotiatedPrice());
+                contractDetail.setStatus(Status.ACTIVE);
+
+                if ("DRUG".equalsIgnoreCase(itemRequest.getItemType())) {
+                    Drug drug = drugRepository.findByDrugUuid(itemRequest.getItemUuid())
+                            .orElseThrow(() -> new ResourceNotFoundException("Drug", "drugUuid", itemRequest.getItemUuid()));
+                    contractDetail.setDrug(drug);
+                    contractDetail.setDrugUuid(drug.getDrugUuid());
+                    contractDetail.setServiceUuid(null);
+                } else if ("SERVICE".equalsIgnoreCase(itemRequest.getItemType())) {
+                    Servicelist service = servicelistRepository.findByServiceUuid(itemRequest.getItemUuid())
+                            .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceUuid", itemRequest.getItemUuid()));
+                    contractDetail.setServicelist(service);
+                    contractDetail.setServiceUuid(service.getServiceUuid());
+                    contractDetail.setDrugUuid(null);
+                } else {
+                    throw new BadRequestException("Invalid item type: " + itemRequest.getItemType());
+                }
+
+                contractDetailRepository.save(contractDetail);
+            }
+        }
+
+        ContractHeader updatedContract = contractRepository.save(contract);
+
+        ContractResponse response = new ContractResponse();
+        modelMapper.map(updatedContract, response);
+        return ResponseEntity.ok(response);
     }
 
     @Override
@@ -224,7 +261,12 @@ public class ContractServiceImpl implements ContractService {
                 .map(this::mapContractDetailSummary)
                 .collect(Collectors.toList());
         contractResponse.setContractDetails(contractDetails);
-        contractResponse.setTotalServices(contractDetails.size());
+
+        long totalServices = contractDetails.stream().filter(detail -> "SERVICE".equals(detail.getItemType())).count();
+        long totalDrugs = contractDetails.stream().filter(detail -> "DRUG".equals(detail.getItemType())).count();
+
+        contractResponse.setTotalServices((int) totalServices);
+        contractResponse.setTotalDrugs((int) totalDrugs);
 
         List<ContractResponse.InsuredSummary> insuredSummaries = contract.getInsured().stream()
                 .map(this::mapInsuredSummary)
@@ -494,9 +536,6 @@ public class ContractServiceImpl implements ContractService {
         return ResponseEntity.ok(new MessageResponse("Added " + createdGroups.size() + " employee groups to contract"));
     }
 
-
-    //Filmon
-
     @Override
     @Transactional
     public ResponseEntity<?> addServiceToContract(String contractUuid, @Valid ContractDetailRequest detailRequest) {
@@ -586,6 +625,7 @@ public class ContractServiceImpl implements ContractService {
 
         contractDetailRepository.save(contractDetail);
         return ResponseEntity.ok(new MessageResponse("Contract detail updated successfully"));
+
     }
 
     @Override
@@ -933,15 +973,23 @@ public class ContractServiceImpl implements ContractService {
 
     private ContractResponse.ContractDetailSummary mapContractDetailSummary(ContractDetail detail) {
         ContractResponse.ContractDetailSummary summary = new ContractResponse.ContractDetailSummary();
-        BeanUtils.copyProperties(detail, summary);
+        summary.setContractDetailUuid(detail.getContractDetailUuid());
+        summary.setNegotiatedPrice(detail.getNegotiatedPrice().doubleValue());
 
         if (detail.getServicelist() != null) {
+            summary.setServiceUuid(detail.getServiceUuid());
             summary.setServiceName(detail.getServicelist().getServiceName());
+            summary.setItemType("SERVICE");
+        } else if (detail.getDrug() != null) {
+            summary.setDrugUuid(detail.getDrugUuid());
+            summary.setDrugName(detail.getDrug().getDrugName());
+            summary.setItemType("DRUG");
         }
-        summary.setNegotiatedPrice(detail.getNegotiatedPrice().doubleValue());
-        summary.setAssignedGroups(detail.getEmployeeDependantGroups().stream()
+
+        List<String> assignedGroups = detail.getEmployeeDependantGroups().stream()
                 .map(EmployeeDependantGroup::getGroupName)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList());
+        summary.setAssignedGroups(assignedGroups);
 
         return summary;
     }
@@ -1045,6 +1093,62 @@ public class ContractServiceImpl implements ContractService {
         return ResponseEntity.ok(response);
     }
 
+    @Override
+    public ResponseEntity<List<EligibleServiceResponse>> getEligibleServices(String contractHeaderUuid, String insuredUuid, String dependantUuid) {
+        log.info("Fetching eligible services for contract: {}, insured: {}, dependant: {}", contractHeaderUuid, insuredUuid, dependantUuid);
+
+        ContractHeader contract = contractRepository.findByContractHeaderUuid(contractHeaderUuid);
+        if (contract == null){
+            throw new ResourceNotFoundException("Contract", "UUID", contractHeaderUuid);
+        }
+        log.info("Contract found: {}", contract.getContractHeaderUuid());
+
+        String groupUuid;
+
+        if (dependantUuid != null) {
+            Dependant dependant = dependantRepository.findByDependantUuid(dependantUuid);
+            if (dependant == null){
+                throw new ResourceNotFoundException("Dependant", "UUID", dependantUuid);
+            }
+
+            groupUuid = dependant.getEmployeeDependantGroup().getGroupUuid();
+        } else {
+            Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
+            if (insured == null){
+                 throw new ResourceNotFoundException("Insured", "UUID", insuredUuid);
+            }
+
+            groupUuid = insured.getEmployeeDependantGroup().getGroupUuid();
+        }
+
+        log.info("Group UUID found: {}", groupUuid);
+
+        List<ContractDetailEmployeeGroup> contractDetailGroups = contractDetailEmployeeGroupRepository
+                .findByEmployeeGroupUuidAndContractDetail_ContractHeader(groupUuid, contract);
+
+        log.info("Contract detail groups found: {}", contractDetailGroups.size());
+
+        List<EligibleServiceResponse> eligibleServices = contractDetailGroups.stream()
+                .map(cdeg -> {
+                    ContractDetail detail = cdeg.getContractDetail();
+                    EligibleServiceResponse response = new EligibleServiceResponse();
+                    response.setContractHeaderUuid(contractHeaderUuid);
+                    response.setContractName(contract.getContractName());
+                    response.setContractDetailUuid(detail.getContractDetailUuid());
+                    response.setServiceUuid(detail.getServiceUuid());
+                    response.setServiceName(detail.getServicelist().getServiceName());
+                    response.setServiceCode(detail.getServicelist().getServiceCode());
+                    response.setNegotiatedPrice(detail.getNegotiatedPrice());
+                    response.setStatus(detail.getStatus().toString());
+                    // Set other fields as needed
+                    return response;
+                })
+                .collect(Collectors.toList());
+
+        log.info("Eligible services found: {}", eligibleServices.size());
+
+        return ResponseEntity.ok(eligibleServices);
+    }
 
     private String getBase64FromPath(String logoPath, String logoType) {
         if (logoPath == null || logoPath.isEmpty()) {

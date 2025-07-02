@@ -61,4 +61,14 @@ public interface PayerRepository extends JpaRepository<Payer, Long>, JpaSpecific
 
     Payer findByPayerName(String payerName);
 
+    @Query("SELECT DISTINCT p FROM Payer p JOIN p.contractHeaders c WHERE c.provider.providerUuid = :providerUuid AND " +
+            "(LOWER(p.payerName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(p.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(p.telephone) LIKE LOWER(CONCAT('%', :search, '%')))")
+    Page<Payer> findPayersWithContractByProvider(@Param("providerUuid") String providerUuid,
+                                                 @Param("search") String search,
+                                                 Pageable pageable);
+
+    @Query("SELECT DISTINCT p FROM Payer p JOIN p.contractHeaders c WHERE c.provider.providerUuid = :providerUuid")
+    Page<Payer> findPayersWithContractByProvider(@Param("providerUuid") String providerUuid, Pageable pageable);
 }

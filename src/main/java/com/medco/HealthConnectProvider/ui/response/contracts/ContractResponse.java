@@ -55,6 +55,7 @@ public class ContractResponse {
     private int totalServices;
     private int totalInsured;
     private int totalDependants;
+    private int totalDrugs;
 
     // You might want to include a list of contract details or a summary of them
     private List<ContractDetailSummary> contractDetails;
@@ -67,10 +68,14 @@ public class ContractResponse {
     @Builder
     public static class ContractDetailSummary {
         private String contractDetailUuid;
+        private String itemType;
         private String serviceUuid;
         private String serviceName;
+        private String drugUuid;
+        private String drugName;
         private Double negotiatedPrice;
         private List<String> assignedGroups;
+
     }
 
     @Getter

@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.controller.providers;
 
 import com.medco.HealthConnectProvider.services.providers.ProviderService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.providers.ProviderRequest;
+import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PayersNameForProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
@@ -137,6 +138,18 @@ public class ProviderController {
 
         return providerService.getAvailableProvidersForPayerNotInContract(payerUuid, searchKey, page, limit);
 
+    }
+
+    @GetMapping("/providers/{providerUuid}/payers-with-contract")
+    @Operation(summary = "Get payers with contract for a provider")
+    public ResponseEntity<PagedResponse<PayerResponse>> getPayersWithContract(
+            @PathVariable String providerUuid,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "payerName") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir,
+            @RequestParam(required = false) String search) {
+        return providerService.getPayersWithContract(providerUuid, page, size, sortBy, sortDir, search);
     }
 
 }
