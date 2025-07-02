@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.repository.group;
 
 
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
+import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.groups.ContractDetailEmployeeGroup;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import org.springframework.data.domain.Page;
@@ -16,6 +17,7 @@ import java.util.Optional;
 
 @Repository
 public interface ContractDetailEmployeeGroupRepository extends JpaRepository<ContractDetailEmployeeGroup, Long> {
+
     boolean existsByContractDetailAndEmployeeDependantGroup(ContractDetail contractDetail,
                                                             EmployeeDependantGroup employeeDependantGroup);
 
@@ -45,5 +47,7 @@ public interface ContractDetailEmployeeGroupRepository extends JpaRepository<Con
 
     void deleteByContractDetailUuidAndEmployeeGroupUuid(String contractDetailUuid, String employeeGroupUuid);
 
-    ContractDetailEmployeeGroup findByEmployeeDependantGroupGroupUuid(String employeeGroupUuid);
+    List<ContractDetailEmployeeGroup> findByEmployeeDependantGroup(EmployeeDependantGroup group);
+
+    List<ContractDetailEmployeeGroup> findByEmployeeDependantGroupAndContractDetail_ContractHeader(EmployeeDependantGroup group, ContractHeader contract);
 }

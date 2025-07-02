@@ -58,6 +58,7 @@ public class ContractResponse {
 
     // You might want to include a list of contract details or a summary of them
     private List<ContractDetailSummary> contractDetails;
+    private List<InsuredSummary> insuredSummaries;
 
     @Getter
     @Setter
@@ -70,5 +71,28 @@ public class ContractResponse {
         private String serviceName;
         private Double negotiatedPrice;
         private List<String> assignedGroups;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class InsuredSummary {
+        private String insuredUuid;
+        private String fullName;
+        private String membershipNumber;
+        private List<DependantSummary> dependants;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class DependantSummary {
+        private String dependantUuid;
+        private String fullName;
+        private String relationshipType;
     }
 }

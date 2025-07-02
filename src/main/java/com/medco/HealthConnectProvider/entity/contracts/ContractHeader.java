@@ -81,8 +81,7 @@ public class ContractHeader extends Audit implements Serializable {
 
     private Double coPaymentPercentage;
 
-    @OneToMany(mappedBy = "contractHeader", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
+    @OneToMany(mappedBy = "contractHeader", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
     private List<ContractDetail> contractDetails = new ArrayList<>();
 
     @Builder.Default
@@ -107,7 +106,7 @@ public class ContractHeader extends Audit implements Serializable {
     @ManyToMany
     @JoinTable(
             name = "contract_insured",
-            joinColumns = @JoinColumn(name = "contract_header_id"),
+            joinColumns = @JoinColumn(name = "contract_id"),
             inverseJoinColumns = @JoinColumn(name = "insured_id")
     )
     private Set<Insured> insured = new HashSet<>();

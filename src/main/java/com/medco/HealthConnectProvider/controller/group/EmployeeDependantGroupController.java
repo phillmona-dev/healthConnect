@@ -4,6 +4,7 @@ import com.medco.HealthConnectProvider.services.group.EmployeeDependantGroupServ
 import com.medco.HealthConnectProvider.ui.request.group.EmployeeDependantGroupRequest;
 import com.medco.HealthConnectProvider.ui.request.group.GroupMembersRequest;
 import com.medco.HealthConnectProvider.ui.response.groups.EmployeeDependantGroupResponse;
+import com.medco.HealthConnectProvider.ui.response.groups.GroupContractDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.GroupMembersAndServicesResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import com.medco.HealthConnectProvider.utils.paginationUtils.PaginationUtils;
@@ -107,5 +108,21 @@ public class EmployeeDependantGroupController {
     public ResponseEntity<?> deleteGroup(@PathVariable String groupUuid) {
         return groupService.deleteGroup(groupUuid);
     }
-    
+
+
+    @GetMapping("/groups/{groupUuid}/contract-details")
+    @Operation(summary = "Get contract details by group", description = "Retrieves all contract details (eligible services) associated with a specific group")
+    public ResponseEntity<List<GroupContractDetailResponse>> getContractDetailsByGroup(
+            @PathVariable String groupUuid) {
+        return groupService.getContractDetailsByGroup(groupUuid);
+    }
+
+    @GetMapping("/groups/{groupUuid}/contracts/{contractUuid}/contract-details")
+    @Operation(summary = "Get contract details by group and contract",
+            description = "Retrieves all contract details (eligible services) associated with a specific group and contract")
+    public ResponseEntity<List<GroupContractDetailResponse>> getContractDetailsByGroupAndContract(
+            @PathVariable String groupUuid,
+            @PathVariable String contractUuid) {
+        return groupService.getContractDetailsByGroupAndContract(groupUuid, contractUuid);
+    }
 }

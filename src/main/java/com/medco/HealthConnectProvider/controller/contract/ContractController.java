@@ -6,12 +6,14 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractSe
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
+import com.medco.HealthConnectProvider.ui.response.contracts.AssignServicesToGroupResponse;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractListPayerResponse;
 import com.medco.HealthConnectProvider.ui.response.contracts.ContractResponse;
 import com.medco.HealthConnectProvider.ui.response.contracts.DetailedContractResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.paginationUtils.PaginationUtils;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -138,14 +140,14 @@ public class ContractController {
         return contractService.addEmployeeGroupsToContract(contractUuid, groups);
     }
 
-    @PostMapping("/{contractUuid}/service-group-assignments")
-    @Operation(summary = "Assign services to groups", description = "Assigns services to employee groups within a contract")
-    //@PreAuthorize("hasRole('Create-Provider-Contract')")
-    public ResponseEntity<?> assignServicesToGroups(
-            @PathVariable String contractUuid,
-            @Valid @RequestBody List<ContractServiceGroupAssignmentRequest> assignments) {
-
-        return contractService.assignServicesToEmployeeGroups(contractUuid, assignments);
+    @PostMapping("/{groupUuid}/assign-services")
+    @Operation(summary = "Assign services to group", description = "Assigns multiple services to an employee group")
+    public ResponseEntity<AssignServicesToGroupResponse> assignServicesToGroup(
+            @PathVariable String groupUuid,
+            @Valid @RequestBody
+            @Schema(name = "contractDetailUuids", description = "List of contract detail UUIDs to be assigned to the group")
+            List<String> contractDetailUuids) {
+        return contractService.assignServicesToGroup(groupUuid, contractDetailUuids);
     }
 
     @GetMapping("/all")

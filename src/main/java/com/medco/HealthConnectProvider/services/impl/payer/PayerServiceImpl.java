@@ -2,12 +2,10 @@ package com.medco.HealthConnectProvider.services.impl.payer;
 
 
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
-import com.medco.HealthConnectProvider.dto.PayerAdminDto;
 import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.entity.user.Role;
-import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.claims.ClaimRepository;
@@ -20,8 +18,6 @@ import com.medco.HealthConnectProvider.services.mail.EmailService;
 import com.medco.HealthConnectProvider.services.payer.PayerService;
 import com.medco.HealthConnectProvider.services.user.UserService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerRequest;
-import com.medco.HealthConnectProvider.ui.request.auth.password.providers.ProviderRequest;
-import com.medco.HealthConnectProvider.ui.request.auth.password.user.SignUpRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimReviewRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimResponse;
@@ -148,6 +144,7 @@ public class PayerServiceImpl implements PayerService {
                 if (!directory.exists()) {
                     directory.mkdirs();
                     log.info("Created directory: {}", payerLogosDirectory);
+
                 }
 
                 String fileName = logo.getOriginalFilename();
@@ -212,7 +209,6 @@ public class PayerServiceImpl implements PayerService {
         if (payer == null)
             throw new ResourceNotFoundException("Payer", "PayerUuid", payerUuid);
 
-        // Check for duplicate name, but exclude current payer from the check
         if (!payer.getPayerName().equals(payerRequest.getPayerName()) &&
                 payerName.stream().anyMatch(p -> !p.getPayerUuid().equals(payerUuid))) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
@@ -261,6 +257,7 @@ public class PayerServiceImpl implements PayerService {
 
         payerRepository.save(payer);
         return getPayerResponse(payer);
+
     }
 
 
@@ -291,16 +288,15 @@ public class PayerServiceImpl implements PayerService {
                     String base64Logo = Base64.getEncoder().encodeToString(fileContent);
                     response.setLogoBase64("data:" + determineContentType(logoPath) + ";base64," + base64Logo);
                 } else {
-                    // Set default logo if payer logo doesn't exist
+
                     setDefaultLogoBase64(response);
                 }
             } catch (IOException e) {
                 logger.warn("Could not read logo for payer {}: {}", payer.getPayerUuid(), e.getMessage());
-                // Set default logo on error
+
                 setDefaultLogoBase64(response);
             }
         } else {
-            // Set default logo if payer has no logo path
             setDefaultLogoBase64(response);
         }
 
@@ -325,7 +321,6 @@ public class PayerServiceImpl implements PayerService {
                 pr.setTotalPages(totalPages);
             BeanUtils.copyProperties(p, pr);
 
-            // Get total contracts for this payer
             Long contractCount = contractRepository.countByPayerPayerUuidAndIsDeleted(p.getPayerUuid(), false);
             pr.setTotalContracts(contractCount);
 
@@ -389,7 +384,7 @@ public class PayerServiceImpl implements PayerService {
 
     private ResponseEntity<ByteArrayResource> serveDefaultLogo() {
         try {
-            // Path to a default logo in your resources folder
+
             Resource resource = new ClassPathResource("static/images/default-payer-logo.png");
             if (resource.exists()) {
                 ByteArrayResource byteResource = new ByteArrayResource(
@@ -401,7 +396,6 @@ public class PayerServiceImpl implements PayerService {
                         .body(byteResource);
             }
 
-            // If default logo doesn't exist, return not found
             return ResponseEntity.notFound().build();
         } catch (IOException e) {
             logger.error("Error serving default logo: {}", e.getMessage(), e);
@@ -720,10 +714,7 @@ public class PayerServiceImpl implements PayerService {
         ProviderResponse response = new ProviderResponse();
         BeanUtils.copyProperties(provider, response);
 
-        // Set additional fields if needed
         response.setTotalContracts((long) provider.getContractHeaders().size());
-
-        // You might want to add more fields here based on your ProviderResponse structure
 
         return response;
     }

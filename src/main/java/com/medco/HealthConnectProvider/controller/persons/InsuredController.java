@@ -221,13 +221,14 @@ public class InsuredController {
 
     @GetMapping("/by-payer/{payerUuid}")
     @Operation(summary = "Get all insured persons with dependents by payer UUID",
-            description = "Retrieves all insured persons with their dependents for a specific payer, with pagination and optional search")
+            description = "Retrieves all insured persons with their dependents for a specific payer, with pagination and optional search. If contractUuid is provided, it returns insured persons not under that contract.")
     public ResponseEntity<PagedResponse<InsuredDependantResponse>> getAllInsuredPersonsWithDependentsByPayer(
             @PathVariable String payerUuid,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String search) {
-        return insuredService.getAllInsuredPersonsWithDependentsByPayer(payerUuid, page, size, search);
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String contractUuid) {
+        return insuredService.getAllInsuredPersonsWithDependentsByPayer(payerUuid, page, size, search, contractUuid);
     }
 
     @DeleteMapping("/softDelete/{insuredUuid}")
