@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.medco.HealthConnectProvider.entity.claims.BatchRecord;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
+import com.medco.HealthConnectProvider.utils.enums.MedicationStatus;
 import com.medco.HealthConnectProvider.utils.enums.SourceType;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
@@ -57,7 +58,7 @@ public class MedicationDispensing {
     private String claimStatus;
     private String remark;
 
-    private Status status;
+    private MedicationStatus status;
     private String claimUuid;
 
     private Double totalAmount;

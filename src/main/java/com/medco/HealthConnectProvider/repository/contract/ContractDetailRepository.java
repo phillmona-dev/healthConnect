@@ -84,4 +84,6 @@ public interface ContractDetailRepository extends JpaRepository<ContractDetail, 
 
     void deleteByContractHeader(ContractHeader contract);
 
+    ContractDetail findByContractHeaderAndServicelistServiceUuid(ContractHeader activeContract, String contractDetailUuid);
+
 }
