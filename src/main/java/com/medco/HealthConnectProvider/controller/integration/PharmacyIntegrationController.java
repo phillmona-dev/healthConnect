@@ -135,8 +135,6 @@ public class PharmacyIntegrationController {
         return pharmacyIntegrationService.createClaimFromAuthorizedRecords(providerUuid, dispensingUuids);
     }
 
-
-
     @PutMapping("/dispensing/update-status/{providerUuid}")
     @Operation(summary = "Update status of dispensing records",
             description = "Changes the status of one or more dispensing records to either SUBMITTED or AUTHORIZED")
@@ -146,6 +144,7 @@ public class PharmacyIntegrationController {
             @RequestBody String[] dispensingUuids) {
         return pharmacyIntegrationService.updateDispensingRecordsStatus(providerUuid, newStatus, dispensingUuids);
     }
+
     @PutMapping("/claim/update-status/{medicationDispensingUuid}")
     @Operation(summary = "Update claim status of dispensing records",
             description = "Changes the status a service or a drug claim")
@@ -155,9 +154,6 @@ public class PharmacyIntegrationController {
             @RequestParam(value = "remark",required = false)String remark) {
         return pharmacyIntegrationService.updateServiceClaimStatus( medicationDispensingUuid,newStatus,remark);
     }
-
-
-
 
     @PostMapping(value = "/dispensing-records", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Add a new dispensing record", security = @SecurityRequirement(name = "bearerAuth"))

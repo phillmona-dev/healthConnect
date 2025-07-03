@@ -6,10 +6,12 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractSe
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
+import com.medco.HealthConnectProvider.ui.request.contract.ContractStatusUpdateRequest;
 import com.medco.HealthConnectProvider.ui.response.contracts.*;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.paginationUtils.PaginationUtils;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -20,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -231,5 +234,36 @@ public class ContractController {
             @RequestParam(required = false) String insuredUuid,
             @RequestParam(required = false) String dependantUuid) {
         return contractService.getEligibleServices(contractHeaderUuid, insuredUuid, dependantUuid);
+    }
+
+    @PutMapping("/{contractUuid}/status")
+    //@PreAuthorize("hasRole('ROLE_PAYER') or hasRole('ROLE_PROVIDER')")
+    @Operation(
+            summary = "Update contract status",
+            description = "Updates the status of a contract based on the action performed by either the payer or provider. " +
+                    "The workflow is as follows:\n" +
+                    "1. Provider can APPROVE or REJECT a PENDING contract\n" +
+                    "2. Payer can ACTIVATE or REJECT an APPROVED contract\n" +
+                    "3. Payer can RESUBMIT a REJECTED contract"
+    )
+    public ResponseEntity<?> updateContractStatus(
+            @Parameter(description = "UUID of the contract to update")
+            @PathVariable String contractUuid,
+            @Parameter(description = "Contract status update request containing the action and additional information")
+            @Valid @RequestBody ContractStatusUpdateRequest updateRequest) {
+        return contractService.updateContractStatus(contractUuid, updateRequest);
+    }
+
+
+    @DeleteMapping("/soft-delete/{contractUuid}")
+    //@PreAuthorize("hasRole('ROLE_PAYER')")
+    @Operation(
+            summary = "Soft delete a rejected contract",
+            description = "Marks a rejected contract as deleted without removing it from the database. Only accessible to payers."
+    )
+    public ResponseEntity<?> softDeleteRejectedContract(
+            @Parameter(description = "UUID of the contract to soft delete")
+            @PathVariable String contractUuid) {
+        return contractService.softDeleteRejectedContract(contractUuid);
     }
 }

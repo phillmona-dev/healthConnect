@@ -24,8 +24,7 @@ public class MedicationDispensingRequest {
     
     @NotBlank(message = "Payer UUID is required")
     private String payerUuid;
-    
-    // Patient identification - at least one must be provided
+
     private String employeeId;
     private String insuranceId;
     private String nationalId;
@@ -74,7 +73,7 @@ public class MedicationDispensingRequest {
         private String strength;
         private String formulation;
 
-        private String serviceUuid;
+        private String contractDetailUuid;
 
         private ItemType itemType;
 

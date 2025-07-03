@@ -33,6 +33,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractSe
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
+import com.medco.HealthConnectProvider.ui.request.contract.ContractStatusUpdateRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.contracts.*;
@@ -411,6 +412,7 @@ public class ContractServiceImpl implements ContractService {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new MessageResponse("Error: Contract approval and synchronization failed"));
 
     }
+
 
     @Override
     public List<ContractListPayerResponse> getProvidersContractLists(String providerUuid, String searchKey, int page,
@@ -1148,6 +1150,115 @@ public class ContractServiceImpl implements ContractService {
         log.info("Eligible services found: {}", eligibleServices.size());
 
         return ResponseEntity.ok(eligibleServices);
+    }
+
+    @Override
+    public ResponseEntity<?> updateContractStatus(String contractUuid, ContractStatusUpdateRequest updateRequest) {
+
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+
+        String userUuid = userDetails.getUserUuid();
+        boolean isPayer = userDetails.getPayerUuid() != null;
+        boolean isProvider = userDetails.getProviderUuid() != null;
+
+        ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
+        if (contract == null){
+            throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
+        }
+
+        if (isPayer && !contract.getPayer().getPayerUuid().equals(userDetails.getPayerUuid())) {
+            throw new BadRequestException("Contract does not belong to this payer");
+        }
+
+        if (isProvider && !contract.getProvider().getProviderUuid().equals(userDetails.getProviderUuid())) {
+            throw new BadRequestException("Contract does not belong to this provider");
+        }
+
+        switch (updateRequest.getAction().toUpperCase()) {
+            case "APPROVE":
+                if (isProvider && contract.getStatus() == Status.PENDING) {
+                    contract.setStatus(Status.APPROVED);
+                    contract.setProviderReviewedBy(userUuid);
+                    contract.setProviderReviewDate(new Date());
+                } else {
+                    throw new BadRequestException("Invalid action for the current contract status or user role");
+                }
+                break;
+            case "REJECT":
+                if ((isProvider && contract.getStatus() == Status.PENDING) ||
+                        (isPayer && contract.getStatus() == Status.APPROVED)) {
+                    contract.setStatus(Status.REJECTED);
+                    contract.setRejectionReason(updateRequest.getRejectionReason());
+                    if (isProvider) {
+                        contract.setProviderReviewedBy(userUuid);
+                        contract.setProviderReviewDate(new Date());
+                    } else {
+                        contract.setPayerReviewedBy(userUuid);
+                        contract.setPayerReviewDate(new Date());
+                    }
+                } else {
+                    throw new BadRequestException("Invalid action for the current contract status or user role");
+                }
+                break;
+            case "ACTIVATE":
+                if (isPayer && contract.getStatus() == Status.APPROVED) {
+                    contract.setStatus(Status.ACTIVE);
+                    contract.setPayerReviewedBy(userUuid);
+                    contract.setPayerReviewDate(new Date());
+                } else {
+                    throw new BadRequestException("Invalid action for the current contract status or user role");
+                }
+                break;
+            case "RESUBMIT":
+                if (isPayer && contract.getStatus() == Status.REJECTED) {
+                    contract.setStatus(Status.PENDING);
+                    contract.setResubmittedBy(userUuid);
+                    contract.setResubmissionDate(new Date());
+                    contract.setRejectionReason(null);
+                } else {
+                    throw new BadRequestException("Invalid action for the current contract status or user role");
+                }
+                break;
+            default:
+                throw new BadRequestException("Invalid action");
+        }
+
+        contract.setRemark(updateRequest.getRemark());
+        contractRepository.save(contract);
+
+        return ResponseEntity.ok(new MessageResponse("Contract status updated successfully"));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> softDeleteRejectedContract(String contractUuid) {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String payerUuid = userDetails.getPayerUuid();
+
+        ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
+        if (contract == null) {
+            throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
+        }
+
+        if (!contract.getPayer().getPayerUuid().equals(payerUuid)) {
+            throw new BadRequestException("Contract does not belong to this payer");
+        }
+
+        if (contract.getStatus() != Status.REJECTED) {
+            throw new BadRequestException("Only rejected contracts can be soft deleted");
+        }
+
+        if (Boolean.TRUE.equals(contract.isDeleted())) {
+            throw new BadRequestException("Contract is already deleted");
+        }
+
+        contract.setDeleted(true);
+        contract.setDeletedAt(new Date());
+        contract.setDeletedBy(userDetails.getUserUuid());
+
+        contractRepository.save(contract);
+
+        return ResponseEntity.ok(new MessageResponse("Contract soft deleted successfully"));
     }
 
     private String getBase64FromPath(String logoPath, String logoType) {

@@ -163,12 +163,9 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
             String contractName,
             Pageable pageable);
 
-
-
-    // More flexible approach using Specifications with eager fetching
     default Page<ContractHeader> findFilteredContracts(ContractFilterRequest filter, Pageable pageable) {
         return findAll((root, query, cb) -> {
-            // Add joins to fetch related entities eagerly
+
             if (query.getResultType() == ContractHeader.class) {
                 root.fetch("payer", JoinType.LEFT);
                 root.fetch("provider", JoinType.LEFT);
@@ -176,40 +173,34 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
 
             Predicate predicate = cb.conjunction();
 
-            // Contract number filter
             if (filter.getContractNumber() != null) {
                 predicate = cb.and(predicate,
                         cb.like(cb.lower(root.get("contractNumber")),
                                 "%" + filter.getContractNumber().toLowerCase() + "%"));
             }
 
-            // Contract name filter
             if (filter.getContractName() != null) {
                 predicate = cb.and(predicate,
                         cb.like(cb.lower(root.get("contractName")),
                                 "%" + filter.getContractName().toLowerCase() + "%"));
             }
 
-            // Status filter
             if (filter.getStatus() != null) {
                 predicate = cb.and(predicate, cb.equal(root.get("status"), filter.getStatus()));
             }
 
-            // Payer UUID filter - corrected to use payerUuid instead of id
             if (filter.getPayerUuid() != null) {
                 Join<ContractHeader, Payer> payerJoin = root.join("payer", JoinType.INNER);
                 predicate = cb.and(predicate,
                         cb.equal(payerJoin.get("payerUuid"), filter.getPayerUuid()));
             }
 
-            // Provider UUID filter - corrected to use providerUuid instead of id
             if (filter.getProviderUuid() != null) {
                 Join<ContractHeader, Provider> providerJoin = root.join("provider", JoinType.INNER);
                 predicate = cb.and(predicate,
                         cb.equal(providerJoin.get("providerUuid"), filter.getProviderUuid()));
             }
 
-            // Date range filters
             if (filter.getStartDateFrom() != null) {
                 predicate = cb.and(predicate,
                         cb.greaterThanOrEqualTo(root.get("startDate"), filter.getStartDateFrom()));
@@ -230,13 +221,11 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
                         cb.lessThanOrEqualTo(root.get("endDate"), filter.getEndDateTo()));
             }
 
-            // Prepared by filter
             if (filter.getPreparedBy() != null) {
                 predicate = cb.and(predicate,
                         cb.equal(root.get("preparedBy"), filter.getPreparedBy()));
             }
 
-            // Deleted flag filter with default to non-deleted
             predicate = cb.and(predicate,
                     cb.equal(root.get("isDeleted"),
                             filter.getIsDeleted() != null ? filter.getIsDeleted() : false));
@@ -248,19 +237,6 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
     @Query("SELECT ch FROM ContractHeader ch WHERE ch.payer.payerUuid = :payerUuid AND ch.status = 'ACTIVE' AND ch.endDate >= CURRENT_DATE ORDER BY ch.startDate DESC")
     Optional<ContractHeader> findActiveContractByPayerUuid(@Param("payerUuid") String payerUuid);
 
-<<<<<<< HEAD
-    @Query("SELECT ch FROM ContractHeader ch " +
-            "WHERE ch.provider.providerUuid = :providerUuid " +
-            "AND ch.payer.payerUuid = :payerUuid " +
-            "AND ch.status = 'ACTIVE' " +
-            "AND ch.startDate <= :currentDate " +
-            "AND ch.endDate >= :currentDate")
-    Optional<ContractHeader> findActiveContractByProviderUuidAndPayerUuid(
-            @Param("providerUuid") String providerUuid,
-            @Param("payerUuid") String payerUuid,
-            @Param("currentDate") LocalDate currentDate);
-=======
-
     Optional<ContractHeader> findActiveContractByProviderProviderUuidAndPayerPayerUuid(@Size(min = 36, max = 40, message = "Provided Uuid Must be between 36 and 40") String providerUuid, String payerUuid);
->>>>>>> 33c77a41a235b670055f0e50cdb80fc40f1cf3ad
+
 }
