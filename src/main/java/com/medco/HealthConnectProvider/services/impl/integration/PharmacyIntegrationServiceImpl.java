@@ -244,6 +244,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Transactional
     public ResponseEntity<?> addDrugDispensingRecord(DrugDispensingRecordRequest request) {
         try {
+
             Provider provider = validateProvider(request.getProviderUuid());
             Payer payer = validatePayer(request.getPayerUuid());
             ImmutablePair<Insured, Dependant> insuredDependantPair = findInsuredPersonFor(request);
@@ -1024,10 +1025,9 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         // Here you would calculate insurance coverage and patient responsibility
         // This might involve complex logic based on the insured's policy, deductibles, etc.
         // For simplicity, let's assume a fixed 100% coverage
-        BigDecimal insuranceCoverage = totalAmount;
         BigDecimal patientResponsibility = BigDecimal.ZERO;
 
-        dispensingRecord.setInsuranceCoverage(insuranceCoverage.doubleValue());
+        dispensingRecord.setInsuranceCoverage(totalAmount.doubleValue());
         dispensingRecord.setPatientResponsibility(patientResponsibility.doubleValue());
     }
 

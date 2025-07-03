@@ -1102,6 +1102,7 @@ public class ClaimServiceImpl implements ClaimService {
         claim.setTotalAmount(BigDecimal.valueOf(totalClaimAmount));
         claim.setVisitDate(LocalDateTime.now());
         claim.setPayerUuid(batch.getMedicationDispensing().get(0).getPayerUuid());
+        if (userDetails.getProviderUuid()==null)throw new BadRequestException("providerUuid not found ");
         claim.setProviderUuid(userDetails.getProviderUuid());
 //        claim.setCoinsuranceAmount(100);
         Claim savedClaim =claimRepository.save(claim);
@@ -1122,8 +1123,12 @@ public class ClaimServiceImpl implements ClaimService {
                 claims = status == null ? claimRepository.findAllPayerProviderClaims(payerUuid,provider,pageable) : claimRepository.findAllPayerProviderClaimsByStatus(payerUuid, provider, status, pageable);
             }else {
                 claims = status == null ? claimRepository.findAllPayerClaims(payerUuid,pageable) : claimRepository.findAllPayerClaimsByStatus(payerUuid, status, pageable);
+                System.out.println("new claimsssssss"+claims.getTotalElements());
+                System.out.println("payerUuid "+payerUuid);
+                System.out.println("status "+status);
             }
         }
+        System.out.println("new claims"+claims.getSize());
 //        else if (providerUuid!=null) {
 //            if (payer!=null) {
 //                claims = status == null ? claimRepository.findAllPayerProviderClaims(provider,providerUuid,pageable) : claimRepository.findAllPayerProviderClaimsByStatus(payer, providerUuid, status, pageable);
