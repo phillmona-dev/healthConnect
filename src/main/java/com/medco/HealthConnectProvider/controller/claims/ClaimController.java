@@ -39,12 +39,12 @@ public class ClaimController {
         this.pharmacyIntegrationService = pharmacyIntegrationService;
     }
 
-
-    @PostMapping
-    @Operation(summary = "Submit a new claim")
-    public ResponseEntity<?> submitClaim(@Valid @RequestBody ClaimRequest claimRequest) {
-        return claimService.submitClaim(claimRequest);
-    }
+//
+//    @PostMapping
+//    @Operation(summary = "Submit a new claim")
+//    public ResponseEntity<?> submitClaim(@Valid @RequestBody ClaimRequest claimRequest) {
+//        return claimService.submitClaim(claimRequest);
+//    }
 
     @GetMapping("/{claimUuid}")
     @Operation(summary = "Get claim details by UUID")
@@ -66,36 +66,36 @@ public class ClaimController {
     }
 
 
-    @GetMapping("/provider/{providerUuid}")
-    @Operation(summary = "Get claims by provider")
-    public List<ClaimResponse> getClaimsByProvider(
-            @PathVariable String providerUuid,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return claimService.getClaimsByProvider(providerUuid, pageable);
-    }
+//    @GetMapping("/provider/{providerUuid}")
+//    @Operation(summary = "Get claims by provider")
+//    public List<ClaimResponse> getClaimsByProvider(
+//            @PathVariable String providerUuid,
+//            @RequestParam(defaultValue = "0") int page,
+//            @RequestParam(defaultValue = "10") int size) {
+//        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+//        return claimService.getClaimsByProvider(providerUuid, pageable);
+//    }
     
-    @GetMapping("/payer/{payerUuid}")
-    @Operation(summary = "Get claims by payer")
-    public List<ClaimResponse> getClaimsByPayer(
-            @PathVariable String payerUuid,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return claimService.getClaimsByPayer(payerUuid, pageable);
-    }
+//    @GetMapping("/payer/{payerUuid}")
+//    @Operation(summary = "Get claims by payer")
+//    public List<ClaimResponse> getClaimsByPayer(
+//            @PathVariable String payerUuid,
+//            @RequestParam(defaultValue = "0") int page,
+//            @RequestParam(defaultValue = "10") int size) {
+//        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+//        return claimService.getClaimsByPayer(payerUuid, pageable);
+//    }
 
 
-    @GetMapping("/status/{status}")
-    @Operation(summary = "Get claims by status")
-    public List<ClaimResponse> getClaimsByStatus(
-            @PathVariable ClaimStatus status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return claimService.getClaimsByStatus(status, pageable);
-    }
+//    @GetMapping("/status/{status}")
+//    @Operation(summary = "Get claims by status")
+//    public List<ClaimResponse> getClaimsByStatus(
+//            @PathVariable ClaimStatus status,
+//            @RequestParam(defaultValue = "0") int page,
+//            @RequestParam(defaultValue = "10") int size) {
+//        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+//        return claimService.getClaimsByStatus(status, pageable);
+//    }
     
     @PutMapping("/{claimUuid}/status")
     @Operation(summary = "Update claim status")
@@ -179,7 +179,7 @@ public class ClaimController {
         return pharmacyIntegrationService.reconcilePayment(claimUuid);
     }
 
-//    TODO NEW APIS FOR THE CLAIM
+// Todo  NEW APIS FOR THE CLAIM
 
 
 

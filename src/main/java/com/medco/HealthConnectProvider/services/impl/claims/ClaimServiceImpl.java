@@ -1,5 +1,7 @@
 package com.medco.HealthConnectProvider.services.impl.claims;
 
+import com.medco.HealthConnectProvider.config.ClaimStatusUpdater.ClaimStatusUpdater;
+import com.medco.HealthConnectProvider.config.ClaimStatusUpdater.UpdateClaimStatus;
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.dto.MedicationDispensingDTO;
 import com.medco.HealthConnectProvider.entity.claims.*;
@@ -15,6 +17,7 @@ import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.claims.*;
 import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
 import com.medco.HealthConnectProvider.repository.integration.MedicationDispensingRepository;
+import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
 import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
@@ -30,6 +33,7 @@ import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.*;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
+import com.medco.HealthConnectProvider.utils.enums.MedicationStatus;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import org.springframework.beans.BeanUtils;
@@ -85,6 +89,7 @@ public class ClaimServiceImpl implements ClaimService {
     
 
     private final ProviderRepository providerRepository;
+    private final PayerRepository payerRepository;
     private final ProviderService providerService;
 
 
@@ -94,8 +99,9 @@ public class ClaimServiceImpl implements ClaimService {
     private final NotificationService notificationService;
     private final BatchRecordRepository batchRecordRepository;
     private final MedicationDispensingRepository medicationDispensingRepository;
+    private final ClaimStatusUpdater claimStatusUpdater;
 
-    public ClaimServiceImpl(ClaimRepository claimRepository, ClaimAttachmentRepository claimAttachmentRepository, ClaimCommentRepository claimCommentRepository, ClaimLogsRepository claimLogsRepository, ClaimPaymentRepository claimPaymentRepository, ContractRepository contractRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, ProviderRepository providerRepository, ProviderService providerService, PaymentService paymentService, UserRepository userRepository, NotificationService notificationService, BatchRecordRepository batchRecordRepository, MedicationDispensingRepository medicationDispensingRepository) {
+    public ClaimServiceImpl(ClaimRepository claimRepository, ClaimAttachmentRepository claimAttachmentRepository, ClaimCommentRepository claimCommentRepository, ClaimLogsRepository claimLogsRepository, ClaimPaymentRepository claimPaymentRepository, ContractRepository contractRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, ProviderRepository providerRepository, PayerRepository payerRepository, ProviderService providerService, PaymentService paymentService, UserRepository userRepository, NotificationService notificationService, BatchRecordRepository batchRecordRepository, MedicationDispensingRepository medicationDispensingRepository, ClaimStatusUpdater claimStatusUpdater) {
         this.claimRepository = claimRepository;
         this.claimAttachmentRepository = claimAttachmentRepository;
         this.claimCommentRepository = claimCommentRepository;
@@ -105,12 +111,14 @@ public class ClaimServiceImpl implements ClaimService {
         this.insuredRepository = insuredRepository;
         this.dependantRepository = dependantRepository;
         this.providerRepository = providerRepository;
+        this.payerRepository = payerRepository;
         this.providerService = providerService;
         this.paymentService = paymentService;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.batchRecordRepository = batchRecordRepository;
         this.medicationDispensingRepository = medicationDispensingRepository;
+        this.claimStatusUpdater = claimStatusUpdater;
     }
 
 
@@ -491,6 +499,12 @@ public class ClaimServiceImpl implements ClaimService {
     @Override
     @Transactional
     public ResponseEntity<?> updateClaimStatus(String claimUuid, ClaimStatus newStatus, String comment) {
+
+
+//
+//        UpdateClaimStatus updater = statusUpdater.getUpdater(status);
+//        updater.updateTransferStatus(stockTransferUuid,approvedAmount);
+
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 
@@ -868,13 +882,13 @@ public class ClaimServiceImpl implements ClaimService {
 
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
-        // Check if user has access to this claim
-        if (userDetails.getProviderUuid() == null || !claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
-            throw new BadRequestException("Only provider users can request payment for claims");
-        }
+//        // Check if user has access to this claim
+//        if (userDetails.getProviderUuid() == null || !claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
+//            throw new BadRequestException("Only provider users can request payment for claims");
+//        }
 
         // Check if claim is in approved status
-        if (!claim.getStatus().equals(ClaimStatus.APPROVED.toString())) {
+        if (!claim.getStatus().equals(ClaimStatus.APPROVED)) {
             throw new BadRequestException("Only approved claims can be submitted for payment");
         }
 
@@ -997,7 +1011,7 @@ public class ClaimServiceImpl implements ClaimService {
         }
 
         // Check if claim is in approved status
-        if (!claim.getStatus().equals(ClaimStatus.APPROVED.toString())) {
+        if (!claim.getStatus().equals(ClaimStatus.APPROVED)) {
             throw new BadRequestException("Only approved claims can be processed for payment");
         }
 
@@ -1081,7 +1095,7 @@ public class ClaimServiceImpl implements ClaimService {
         List<MedicationDispensing> authorizedMedications=new ArrayList<>();
 
         for (MedicationDispensing medicationDispensing:batch.getMedicationDispensing()){
-            medicationDispensing.setStatus(Status.AUTHORIZED);
+            medicationDispensing.setStatus(MedicationStatus.AUTHORIZED);
             medicationDispensing.setClaimStatus(ClaimStatus.DRAFT.toString());
             authorizedMedications.add(medicationDispensing);
         }
@@ -1102,6 +1116,7 @@ public class ClaimServiceImpl implements ClaimService {
         claim.setTotalAmount(BigDecimal.valueOf(totalClaimAmount));
         claim.setVisitDate(LocalDateTime.now());
         claim.setPayerUuid(batch.getMedicationDispensing().get(0).getPayerUuid());
+        if (userDetails.getProviderUuid()==null)throw new BadRequestException("providerUuid not found ");
         claim.setProviderUuid(userDetails.getProviderUuid());
 //        claim.setCoinsuranceAmount(100);
         Claim savedClaim =claimRepository.save(claim);
@@ -1116,23 +1131,37 @@ public class ClaimServiceImpl implements ClaimService {
         String payerUuid=userDetails.getPayerUuid();
         String providerUuid=userDetails.getProviderUuid();
 
-        Page<ClaimListResponse> claims =new PageImpl<>(new ArrayList<>());
+        Page<ClaimCustomResponse> claims =new PageImpl<>(new ArrayList<>());
         if (payerUuid!=null) {
             if (provider!=null) {
                 claims = status == null ? claimRepository.findAllPayerProviderClaims(payerUuid,provider,pageable) : claimRepository.findAllPayerProviderClaimsByStatus(payerUuid, provider, status, pageable);
             }else {
+
+//                claims =  claimRepository.findAllPayerClaims(payerUuid,pageable) ;
                 claims = status == null ? claimRepository.findAllPayerClaims(payerUuid,pageable) : claimRepository.findAllPayerClaimsByStatus(payerUuid, status, pageable);
+                System.out.println("new claimsssssss"+claims.getTotalElements());
+                System.out.println("payerUuid "+payerUuid);
+                System.out.println("status "+status);
             }
         }
-//        else if (providerUuid!=null) {
-//            if (payer!=null) {
-//                claims = status == null ? claimRepository.findAllPayerProviderClaims(provider,providerUuid,pageable) : claimRepository.findAllPayerProviderClaimsByStatus(payer, providerUuid, status, pageable);
-//            }else {
-//                claims = status == null ? claimRepository.findAllProviderClaims(providerUuid,pageable) : claimRepository.findAllProviderClaimsByStatus(providerUuid, status, pageable);
-//            }
-//
-//        }
-        List<ClaimListResponse> responseList = new ArrayList<>(claims.getContent());
+
+        else if (providerUuid!=null) {
+            if (payer!=null) {
+                claims = status == null ? claimRepository.findAllPayerProviderClaims(provider,providerUuid,pageable) : claimRepository.findAllPayerProviderClaimsByStatus(payer, providerUuid, status, pageable);
+            }else {
+                claims = status == null ? claimRepository.findAllProviderClaims(providerUuid,pageable) : claimRepository.findAllProviderClaimsByStatus(providerUuid, status, pageable);
+            }
+
+        }
+        List<ClaimListResponse> responseList = claims.stream().map(claimCustomResponse -> {
+            ClaimListResponse claimListResponse= new ClaimListResponse();
+            BeanUtils.copyProperties(claimCustomResponse,claimListResponse);
+            Provider provider1=providerRepository.findByProviderUuid(claimCustomResponse.getProviderUuid());
+//            Payer payer1=payerRepository.findByPayerUuid(claimCustomResponse.getPayerUuid());
+            claimListResponse.setProviderName(provider1.getProviderName());
+            return claimListResponse;
+        }).toList();
+
         return new PagedResponse<>(
                 responseList,
                 pageable.getPageNumber(),
