@@ -87,21 +87,15 @@ public class ContractHeader extends Audit implements Serializable {
     @Builder.Default
     private boolean isDeleted = false;
 
+    private String deletedBy;
+    private Date deletedAt;
+
     @PrePersist
     public void prePersist() {
         if (contractHeaderUuid == null) {
             contractHeaderUuid = UUID.randomUUID().toString();
         }
     }
-
-//    @ManyToMany
-//    @JoinTable(
-//            name = "contract_insured",
-//            joinColumns = @JoinColumn(name = "contract_id"),
-//            inverseJoinColumns = @JoinColumn(name = "employee_insured_id")
-//    )
-//    @Builder.Default
-//    private List<Insured> insured = new ArrayList<>();
 
     @ManyToMany
     @JoinTable(
@@ -118,6 +112,14 @@ public class ContractHeader extends Audit implements Serializable {
             inverseJoinColumns = @JoinColumn(name = "dependant_id")
     )
     private Set<Dependant> dependants = new HashSet<>();
+
+    private String payerReviewedBy;
+    private Date payerReviewDate;
+    private String providerReviewedBy;
+    private Date providerReviewDate;
+    private String rejectionReason;
+    private String resubmittedBy;
+    private Date resubmissionDate;
 
     public void addInsured(Insured insured) {
         this.insured.add(insured);

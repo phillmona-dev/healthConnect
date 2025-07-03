@@ -339,44 +339,144 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Override
     @Transactional
     public ResponseEntity<?> editDispensingRecord(String dispensingUuid, DispensingRecordEditRequest editRequest) {
+        try {
+            UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
-        MedicationDispensing dispensing = dispensingRepository.findByDispensingUuid(dispensingUuid);
-        if (dispensing == null) {
-            throw new ResourceNotFoundException("Dispensing Record", "uuid", dispensingUuid);
+            // Step 1: Validate and retrieve the existing dispensing record
+            MedicationDispensing dispensing = dispensingRepository.findByDispensingUuid(dispensingUuid);
+            if (dispensing == null) {
+                throw new ResourceNotFoundException("Dispensing Record", "uuid", dispensingUuid);
+            }
+
+            if (!"DRAFT".equals(dispensing.getClaimStatus())) {
+                throw new BadRequestException("Only dispensing records in DRAFT status can be edited");
+            }
+
+            // Step 2: Validate Provider (Pharmacy)
+            Provider provider = providerRepository.findByProviderUuid(userDetails.getProviderUuid());
+            if (provider == null) {
+                throw new ResourceNotFoundException("Provider", "uuid", userDetails.getProviderUuid());
+            }
+
+            // Step 3: Validate Insured (Patient) and Dependant if applicable
+            Insured insured = validateInsured(editRequest.getInsuredUuid());
+            Dependant dependant = validateDependant(editRequest.getDependantUuid());
+
+            // Step 4: Get Payer
+            Payer payer = insured.getPayer();
+
+            ContractHeader activeContract = contractHeaderRepository.findActiveContractByProviderProviderUuidAndPayerPayerUuid(provider.getProviderUuid(), payer.getPayerUuid())
+                    .orElseThrow(() -> new ResourceNotFoundException("Active contract", "payer", payer.getPayerUuid()));
+
+            // Update basic dispensing record details
+            updateDispensingRecordDetails(dispensing, editRequest, insured, dependant);
+
+            // Validate and update dispensing items
+            List<MedicationDispensingItem> updatedItems = updateDispensingItems(dispensing, editRequest.getMedicationItems(), provider, payer, activeContract);
+
+            // Save updated dispensing record
+            MedicationDispensing savedRecord = dispensingRepository.save(dispensing);
+
+            // Save updated dispensing items
+            dispensingItemRepository.saveAll(updatedItems);
+
+            // Recalculate totals
+            updateDispensingRecordTotals(savedRecord, updatedItems);
+
+            // Save the final updated record
+            savedRecord = dispensingRepository.save(savedRecord);
+
+            return ResponseEntity.ok(new DispensingRecordResponse(savedRecord));
+
+        } catch (ResourceNotFoundException e) {
+            log.error("Resource not found: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiErrorResponse(e.getMessage()));
+        } catch (BadRequestException e) {
+            log.error("Bad request: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new ApiErrorResponse(e.getMessage()));
+        } catch (DataIntegrityViolationException e) {
+            log.error("Data integrity violation: {}", e.getMessage());
+            String errorMessage = "A conflict occurred while updating the record. Please check for duplicate entries or missing required fields.";
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ApiErrorResponse(errorMessage));
+        } catch (Exception e) {
+            log.error("Unexpected error in editDispensingRecord: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiErrorResponse("An unexpected error occurred. Please try again later."));
         }
+    }
 
-        if (!"DRAFT".equals(dispensing.getClaimStatus())) {
-            throw new BadRequestException("Only dispensing records in DRAFT status can be edited");
+
+    private Dependant validateDependant(String dependantUuid) {
+        if (dependantUuid == null || dependantUuid.isEmpty()) {
+            return null;
         }
+        Dependant dependant = dependantRepository.findByDependantUuid(dependantUuid);
+        if (dependant == null) {
+            throw new ResourceNotFoundException("Dependant", "uuid", dependantUuid);
+        }
+        return dependant;
+    }
 
-        dispensing.setDispensingDate(editRequest.getDispensingDate());
-        dispensing.setPrescriptionNumber(editRequest.getPrescriptionNumber());
-        dispensing.setPharmacyTransactionId(editRequest.getPharmacyTransactionId());
-        dispensing.setPharmacistNotes(editRequest.getPharmacistNotes());
+    private void updateDispensingRecordDetails(MedicationDispensing dispensing, DispensingRecordEditRequest editRequest, Insured insured, Dependant dependant) {
+        dispensing.setInsured(insured);
+        dispensing.setDependant(dependant);
         dispensing.setPrimaryDiagnosis(editRequest.getPrimaryDiagnosis());
         dispensing.setSecondaryDiagnosis(editRequest.getSecondaryDiagnosis());
+    }
 
-        List<MedicationDispensingItem> items = dispensingItemRepository.findByDispensing(dispensing);
-        for (DispensingRecordEditRequest.DispensingItemEditRequest itemEdit : editRequest.getMedicationItems()) {
-            MedicationDispensingItem item = items.stream()
-                    .filter(i -> i.getItemUuid().equals(itemEdit.getServiceUuid()))
-                    .findFirst()
-                    .orElseThrow(() -> new ResourceNotFoundException("Dispensing Item", "uuid", itemEdit.getServiceUuid()));
+    private List<MedicationDispensingItem> updateDispensingItems(MedicationDispensing dispensing,
+                                                                 List<DispensingRecordEditRequest.DispensingItemEditRequest> itemRequests,
+                                                                 Provider provider, Payer payer, ContractHeader activeContract) {
+        List<MedicationDispensingItem> updatedItems = new ArrayList<>();
+        Map<String, MedicationDispensingItem> existingItemsMap = dispensing.getItems().stream()
+                .collect(Collectors.toMap(MedicationDispensingItem::getItemUuid, item -> item));
 
-            item.setQuantity(itemEdit.getQuantity());
-            item.setRemark(itemEdit.getRemark());
-            item.setTotalPrice(item.getUnitPrice() * itemEdit.getQuantity());
+        for (DispensingRecordEditRequest.DispensingItemEditRequest itemRequest : itemRequests) {
+            MedicationDispensingItem item = existingItemsMap.getOrDefault(itemRequest.getContractDetailUuid(), new MedicationDispensingItem());
+            updateDispensingItem(item, itemRequest, dispensing, provider, payer, activeContract);
+            updatedItems.add(item);
         }
 
-        double totalAmount = items.stream().mapToDouble(MedicationDispensingItem::getTotalPrice).sum();
-        dispensing.setTotalAmount(totalAmount);
+        return updatedItems;
+    }
 
-        calculateCoverageAndResponsibility(dispensing, dispensing.getInsured().getPayer(), dispensing.getInsured());
+    private void updateDispensingItem(MedicationDispensingItem item, DispensingRecordEditRequest.DispensingItemEditRequest itemRequest,
+                                      MedicationDispensing dispensing, Provider provider, Payer payer, ContractHeader activeContract) {
+        item.setDispensing(dispensing);
+        item.setQuantity((double) itemRequest.getQuantity());
+        item.setRemark(itemRequest.getRemark());
+        item.setItemType(ItemType.valueOf(itemRequest.getItemType()));
 
-        dispensingRepository.save(dispensing);
-        dispensingItemRepository.saveAll(items);
+        ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(itemRequest.getContractDetailUuid());
+        if (contractDetail == null) {
+            throw new ResourceNotFoundException("ContractDetail", "uuid", itemRequest.getContractDetailUuid());
+        }
 
-        return ResponseEntity.ok(new MessageResponse("Dispensing record updated successfully"));
+        item.setContractDetail(contractDetail);
+
+        if (item.getItemType() == ItemType.DRUG) {
+            Drug drug = contractDetail.getDrug();
+            if (drug == null) {
+                throw new ResourceNotFoundException("Drug", "contractDetail", contractDetail.getContractDetailUuid());
+            }
+            item.setMedicationCode(drug.getDrugCode());
+            item.setMedicationName(drug.getDrugName());
+        } else if (item.getItemType() == ItemType.SERVICE) {
+            Servicelist service = contractDetail.getServicelist(); // Changed from getService() to getServicelist()
+            if (service == null) {
+                throw new ResourceNotFoundException("Service", "contractDetail", contractDetail.getContractDetailUuid());
+            }
+            item.setMedicationCode(service.getServiceCode());
+            item.setMedicationName(service.getServiceName());
+        } else {
+            throw new BadRequestException("Invalid item type: " + itemRequest.getItemType());
+        }
+
+        item.setUnitPrice(itemRequest.getPrice());
+        item.setTotalPrice(itemRequest.getPrice() * itemRequest.getQuantity());
     }
 
     @Override
@@ -746,19 +846,16 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         try {
             UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
-            // Step 1: Validate Provider (Pharmacy)
             Provider provider = providerRepository.findByProviderUuid(userDetails.getProviderUuid());
             if(provider == null) {
                 throw new ResourceNotFoundException("Provider", "uuid", userDetails.getProviderUuid());
             }
 
-            // Step 2: Validate Insured (Patient)
             Insured insured = insuredRepository.findByInsuredUuid(request.getInsuredUuid());
             if (insured == null) {
                 throw new ResourceNotFoundException("Insured", "uuid", request.getInsuredUuid());
             }
 
-            // Step 3: Get Payer
             Payer payer = insured.getPayer();
 
             ContractHeader activeContract = contractHeaderRepository.findActiveContractByProviderProviderUuidAndPayerPayerUuid(provider.getProviderUuid(),payer.getPayerUuid())
@@ -868,7 +965,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         return insured;
     }
-
 
     private EligibilityResponse checkEligibility(Insured insured, String providerUuid) {
 
@@ -1031,23 +1127,23 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensingRecord.setPatientResponsibility(patientResponsibility.doubleValue());
     }
 
-
-    private List<Servicelist> validateServices(String providerUuid, List<?> items) {
+    private List<Servicelist> validateServices(String providerUuid, List<DispensingRecordRequest.DispensingItemRequest> items) {
         List<Servicelist> services = new ArrayList<>();
-        for (Object item : items) {
-            String serviceUuid;
-            if (item instanceof MedicationDispensingRequest.MedicationItem) {
-                serviceUuid = ((MedicationDispensingRequest.MedicationItem) item).getServiceUuid();
-            } else if (item instanceof DispensingRecordRequest.DispensingItemRequest) {
-                serviceUuid = ((DispensingRecordRequest.DispensingItemRequest) item).getContractDetailUuid();
-            } else {
-                throw new IllegalArgumentException("Unsupported item type");
+        for (DispensingRecordRequest.DispensingItemRequest item : items) {
+            String contractDetailUuid = item.getContractDetailUuid();
+
+            ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(contractDetailUuid);
+            if (contractDetail == null){
+                throw new ResourceNotFoundException("ContractDetail", "uuid", contractDetailUuid);
             }
 
-            Servicelist service = servicelistRepository.findByServiceUuidAndProviderProviderUuid(serviceUuid, providerUuid);
+            Servicelist service = servicelistRepository.findByServiceUuidAndProviderProviderUuid(
+                    contractDetail.getServiceUuid(), providerUuid);
+
             if (service == null) {
-                throw new ResourceNotFoundException("Service", "uuid", serviceUuid);
+                throw new ResourceNotFoundException("Service", "uuid", contractDetail.getServiceUuid());
             }
+
             services.add(service);
         }
         return services;

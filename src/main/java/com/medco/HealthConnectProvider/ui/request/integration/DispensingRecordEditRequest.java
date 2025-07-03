@@ -7,18 +7,18 @@ import java.util.List;
 
 @Data
 public class DispensingRecordEditRequest {
-    private LocalDate dispensingDate;
-    private String prescriptionNumber;
-    private String pharmacyTransactionId;
-    private String pharmacistNotes;
+    private String insuredUuid;
+    private String dependantUuid;
     private String primaryDiagnosis;
     private String secondaryDiagnosis;
     private List<DispensingItemEditRequest> medicationItems;
 
     @Data
     public static class DispensingItemEditRequest {
-        private String serviceUuid;
-        private Double quantity;
+        private String contractDetailUuid;
+        private String itemType; // "SERVICE" or "DRUG"
         private String remark;
+        private double price;
+        private int quantity;
     }
 }

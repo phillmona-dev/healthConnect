@@ -8,6 +8,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractSe
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
+import com.medco.HealthConnectProvider.ui.request.contract.ContractStatusUpdateRequest;
 import com.medco.HealthConnectProvider.ui.response.contracts.*;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.Valid;
@@ -67,4 +68,8 @@ public interface ContractService {
     ResponseEntity<AssignServicesToGroupResponse> assignServicesToGroup(String groupUuid, @Valid List<String> contractDetailUuids);
 
     ResponseEntity<List<EligibleServiceResponse>> getEligibleServices(String contractHeaderUuid, String insuredUuid, String dependantUuid);
+
+    ResponseEntity<?> updateContractStatus(String contractUuid, @Valid ContractStatusUpdateRequest updateRequest);
+
+    ResponseEntity<?> softDeleteRejectedContract(String contractUuid);
 }
