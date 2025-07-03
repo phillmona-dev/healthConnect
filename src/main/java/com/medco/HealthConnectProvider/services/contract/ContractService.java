@@ -22,7 +22,7 @@ public interface ContractService {
 
     ResponseEntity<?> updateContract(String contractUuid, @Valid ContractRequest contractRequest);
 
-    ContractResponse getContract(String contractUuid);
+    ContractResponse getContract(String contractUuid, String userType);
 
     ResponseEntity<?> approveContract(String payerProviderContractUuid);
 

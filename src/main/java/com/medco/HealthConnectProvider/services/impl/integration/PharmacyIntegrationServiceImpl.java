@@ -184,7 +184,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 List<Predicate> predicates = new ArrayList<>();
 
                 predicates.add(cb.equal(root.get("providerUuid"), providerUuid));
-//TODO CHANGING THE CLAIM STATUS TO STATUS
+                //TODO CHANGING THE CLAIM STATUS TO STATUS
                 if (status != null && !status.isEmpty()) {
                     predicates.add(cb.equal(root.get("status"), Status.valueOf(status)));
                 }
@@ -256,7 +256,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 log.info("Dependant found: {}", dependant.getFirstName());
             }
 
-            // Find the active contract for this payer
             ContractHeader activeContract = contractHeaderRepository.findActiveContractByPayerUuid(payer.getPayerUuid())
                     .orElseThrow(() -> new ResourceNotFoundException("Active contract", "payer", payer.getPayerUuid()));
 
@@ -341,7 +340,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         try {
             UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
-            // Step 1: Validate and retrieve the existing dispensing record
             MedicationDispensing dispensing = dispensingRepository.findByDispensingUuid(dispensingUuid);
             if (dispensing == null) {
                 throw new ResourceNotFoundException("Dispensing Record", "uuid", dispensingUuid);
@@ -351,38 +349,29 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 throw new BadRequestException("Only dispensing records in DRAFT status can be edited");
             }
 
-            // Step 2: Validate Provider (Pharmacy)
             Provider provider = providerRepository.findByProviderUuid(userDetails.getProviderUuid());
             if (provider == null) {
                 throw new ResourceNotFoundException("Provider", "uuid", userDetails.getProviderUuid());
             }
 
-            // Step 3: Validate Insured (Patient) and Dependant if applicable
             Insured insured = validateInsured(editRequest.getInsuredUuid());
             Dependant dependant = validateDependant(editRequest.getDependantUuid());
 
-            // Step 4: Get Payer
             Payer payer = insured.getPayer();
 
             ContractHeader activeContract = contractHeaderRepository.findActiveContractByProviderProviderUuidAndPayerPayerUuid(provider.getProviderUuid(), payer.getPayerUuid())
                     .orElseThrow(() -> new ResourceNotFoundException("Active contract", "payer", payer.getPayerUuid()));
 
-            // Update basic dispensing record details
             updateDispensingRecordDetails(dispensing, editRequest, insured, dependant);
 
-            // Validate and update dispensing items
             List<MedicationDispensingItem> updatedItems = updateDispensingItems(dispensing, editRequest.getMedicationItems(), provider, payer, activeContract);
 
-            // Save updated dispensing record
             MedicationDispensing savedRecord = dispensingRepository.save(dispensing);
 
-            // Save updated dispensing items
             dispensingItemRepository.saveAll(updatedItems);
 
-            // Recalculate totals
             updateDispensingRecordTotals(savedRecord, updatedItems);
 
-            // Save the final updated record
             savedRecord = dispensingRepository.save(savedRecord);
 
             return ResponseEntity.ok(new DispensingRecordResponse(savedRecord));
@@ -592,7 +581,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         Insured insured = null;
         Dependant dependant = null;
 
-        // First, try to find the insured person
         insured = insuredRepository.findByInsuranceId(patientId);
         if (insured == null) {
             insured = insuredRepository.findByEmployeeId(patientId);
@@ -709,6 +697,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Override
     @Transactional
     public ResponseEntity<?> updateDispensingRecordsStatus(String providerUuid, String newStatus, String[] dispensingUuids) {
+
         if (dispensingUuids == null || dispensingUuids.length == 0) {
             throw new BadRequestException("No dispensing records selected");
         }
@@ -759,35 +748,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                     "Batch created with code: " + batchRecord.getBatchCode();
 
         }
-//        else {
-//            String batchCode = null;
-//            for (MedicationDispensing record : dispensingRecords) {
-//                if (!record.getClaimStatus().equals("SUBMITTED")) {
-//                    throw new BadRequestException("Dispensing record " + record.getDispensingUuid() +
-//                            " is not in SUBMITTED status");
-//                }
-//                if (batchCode == null) {
-//                    batchCode = record.getBatchCode();
-//                } else if (!batchCode.equals(record.getBatchCode())) {
-//                    throw new BadRequestException("All records must belong to the same batch");
-//                }
-//            }
-//
-//            // Update dispensing records
-//            for (MedicationDispensing record : dispensingRecords) {
-//                record.setClaimStatus("AUTHORIZED");
-//            }
-//
-//            // Update batch record status
-//            String finalBatchCode = batchCode;
-//            batchRecord = batchRecordRepository.findByBatchCode(batchCode)
-//                    .orElseThrow(() -> new ResourceNotFoundException("BatchRecord", "batchCode", finalBatchCode));
-//            batchRecord.setStatus("AUTHORIZED");
-//            batchRecordRepository.save(batchRecord);
-//
-//            message = dispensingRecords.size() + " dispensing record(s) updated to AUTHORIZED status. " +
-//                    "Batch " + batchCode + " updated to AUTHORIZED status.";
-//        }
 
         dispensingRepository.saveAll(dispensingRecords);
 
@@ -837,7 +797,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         return new BatchCodeInfo(batchCode, newBatchNumber);
     }
-
 
     @Override
     @Transactional
@@ -1117,9 +1076,9 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         dispensingRecord.setTotalAmount(totalAmount.doubleValue());
 
-        // Here you would calculate insurance coverage and patient responsibility
-        // This might involve complex logic based on the insured's policy, deductibles, etc.
-        // For simplicity, let's assume a fixed 100% coverage
+        //calculate insurance coverage and patient responsibility
+        //TODO
+        // let's assume a fixed 100% coverage
         BigDecimal insuranceCoverage = totalAmount;
         BigDecimal patientResponsibility = BigDecimal.ZERO;
 
@@ -1185,21 +1144,17 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 dispensingItems.add(item);
             } catch (ResourceNotFoundException e) {
                 log.error("Contract detail not found for service: {}", service.getServiceUuid());
-                // Handle the error as needed, maybe skip this item or throw an exception
             }
         }
 
         if (!uncoveredItems.isEmpty()) {
             log.warn("Some items are not covered for the insured: {}", String.join(", ", uncoveredItems));
-            // You might want to handle this situation, e.g., throw an exception or add a warning to the response
         }
 
         return dispensingItems;
     }
 
-
         private boolean isItemCoveredForInsured(ContractDetail contractDetail, Insured insured) {
-            // Check if the insured or any of their groups are associated with this contract detail
             return contractDetail.getEmployeeDependantGroups().stream()
                     .anyMatch(group -> group.getInsureds().contains(insured) || insured.getEmployeeDependantGroup().equals(group));
         }
@@ -1214,17 +1169,18 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             }
         }
 
-        // If not found, look for a general contract detail for this service
         return contractDetailRepository.findByContractHeaderUuidAndServiceUuid(contractHeaderUuid, serviceUuid);
     }
 
     private PendingDispensingRecordDTO convertToDTO(MedicationDispensing dispensing) {
+
         PendingDispensingRecordDTO dto = new PendingDispensingRecordDTO();
+
         dto.setDispensingUuid(dispensing.getDispensingUuid());
         dto.setCreatedAt(dispensing.getRecordedAt());
         dto.setBranchName(dispensing.getBranchName());
         dto.setStatus(dispensing.getStatus());
-//        dto.setStatus(Status.valueOf(dispensing.getClaimStatus()));
+     // dto.setStatus(Status.valueOf(dispensing.getClaimStatus()));
         dto.setInvoiceNumber(dispensing.getInvoiceNumber());
 
         Insured insured = insuredRepository.findByInsuredUuid(dispensing.getInsuredUuid());
@@ -1413,8 +1369,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
     }
 
-    //New
-
     @Override
     @Transactional
     public ResponseEntity<?> authorizeDispensingRecord(String dispensingUuid) {
@@ -1454,7 +1408,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         return ResponseEntity.ok(new MessageResponse("Selected dispensing records have been authorized"));
     }
-
 
 
     @Override
@@ -1514,7 +1467,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         List<ClaimItem> claimItems = createClaimItems(dispensingRecords, savedClaim);
         claimItemRepository.saveAll(claimItems);
 
-        // Update dispensing records to SUBMITTED status
         for (MedicationDispensing record : dispensingRecords) {
             record.setClaimStatus("SUBMITTED");
             record.setClaimUuid(savedClaim.getClaimUuid());
@@ -1535,19 +1487,15 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             throw new BadRequestException("Only paid claims can be reconciled");
         }
 
-        // Perform reconciliation logic here
         claim.setStatus(ClaimStatus.RECONCILED);
 
-        // Fetch associated dispensing records
         List<MedicationDispensing> dispensingRecords = dispensingRepository.findByClaimUuid(claimUuid);
 
-        // Create batch record
         BatchRecord batchRecord = createBatchRecord(claim.getBatchRecord().getMedicationDispensing().get(0).getInsured().getPayer(), dispensingRecords, claim);
         batchRecord.setStatus("RECONCILED");
         batchRecord.setClaim(claim);
         claim.setBatchRecord(batchRecord);
 
-        // Save both entities
         claimRepository.save(claim);
         BatchRecord savedBatchRecord = batchRecordRepository.save(batchRecord);
 
