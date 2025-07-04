@@ -536,6 +536,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         MedicationDispensing medicationDispensing=dispensingRepository.findByDispensingUuid(medicationDispensingUuid);
         medicationDispensing.setClaimStatus(newStatus);
         medicationDispensing.setRemark(remark);
+        medicationDispensing.setBatchRecord(null);
         dispensingRepository.save(medicationDispensing);
         return ResponseEntity.ok("claim status  updated successfully ");
     }

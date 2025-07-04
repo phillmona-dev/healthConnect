@@ -273,23 +273,30 @@ public class ClaimServiceImpl implements ClaimService {
         System.out.println("batch code "+claim.getBatchRecord().getBatchCode());
         response.setPayerUuid(claim.getPayerUuid());
         if (claim.getBatchRecord().getMedicationDispensing()!=null) {
-            response.setContractUuid(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractHeaderUuid());
-            response.setContractName(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractName());
-            response.setContractCode(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractCode());
+//            if (claim.getBatchRecord().getMedicationDispensing().get(0).getItems()!=null) {
+//                response.setContractUuid(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractHeaderUuid());
+//                response.setContractName(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractName());
+//                response.setContractCode(claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getContractCode());
+//            }
             Provider provider=new Provider();
             Payer payer = new Payer();
-            if (!claim.getBatchRecord().getMedicationDispensing().isEmpty()) {
-                 payer = claim.getBatchRecord().getMedicationDispensing().get(0).getInsured().getPayer();
-                 provider = claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getProvider();
-            }
-
-            if (claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getServicelist().getProvider() != null) {
+                 payer = payerRepository.findByPayerUuid(claim.getPayerUuid());
+                 provider = providerRepository.findByProviderUuid(claim.getProviderUuid());
                 response.setProviderUuid(provider.getProviderUuid());
                 response.setProviderName(provider.getProviderName());
                 response.setProviderCode(provider.getProviderCode());
                 response.setProviderCategory(provider.getCategory());
                 response.setProviderEmail(provider.getEmail());
                 response.setProviderPhone(provider.getTelephone());
+
+                response.setPayerUuid(claim.getPayerUuid());
+                response.setPayerName(payer.getPayerName());
+                response.setPayerCode(payer.getPayerCode());
+
+
+//            if (claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getServicelist().getProvider() != null) {
+
+
                 ResponseEntity<ByteArrayResource> providerLogo=providerService.getProviderLogo(provider.getProviderUuid());
 
                 if (providerLogo != null && providerLogo.getBody() != null) {
@@ -300,13 +307,8 @@ public class ClaimServiceImpl implements ClaimService {
 
                 }
 
-            }
 
-            if (claim.getBatchRecord().getMedicationDispensing().get(0).getItems().get(0).getContractDetail().getContractHeader().getPayer() != null) {
-                response.setPayerUuid(claim.getPayerUuid());
-                response.setPayerName(payer.getPayerName());
-                response.setPayerCode(payer.getPayerCode());
-            }
+
 
         }
         if (claim.getBatchRecord().getMedicationDispensing()!=null)
@@ -324,6 +326,7 @@ public class ClaimServiceImpl implements ClaimService {
                 .sorted(Comparator.comparing(ClaimComment::getCommentDate).reversed())
                 .map(this::mapToCommentResponse)
                 .collect(Collectors.toList()));
+
 
         response.setLogs(claim.getLogs().stream()
                 .sorted(Comparator.comparing(ClaimLogs::getActionDate).reversed())

@@ -54,7 +54,7 @@ public class ClaimController {
 
     @GetMapping("/allClaims")
     @Operation(summary = "Get all paginated claims")
-    public PagedResponse<ClaimListResponse> getAllClaims(@RequestParam(value = "Claim Status",required = false) ClaimStatus status,
+    public PagedResponse<ClaimListResponse> getAllClaims(@RequestParam(value = "ClaimStatus",required = false) ClaimStatus status,
                                                          @RequestParam(value = "payerUuid",required = false) String payerUuid,
                                                          @RequestParam(value = "providerUuid",required = false) String providerUuid,
                                                          @RequestParam(defaultValue = "1") int page,
