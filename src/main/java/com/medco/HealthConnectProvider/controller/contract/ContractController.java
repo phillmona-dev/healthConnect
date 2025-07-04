@@ -266,4 +266,5 @@ public class ContractController {
             @PathVariable String contractUuid) {
         return contractService.softDeleteRejectedContract(contractUuid);
     }
+
 }

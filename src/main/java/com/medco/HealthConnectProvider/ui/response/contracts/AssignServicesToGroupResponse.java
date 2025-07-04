@@ -15,6 +15,6 @@ public class AssignServicesToGroupResponse {
     private String message;
     private int assignedCount;
     private int totalCount;
-    private List<String> assignedServices;
-    private List<String> skippedServices;
+    private List<String> assignedItems;
+    private List<String> skippedItems;
 }

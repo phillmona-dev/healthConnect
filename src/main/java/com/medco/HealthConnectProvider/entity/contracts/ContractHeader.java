@@ -81,8 +81,8 @@ public class ContractHeader extends Audit implements Serializable {
 
     private Double coPaymentPercentage;
 
-    @OneToMany(mappedBy = "contractHeader", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
-    private List<ContractDetail> contractDetails = new ArrayList<>();
+    @OneToMany(mappedBy = "contractHeader", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<ContractDetail> contractDetails = new HashSet<>();
 
     @Builder.Default
     private boolean isDeleted = false;

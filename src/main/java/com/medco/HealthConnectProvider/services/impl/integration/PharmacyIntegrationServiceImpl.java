@@ -149,7 +149,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return payer;
     }
 
-
     private DispensingResponse createDispensingResponse(MedicationDispensing savedDispensing) {
         DispensingResponse response = new DispensingResponse();
         response.setDispensingUuid(savedDispensing.getDispensingUuid());
@@ -393,7 +392,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                     .body(new ApiErrorResponse("An unexpected error occurred. Please try again later."));
         }
     }
-
 
     private Dependant validateDependant(String dependantUuid) {
         if (dependantUuid == null || dependantUuid.isEmpty()) {
@@ -684,6 +682,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             if (contractDetail == null) {
                 throw new ResourceNotFoundException("ContractDetail", "drug", drug.getDrugUuid());
             }
+
             dispensingItem.setContractDetail(contractDetail);
 
             dispensingItems.add(dispensingItem);
@@ -818,8 +817,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                     .orElseThrow(() -> new ResourceNotFoundException("Active contract", "payer", payer.getPayerUuid()));
 
             MedicationDispensing dispensingRecord = createDispensingRecord(request, provider, insured, payer);
-
-
 
             List<Servicelist> services = validateServices(provider.getProviderUuid(), request.getMedicationItems(),activeContract);
             List<MedicationDispensingItem> dispensingItems = createDispensingItems(dispensingRecord, services, request.getMedicationItems(), payer, activeContract);

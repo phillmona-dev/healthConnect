@@ -33,6 +33,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGr
 import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractStatusUpdateRequest;
+import com.medco.HealthConnectProvider.ui.response.ApiErrorResponse;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.contracts.*;
@@ -43,9 +44,12 @@ import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpHeaders;
@@ -160,13 +164,13 @@ public class ContractServiceImpl implements ContractService {
                             .orElseThrow(() -> new ResourceNotFoundException("Drug", "drugUuid", itemRequest.getItemUuid()));
                     contractDetail.setDrug(drug);
                     contractDetail.setDrugUuid(drug.getDrugUuid());
-                    contractDetail.setServiceUuid(null); // Explicitly set to null for drugs
+                    contractDetail.setServiceUuid(null);
                 } else if ("SERVICE".equalsIgnoreCase(itemRequest.getItemType())) {
                     Servicelist service = servicelistRepository.findByServiceUuid(itemRequest.getItemUuid())
                             .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceUuid", itemRequest.getItemUuid()));
                     contractDetail.setServicelist(service);
                     contractDetail.setServiceUuid(service.getServiceUuid());
-                    contractDetail.setDrugUuid(null); // Explicitly set to null for services
+                    contractDetail.setDrugUuid(null);
                 } else {
                     throw new BadRequestException("Invalid item type: " + itemRequest.getItemType());
                 }
@@ -189,59 +193,134 @@ public class ContractServiceImpl implements ContractService {
     @Transactional
     @Override
     public ResponseEntity<?> updateContract(String contractUuid, @Valid ContractRequest contractRequest) {
-        ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
-        if (contract == null) {
-            throw new ResourceNotFoundException("Payer Provider Contract", "contractUuid", contractUuid);
-        }
+        Logger logger = LoggerFactory.getLogger(this.getClass());
 
-        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
-        String preparedBy = userDetails.getUserUuid();
+        logger.info("Updating contract with UUID: {}", contractUuid);
+        logger.debug("Contract update request: {}", contractRequest);
 
-        contract.setStartDate(contractRequest.getBeginDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
-        contract.setEndDate(contractRequest.getEndDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
-        contract.setStatus(contractRequest.getStatus());
-        contract.setPreparedBy(preparedBy);
+        try {
+            ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
+            if (contract == null) {
+                logger.error("Contract not found with UUID: {}", contractUuid);
+                throw new ResourceNotFoundException("Payer Provider Contract", "contractUuid", contractUuid);
+            }
 
-        if (contractRequest.getContractItems() != null && !contractRequest.getContractItems().isEmpty()) {
+            UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+            String preparedBy = userDetails.getUserUuid();
 
-            contractDetailRepository.deleteByContractHeader(contract);
+            // Update contract header details
+            contract.setStartDate(contractRequest.getBeginDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
+            contract.setEndDate(contractRequest.getEndDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
+            contract.setStatus(contractRequest.getStatus());
+            contract.setPreparedBy(preparedBy);
+            contract.setDescription(contractRequest.getDescription());
 
-            for (ContractRequest.ContractItemRequest itemRequest : contractRequest.getContractItems()) {
-                ContractDetail contractDetail = new ContractDetail();
-                contractDetail.setContractHeader(contract);
-                contractDetail.setContractHeaderUuid(contract.getContractHeaderUuid());
-                contractDetail.setNegotiatedPrice(itemRequest.getNegotiatedPrice());
-                contractDetail.setStatus(Status.ACTIVE);
+            logger.info("Updated contract header details. New status: {}, Start date: {}, End date: {}",
+                    contract.getStatus(), contract.getStartDate(), contract.getEndDate());
 
-                if ("DRUG".equalsIgnoreCase(itemRequest.getItemType())) {
-                    Drug drug = drugRepository.findByDrugUuid(itemRequest.getItemUuid())
-                            .orElseThrow(() -> new ResourceNotFoundException("Drug", "drugUuid", itemRequest.getItemUuid()));
-                    contractDetail.setDrug(drug);
-                    contractDetail.setDrugUuid(drug.getDrugUuid());
-                    contractDetail.setServiceUuid(null);
-                } else if ("SERVICE".equalsIgnoreCase(itemRequest.getItemType())) {
-                    Servicelist service = servicelistRepository.findByServiceUuid(itemRequest.getItemUuid())
-                            .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceUuid", itemRequest.getItemUuid()));
-                    contractDetail.setServicelist(service);
-                    contractDetail.setServiceUuid(service.getServiceUuid());
-                    contractDetail.setDrugUuid(null);
-                } else {
+            if (contractRequest.getContractItems() != null && !contractRequest.getContractItems().isEmpty()) {
+                logger.info("Processing {} contract items", contractRequest.getContractItems().size());
 
-                    throw new BadRequestException("Invalid item type: " + itemRequest.getItemType());
-
+                // Create a map of existing contract details for easy lookup
+                Map<String, ContractDetail> existingDetails = new HashMap<>();
+                for (ContractDetail detail : contract.getContractDetails()) {
+                    String key = (detail.getDrugUuid() != null) ? detail.getDrugUuid() : detail.getServiceUuid();
+                    existingDetails.put(key, detail);
                 }
 
-                contractDetailRepository.save(contractDetail);
+                Set<String> updatedItemUuids = new HashSet<>();
+
+                for (ContractRequest.ContractItemRequest itemRequest : contractRequest.getContractItems()) {
+                    logger.debug("Processing item: {}", itemRequest);
+
+                    ContractDetail contractDetail = existingDetails.get(itemRequest.getItemUuid());
+                    if (contractDetail == null) {
+                        logger.info("Creating new contract detail for item UUID: {}", itemRequest.getItemUuid());
+                        contractDetail = new ContractDetail();
+                        contractDetail.setContractHeader(contract);
+                        contractDetail.setContractHeaderUuid(contract.getContractHeaderUuid());
+                        contract.getContractDetails().add(contractDetail);
+                    } else {
+                        logger.info("Updating existing contract detail for item UUID: {}", itemRequest.getItemUuid());
+                    }
+
+                    updateContractDetail(contractDetail, itemRequest, contractRequest.getStatus());
+                    updatedItemUuids.add(itemRequest.getItemUuid());
+                }
+
+                // Remove contract details that are not in the update request
+                int removedCount = 0;
+                Iterator<ContractDetail> iterator = contract.getContractDetails().iterator();
+                while (iterator.hasNext()) {
+                    ContractDetail detail = iterator.next();
+                    String itemUuid = (detail.getDrugUuid() != null) ? detail.getDrugUuid() : detail.getServiceUuid();
+                    if (!updatedItemUuids.contains(itemUuid)) {
+                        logger.info("Removing contract detail with item UUID: {}", itemUuid);
+                        iterator.remove();
+                        removedCount++;
+                    }
+                }
+                logger.info("Removed {} contract details not present in the update request", removedCount);
+
+            } else {
+                logger.info("No contract items provided in the update request. Removing all existing items.");
+                contract.getContractDetails().clear();
             }
+
+            ContractHeader updatedContract = contractRepository.save(contract);
+            logger.info("Contract updated successfully. Contract UUID: {}", updatedContract.getContractHeaderUuid());
+
+            ContractResponse response = new ContractResponse();
+            modelMapper.map(updatedContract, response);
+            return ResponseEntity.ok(response);
+
+        } catch (ResourceNotFoundException e) {
+            logger.error("Resource not found while updating contract", e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Unexpected error occurred while updating contract", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiErrorResponse("An unexpected error occurred while updating the contract."));
         }
-
-        ContractHeader updatedContract = contractRepository.save(contract);
-
-        ContractResponse response = new ContractResponse();
-        modelMapper.map(updatedContract, response);
-        return ResponseEntity.ok(response);
-
     }
+
+    private void updateContractDetail(ContractDetail contractDetail, ContractRequest.ContractItemRequest itemRequest, Status status) {
+        Logger logger = LoggerFactory.getLogger(this.getClass());
+
+        logger.debug("Updating contract detail: {}", contractDetail);
+        contractDetail.setNegotiatedPrice(itemRequest.getNegotiatedPrice());
+        contractDetail.setStatus(status);
+
+        try {
+            if ("DRUG".equalsIgnoreCase(itemRequest.getItemType())) {
+                Drug drug = drugRepository.findByDrugUuid(itemRequest.getItemUuid())
+                        .orElseThrow(() -> new ResourceNotFoundException("Drug", "drugUuid", itemRequest.getItemUuid()));
+                contractDetail.setDrug(drug);
+                contractDetail.setDrugUuid(drug.getDrugUuid());
+                contractDetail.setServiceUuid(null);
+                contractDetail.setServicelist(null);
+                logger.info("Updated contract detail with drug. Drug UUID: {}", drug.getDrugUuid());
+            } else if ("SERVICE".equalsIgnoreCase(itemRequest.getItemType())) {
+                Servicelist service = servicelistRepository.findByServiceUuid(itemRequest.getItemUuid())
+                        .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceUuid", itemRequest.getItemUuid()));
+                contractDetail.setServicelist(service);
+                contractDetail.setServiceUuid(service.getServiceUuid());
+                contractDetail.setDrugUuid(null);
+                contractDetail.setDrug(null);
+                logger.info("Updated contract detail with service. Service UUID: {}", service.getServiceUuid());
+            } else {
+                logger.error("Invalid item type: {}", itemRequest.getItemType());
+                throw new BadRequestException("Invalid item type: " + itemRequest.getItemType());
+            }
+        } catch (ResourceNotFoundException e) {
+            logger.error("Resource not found while updating contract detail", e);
+            throw e;
+        } catch (Exception e) {
+            logger.error("Unexpected error occurred while updating contract detail", e);
+            throw new RuntimeException("An unexpected error occurred while updating the contract detail.", e);
+        }
+    }
+
 
     @Override
     public ContractResponse getContract(String contractUuid, String userType ) {
@@ -1059,33 +1138,50 @@ public class ContractServiceImpl implements ContractService {
     @Override
     @Transactional
     public ResponseEntity<AssignServicesToGroupResponse> assignServicesToGroup(String groupUuid, List<String> contractDetailUuids) {
+        Logger logger = LoggerFactory.getLogger(this.getClass());
+
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
 
         EmployeeDependantGroup group = employeeDependantGroupRepository.findByGroupUuid(groupUuid);
         if (group == null) {
+            logger.error("Employee Group not found with UUID: {}", groupUuid);
             throw new ResourceNotFoundException("Employee Group", "groupUuid", groupUuid);
         }
 
         if (!group.getPayerUuid().equals(payerUuid)) {
+            logger.error("Group does not belong to payer with UUID: {}", payerUuid);
             throw new BadRequestException("Group does not belong to this payer");
         }
 
         int assignmentCount = 0;
-        List<String> assignedServices = new ArrayList<>();
-        List<String> skippedServices = new ArrayList<>();
+        List<String> assignedItems = new ArrayList<>();
+        List<String> skippedItems = new ArrayList<>();
 
         for (String contractDetailUuid : contractDetailUuids) {
             ContractDetail detail = contractDetailRepository.findByContractDetailUuid(contractDetailUuid);
             if (detail == null) {
+                logger.error("Contract Detail not found with UUID: {}", contractDetailUuid);
                 throw new ResourceNotFoundException("Contract Detail", "contractDetailUuid", contractDetailUuid);
             }
 
             if (!detail.getContractHeader().getPayer().getPayerUuid().equals(payerUuid)) {
+                logger.error("Contract detail does not belong to payer with UUID: {}", payerUuid);
                 throw new BadRequestException("Contract detail does not belong to this payer");
             }
 
-            String serviceName = detail.getServicelist().getServiceName();
+            String itemName;
+            String itemType;
+            if (detail.getServicelist() != null) {
+                itemName = detail.getServicelist().getServiceName();
+                itemType = "SERVICE";
+            } else if (detail.getDrug() != null) {
+                itemName = detail.getDrug().getDrugName();
+                itemType = "DRUG";
+            } else {
+                logger.error("Contract detail {} has neither service nor drug", contractDetailUuid);
+                throw new BadRequestException("Contract detail has neither service nor drug");
+            }
 
             boolean exists = contractDetailEmployeeGroupRepository.existsByContractDetailAndEmployeeDependantGroup(detail, group);
             if (!exists) {
@@ -1097,20 +1193,23 @@ public class ContractServiceImpl implements ContractService {
 
                 contractDetailEmployeeGroupRepository.save(linkage);
                 assignmentCount++;
-                assignedServices.add(serviceName);
+                assignedItems.add(itemType + ": " + itemName);
+                logger.info("Assigned {} '{}' to group {}", itemType, itemName, groupUuid);
             } else {
-                skippedServices.add(serviceName);
+                skippedItems.add(itemType + ": " + itemName);
+                logger.info("Skipped {} '{}' for group {} (already assigned)", itemType, itemName, groupUuid);
             }
         }
 
         AssignServicesToGroupResponse response = AssignServicesToGroupResponse.builder()
-                .message("Services assignment completed")
+                .message("Services and drugs assignment completed")
                 .assignedCount(assignmentCount)
                 .totalCount(contractDetailUuids.size())
-                .assignedServices(assignedServices)
-                .skippedServices(skippedServices)
+                .assignedItems(assignedItems)
+                .skippedItems(skippedItems)
                 .build();
 
+        logger.info("Assignment completed. Assigned: {}, Total: {}", assignmentCount, contractDetailUuids.size());
         return ResponseEntity.ok(response);
     }
 

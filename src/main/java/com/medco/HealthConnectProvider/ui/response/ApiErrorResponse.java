@@ -14,4 +14,5 @@ public class ApiErrorResponse {
     public void setMessage(String message) {
         this.message = message;
     }
+
 }
