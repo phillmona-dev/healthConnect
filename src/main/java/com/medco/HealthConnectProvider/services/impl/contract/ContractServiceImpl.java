@@ -1,6 +1,5 @@
 package com.medco.HealthConnectProvider.services.impl.contract;
 
-
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
@@ -62,6 +61,7 @@ import org.json.JSONObject;
 import jakarta.validation.Valid;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -103,9 +103,8 @@ public class ContractServiceImpl implements ContractService {
 
     public ContractServiceImpl(ContractRepository contractRepository, ProviderRepository providerRepository, ServicelistRepository servicelistRepository, PayerRepository payerRepository, ContractDetailRepository contractDetailRepository, EmployeeDependantGroupRepository employeeDependantGroupRepository,
                                ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, DrugRepository drugRepository, ModelMapper modelMapper) {
+
         this.contractRepository = contractRepository;
-
-
         this.providerRepository = providerRepository;
         this.servicelistRepository = servicelistRepository;
         this.payerRepository = payerRepository;
@@ -116,6 +115,7 @@ public class ContractServiceImpl implements ContractService {
         this.dependantRepository = dependantRepository;
         this.drugRepository = drugRepository;
         this.modelMapper = modelMapper;
+
     }
 
     @Transactional
@@ -199,7 +199,7 @@ public class ContractServiceImpl implements ContractService {
 
         contract.setStartDate(contractRequest.getBeginDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
         contract.setEndDate(contractRequest.getEndDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
-        contract.setStatus(Status.ACTIVE);
+        contract.setStatus(contractRequest.getStatus());
         contract.setPreparedBy(preparedBy);
 
         if (contractRequest.getContractItems() != null && !contractRequest.getContractItems().isEmpty()) {
@@ -226,7 +226,9 @@ public class ContractServiceImpl implements ContractService {
                     contractDetail.setServiceUuid(service.getServiceUuid());
                     contractDetail.setDrugUuid(null);
                 } else {
+
                     throw new BadRequestException("Invalid item type: " + itemRequest.getItemType());
+
                 }
 
                 contractDetailRepository.save(contractDetail);
@@ -238,10 +240,11 @@ public class ContractServiceImpl implements ContractService {
         ContractResponse response = new ContractResponse();
         modelMapper.map(updatedContract, response);
         return ResponseEntity.ok(response);
+
     }
 
     @Override
-    public ContractResponse getContract(String contractUuid) {
+    public ContractResponse getContract(String contractUuid, String userType ) {
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
 
         if (contract == null)
@@ -257,6 +260,16 @@ public class ContractServiceImpl implements ContractService {
         contractResponse.setProviderUuid(contract.getProvider().getProviderUuid());
         contractResponse.setProviderName(contract.getProvider().getProviderName());
         contractResponse.setProviderCode(contract.getProvider().getProviderCode());
+
+        if ("payer".equalsIgnoreCase(userType)) {
+            contractResponse.setPayerLogoBase64(getBase64FromPath(contract.getPayer().getLogoPath(), "payer"));
+            contractResponse.setProviderLogoBase64("");
+        } else if ("provider".equalsIgnoreCase(userType)) {
+            contractResponse.setProviderLogoBase64(getBase64FromPath(contract.getProvider().getLogoPath(), "provider"));
+            contractResponse.setPayerLogoBase64("");
+        } else {
+            throw new BadRequestException("Invalid user type: " + userType);
+        }
 
         List<ContractResponse.ContractDetailSummary> contractDetails = contract.getContractDetails().stream()
                 .map(this::mapContractDetailSummary)
@@ -339,8 +352,8 @@ public class ContractServiceImpl implements ContractService {
 
     }
 
-
     private List<ContractListPayerResponse> getContractListPayerResponse(List<ContractHeader> payerProviderContractList) {
+
         return payerProviderContractList.stream().map(contract -> {
             ContractListPayerResponse contractListPayerResponse = new ContractListPayerResponse();
             BeanUtils.copyProperties(contract, contractListPayerResponse);
@@ -585,6 +598,7 @@ public class ContractServiceImpl implements ContractService {
         }
 
         return ResponseEntity.ok(new MessageResponse("Service added to contract successfully"));
+
     }
 
     @Override
@@ -976,16 +990,21 @@ public class ContractServiceImpl implements ContractService {
     private ContractResponse.ContractDetailSummary mapContractDetailSummary(ContractDetail detail) {
         ContractResponse.ContractDetailSummary summary = new ContractResponse.ContractDetailSummary();
         summary.setContractDetailUuid(detail.getContractDetailUuid());
+
         summary.setNegotiatedPrice(detail.getNegotiatedPrice().doubleValue());
 
         if (detail.getServicelist() != null) {
             summary.setServiceUuid(detail.getServiceUuid());
             summary.setServiceName(detail.getServicelist().getServiceName());
             summary.setItemType("SERVICE");
+            summary.setPrice(BigDecimal.valueOf(detail.getServicelist().getPrice()));
+            summary.setDescription(detail.getServicelist().getServiceDescription());
         } else if (detail.getDrug() != null) {
             summary.setDrugUuid(detail.getDrugUuid());
             summary.setDrugName(detail.getDrug().getDrugName());
             summary.setItemType("DRUG");
+            summary.setPrice(detail.getDrug().getPrice());
+            summary.setDescription(detail.getDrug().getDescription());
         }
 
         List<String> assignedGroups = detail.getEmployeeDependantGroups().stream()

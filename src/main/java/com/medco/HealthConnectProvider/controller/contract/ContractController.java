@@ -55,8 +55,10 @@ public class ContractController {
     @GetMapping(path="/{contractUuid}")
     @Operation(summary = "Get contract details", description = "Retrieves contract details by UUID")
     //@PreAuthorize("hasRole('Read-Provider-Contract')")
-    public ContractResponse getContract(@PathVariable String contractUuid) {
-        return contractService.getContract(contractUuid);
+    public ContractResponse getContract(
+            @PathVariable String contractUuid,
+            @RequestParam String userType) {
+        return contractService.getContract(contractUuid, userType);
     }
 
     @PutMapping(path="/approve/{payerProviderContractUuid}")
@@ -226,7 +228,6 @@ public class ContractController {
         return contractService.addInsuredToContract(contractUuid, request);
     }
 
-
     @GetMapping("/eligible-services")
     @Operation(summary = "Get eligible services for a contract and insured/dependant")
     public ResponseEntity<List<EligibleServiceResponse>> getEligibleServices(
@@ -253,7 +254,6 @@ public class ContractController {
             @Valid @RequestBody ContractStatusUpdateRequest updateRequest) {
         return contractService.updateContractStatus(contractUuid, updateRequest);
     }
-
 
     @DeleteMapping("/soft-delete/{contractUuid}")
     //@PreAuthorize("hasRole('ROLE_PAYER')")

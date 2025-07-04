@@ -3,6 +3,7 @@ package com.medco.HealthConnectProvider.ui.response.contracts;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Date;
@@ -73,9 +74,10 @@ public class ContractResponse {
         private String serviceName;
         private String drugUuid;
         private String drugName;
+        private BigDecimal price;
         private Double negotiatedPrice;
         private List<String> assignedGroups;
-
+        private String description;
     }
 
     @Getter
@@ -100,4 +102,8 @@ public class ContractResponse {
         private String fullName;
         private String relationshipType;
     }
+
+
+    private String payerLogoBase64;
+    private String providerLogoBase64;
 }
