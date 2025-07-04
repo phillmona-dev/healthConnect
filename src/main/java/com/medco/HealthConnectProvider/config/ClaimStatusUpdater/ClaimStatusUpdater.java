@@ -10,9 +10,13 @@ import java.util.Map;
 public class ClaimStatusUpdater {
 private final Map<ClaimStatus,UpdateClaimStatus> statusUpdater;
 
-private ClaimStatusUpdater(SubmittedStatus submitedStatus){
+private ClaimStatusUpdater(SubmittedStatus submittedStatus,
+                           ApprovedStatus approvedStatus,
+                           PaymentRequestStatus paymentRequestStatus){
     statusUpdater=new HashMap<>();
-    statusUpdater.put(ClaimStatus.SUBMITTED,submitedStatus);
+    statusUpdater.put(ClaimStatus.SUBMITTED,submittedStatus);
+    statusUpdater.put(ClaimStatus.APPROVED,approvedStatus);
+    statusUpdater.put(ClaimStatus.PAYMENT_REQUESTED,paymentRequestStatus);
 
 }
 

@@ -31,7 +31,7 @@ public interface ClaimService {
 
     ResponseEntity<?> addClaimComment(String claimUuid, ClaimCommentRequest commentRequest);
 
-    ResponseEntity<?> requestPayment(String claimUuid);
+    ResponseEntity<?> requestPayment(String claimUuid,String comment);
     ResponseEntity<?> processPayment(String claimUuid, ClaimPaymentRequest paymentRequest);
 
     List<?> getClaimLogs(String claimUuid, Pageable pageable);

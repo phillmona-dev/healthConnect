@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.services.impl.user;
 
+import com.medco.HealthConnectProvider.config.LogoGeter.LogoGetter;
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.config.securityConfig.jwtTokenService.JwtService;
 import com.medco.HealthConnectProvider.dto.PayerAdminDto;
@@ -16,6 +17,8 @@ import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
 import com.medco.HealthConnectProvider.repository.user.RoleRepository;
 import com.medco.HealthConnectProvider.repository.user.UserRepository;
 import com.medco.HealthConnectProvider.services.mail.EmailService;
+import com.medco.HealthConnectProvider.services.payer.PayerService;
+import com.medco.HealthConnectProvider.services.providers.ProviderService;
 import com.medco.HealthConnectProvider.services.token.TokenService;
 import com.medco.HealthConnectProvider.services.user.UserService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.ChangePasswordRequest;
@@ -35,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -51,10 +55,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -71,6 +72,11 @@ public class UserServiceImpl implements UserService {
 
     private RoleRepository roleRepository;
     private final PayerRepository payerRepository;
+//    private final PayerService payerService;
+    private final ProviderService providerService;
+    @Autowired
+    private LogoGetter logoGetter;
+
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
@@ -81,7 +87,7 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private ProviderRepository providerRepository;
 
-    public UserServiceImpl(UserRepository userRepository, AuthenticationManager authenticationManager, JwtService jwtServiceImpl, PasswordEncoder passwordEncoder, TokenService tokenService, RoleRepository roleRepository, PayerRepository payerRepository) {
+    public UserServiceImpl(UserRepository userRepository, AuthenticationManager authenticationManager, JwtService jwtServiceImpl, PasswordEncoder passwordEncoder, TokenService tokenService, RoleRepository roleRepository, PayerRepository payerRepository, ProviderService providerService) {
         this.userRepository = userRepository;
         this.authenticationManager = authenticationManager;
         JwtServiceImpl = jwtServiceImpl;
@@ -89,6 +95,9 @@ public class UserServiceImpl implements UserService {
         this.tokenService = tokenService;
         this.roleRepository = roleRepository;
         this.payerRepository = payerRepository;
+
+        this.providerService = providerService;
+
     }
 
 
@@ -127,6 +136,22 @@ public class UserServiceImpl implements UserService {
                         .map(GrantedAuthority::getAuthority)
                         .collect(Collectors.toSet());
 
+                String profilePicture=user.getProfilePicture();
+                String logo = "";
+//                String companyName = "";
+                if (user.getProviderUuid()!=null){
+                    ResponseEntity<ByteArrayResource>  providerLogoResponse=providerService.getProviderLogo(user.getProviderUuid());
+                    logo=convertTo64Bit(providerLogoResponse);
+//                    if (user.getProvider()!=null)
+//                     companyName=user.getProvider().getProviderName();
+                } else if (user.getPayerUuid()!=null) {
+                    ResponseEntity<ByteArrayResource>  payerLogoResponse= logoGetter.PayerLogo(user.getPayerUuid());
+                    logo= convertTo64Bit(payerLogoResponse);
+//                    if (user.getPayer()!=null)
+//                     companyName=user.getPayer().getPayerName();
+
+                }
+
                 logger.info("Authorities: {}", authorities);
 
                 JwtResponse response = new JwtResponse(
@@ -140,7 +165,11 @@ public class UserServiceImpl implements UserService {
                         user.getMobilePhone(),
                         payerUuid,
                         providerUuid,
-                        authorities
+                        authorities,
+                        profilePicture,
+                        logo
+//                        companyName
+
                 );
 
                 logger.info("JwtResponse created: payerUuid={}, providerUuid={}", response.getPayerUuid(), response.getProviderUuid());
@@ -157,6 +186,19 @@ public class UserServiceImpl implements UserService {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         }
     }
+
+    private String convertTo64Bit(ResponseEntity<ByteArrayResource> logoResponse) {
+        String base64Logo = "";
+        if (logoResponse != null && logoResponse.getBody() != null) {
+            byte[] logoBytes = logoResponse.getBody().getByteArray();
+             base64Logo = Base64.getEncoder().encodeToString(logoBytes);
+           
+
+
+        }
+        return base64Logo;
+    }
+
 
     @Override
     @Transactional
