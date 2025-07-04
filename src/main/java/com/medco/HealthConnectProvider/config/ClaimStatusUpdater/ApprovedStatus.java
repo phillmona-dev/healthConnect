@@ -20,22 +20,22 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
 @Component
-public class SubmittedStatus implements UpdateClaimStatus {
+public class ApprovedStatus implements UpdateClaimStatus{
 
     private final ClaimRepository claimRepository;
-    private final ClaimLogsRepository  claimLogsRepository;
-    private final MedicationDispensingRepository  medicationDispensingRepository;
+    private final ClaimLogsRepository claimLogsRepository;
+    private final MedicationDispensingRepository medicationDispensingRepository;
 
-    public SubmittedStatus(ClaimRepository claimRepository, ClaimLogsRepository claimLogsRepository, MedicationDispensingRepository medicationDispensingRepository) {
+    public ApprovedStatus(ClaimRepository claimRepository, ClaimLogsRepository claimLogsRepository, MedicationDispensingRepository medicationDispensingRepository) {
         this.claimRepository = claimRepository;
         this.claimLogsRepository = claimLogsRepository;
         this.medicationDispensingRepository = medicationDispensingRepository;
     }
 
     @Override
-    public ResponseEntity<?> updateTransferStatus(String claimUuid,String comment) {
+    public ResponseEntity<?> updateTransferStatus(String claimUuid, String comment) {
+       ClaimStatus newStatus= ClaimStatus.APPROVED;
 
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
@@ -44,16 +44,16 @@ public class SubmittedStatus implements UpdateClaimStatus {
         ClaimStatus previousStatus = claim.getStatus();
 
         // Validate status transition
-        validateStatusTransition(claim, ClaimStatus.SUBMITTED);
+        validateStatusTransition(claim, newStatus);
 
         // Update claim status
-        claim.setStatus(ClaimStatus.SUBMITTED);
+        claim.setStatus(newStatus);
 
         // Update specific status fields based on the new status
-        updateStatusSpecificFields(claim, ClaimStatus.SUBMITTED, userDetails);
+        updateStatusSpecificFields(claim, newStatus, userDetails);
         List<MedicationDispensing> medicationDispensingList=new ArrayList<>();
         for (MedicationDispensing medicationDispensing:claim.getBatchRecord().getMedicationDispensing()){
-            medicationDispensing.setClaimStatus(ClaimStatus.SUBMITTED.toString());
+            medicationDispensing.setClaimStatus(newStatus.toString());
             medicationDispensingList.add(medicationDispensing);
         }
         medicationDispensingRepository.saveAll(medicationDispensingList);
@@ -64,19 +64,20 @@ public class SubmittedStatus implements UpdateClaimStatus {
         claimRepository.save(claim);
 
         // Create claim log
-        createClaimLog(claim, userDetails, previousStatus, ClaimStatus.SUBMITTED, comment);
+        createClaimLog(claim, userDetails, previousStatus, newStatus, comment);
 
-        return ResponseEntity.ok(new MessageResponse("Claim status updated successfully to " + ClaimStatus.SUBMITTED));
+        return ResponseEntity.ok(new MessageResponse("Claim status updated successfully to " + newStatus));
 //        return ResponseEntity.ok("you have "+newStatus+" the the claim.");
 
     }
+
     // Helper methods for claim processing
     private void validateStatusTransition(Claim claim, ClaimStatus newStatus) {
         String currentStatus = String.valueOf(claim.getStatus());
 
 
         // Define valid transitions
-        if (currentStatus.equals(ClaimStatus.SUBMITTED.toString())) {
+        if (currentStatus.equals(newStatus.toString())) {
             if (newStatus != ClaimStatus.UNDER_REVIEW && newStatus != ClaimStatus.REJECTED && newStatus != ClaimStatus.CANCELLED) {
                 throw new BadRequestException("Invalid status transition from " + currentStatus + " to " + newStatus);
             }
@@ -97,6 +98,7 @@ public class SubmittedStatus implements UpdateClaimStatus {
                 currentStatus.equals(ClaimStatus.CANCELLED.toString())) {
             throw new BadRequestException("Cannot change status of a claim that is " + currentStatus);
         }
+
     }
 
     private void updateStatusSpecificFields(Claim claim, ClaimStatus newStatus, UserPrincipal userDetails) {
@@ -130,6 +132,8 @@ public class SubmittedStatus implements UpdateClaimStatus {
                 break;
         }
     }
+
+
     private void createClaimLog(Claim claim, UserPrincipal userDetails, ClaimStatus previousStatus, ClaimStatus newStatus, String comment) {
         ClaimLogs log = new ClaimLogs();
         log.setLogUuid(UUID.randomUUID().toString());
@@ -145,4 +149,5 @@ public class SubmittedStatus implements UpdateClaimStatus {
 
         claimLogsRepository.save(log);
     }
+
 }

@@ -1,5 +1,7 @@
 package com.medco.HealthConnectProvider.config.ClaimStatusUpdater;
 
+import org.springframework.http.ResponseEntity;
+
 public interface UpdateClaimStatus {
-    void updateTransferStatus(String claimUuid,String comment );
+    ResponseEntity<?> updateTransferStatus(String claimUuid, String comment );
 }

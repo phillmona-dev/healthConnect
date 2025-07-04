@@ -54,7 +54,7 @@ public class ClaimController {
 
     @GetMapping("/allClaims")
     @Operation(summary = "Get all paginated claims")
-    public PagedResponse<ClaimListResponse> getAllClaims(@RequestParam(value = "Claim Status",required = false) ClaimStatus status,
+    public PagedResponse<ClaimListResponse> getAllClaims(@RequestParam(value = "ClaimStatus",required = false) ClaimStatus status,
                                                          @RequestParam(value = "payerUuid",required = false) String payerUuid,
                                                          @RequestParam(value = "providerUuid",required = false) String providerUuid,
                                                          @RequestParam(defaultValue = "1") int page,
@@ -106,14 +106,14 @@ public class ClaimController {
         return claimService.updateClaimStatus(claimUuid, newStatus, comment);
     }
     
-    @PutMapping("/{claimUuid}/review")
-    @Operation(summary = "Review a claim (approve or reject)")
-    public ResponseEntity<?> reviewClaim(
-            @PathVariable String claimUuid,
-            @RequestParam boolean approved,
-            @RequestParam(required = false) String reviewComment) {
-        return claimService.reviewClaim(claimUuid, approved, reviewComment);
-    }
+//    @PutMapping("/{claimUuid}/review")
+//    @Operation(summary = "Review a claim (approve or reject)")
+//    public ResponseEntity<?> reviewClaim(
+//            @PathVariable String claimUuid,
+//            @RequestParam boolean approved,
+//            @RequestParam(required = false) String reviewComment) {
+//        return claimService.reviewClaim(claimUuid, approved, reviewComment);
+//    }
     
     @PostMapping(value = "/{claimUuid}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Add attachment to a claim")
@@ -139,15 +139,15 @@ public class ClaimController {
 
     @PostMapping("/{claimUuid}/payment/request")
     @Operation(summary = "Request payment for an approved claim")
-    public ResponseEntity<?> requestPayment(@PathVariable String claimUuid) {
-        return claimService.requestPayment(claimUuid);
+    public ResponseEntity<?> requestPayment(@PathVariable(value = "claimUuid") String claimUuid,
+                                            @RequestParam(value = "comment")String comment) {
+        return claimService.requestPayment(claimUuid,comment);
     }
 
     @PostMapping("/{claimUuid}/payment/process")
     @Operation(summary = "Process payment for a claim with payment requested")
-    public ResponseEntity<?> processPayment(
-            @PathVariable String claimUuid,
-            @Valid @RequestBody ClaimPaymentRequest paymentRequest) {
+    public ResponseEntity<?> processPayment(@PathVariable String claimUuid,
+                                            @Valid @RequestBody ClaimPaymentRequest paymentRequest) {
         return claimService.processPayment(claimUuid, paymentRequest);
     }
 
@@ -163,11 +163,11 @@ public class ClaimController {
 
     //payment
 
-
-    @PostMapping("/claims/{claimUuid}/payment")
-    public ResponseEntity<?> initiatePayment(@PathVariable String claimUuid, @RequestBody ClaimPaymentRequest paymentRequest) {
-        return claimService.processPayment(claimUuid, paymentRequest);
-    }
+//
+//    @PostMapping("/claims/{claimUuid}/payment")
+//    public ResponseEntity<?> initiatePayment(@PathVariable String claimUuid, @RequestBody ClaimPaymentRequest paymentRequest) {
+//        return claimService.processPayment(claimUuid, paymentRequest);
+//    }
 
     @PostMapping("/claims/{claimUuid}/payment/verify")
     public ResponseEntity<?> verifyPayment(@PathVariable String claimUuid) {

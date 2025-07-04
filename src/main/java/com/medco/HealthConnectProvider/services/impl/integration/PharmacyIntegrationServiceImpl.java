@@ -523,6 +523,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         MedicationDispensing medicationDispensing=dispensingRepository.findByDispensingUuid(medicationDispensingUuid);
         medicationDispensing.setClaimStatus(newStatus);
         medicationDispensing.setRemark(remark);
+        medicationDispensing.setBatchRecord(null);
         dispensingRepository.save(medicationDispensing);
         return ResponseEntity.ok("claim status  updated successfully ");
     }
@@ -813,7 +814,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
             Payer payer = insured.getPayer();
 
-            ContractHeader activeContract = contractHeaderRepository.findActiveContractByProviderProviderUuidAndPayerPayerUuid(provider.getProviderUuid(),payer.getPayerUuid())
+            ContractHeader activeContract = contractHeaderRepository.findActiveContractByProviderProviderUuidAndPayerPayerUuidAndStatus(provider.getProviderUuid(),payer.getPayerUuid(),Status.ACTIVE)
                     .orElseThrow(() -> new ResourceNotFoundException("Active contract", "payer", payer.getPayerUuid()));
 
             MedicationDispensing dispensingRecord = createDispensingRecord(request, provider, insured, payer);
