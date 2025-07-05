@@ -84,6 +84,8 @@ public class ContractDetail extends Audit implements Serializable {
     @Column(name = "drug_uuid", insertable = false, updatable = false)
     private String drugUuid;
 
+    private String itemType;
+
     @ManyToMany
     @JoinTable(
             name = "contract_detail_employee_dependant_groups",

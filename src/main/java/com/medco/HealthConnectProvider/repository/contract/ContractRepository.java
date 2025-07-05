@@ -240,4 +240,5 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
     Optional<ContractHeader> findActiveContractByProviderProviderUuidAndPayerPayerUuid(@Size(min = 36, max = 40, message = "Provided Uuid Must be between 36 and 40") String providerUuid, String payerUuid);
 
     Optional<ContractHeader> findActiveContractByProviderProviderUuidAndPayerPayerUuidAndStatus(@Size(min = 36, max = 40, message = "Provided Uuid Must be between 36 and 40") String providerUuid, String payerUuid, Status status);
+
 }

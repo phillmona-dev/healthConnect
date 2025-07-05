@@ -16,4 +16,6 @@ public class EligibleServiceResponse {
     private String serviceCode;
     private BigDecimal negotiatedPrice;
     private String status;
+    private String drugUuid;
+    private String drugName;
 }

@@ -53,12 +53,19 @@ public class ContractController {
     }
 
     @GetMapping(path="/{contractUuid}")
-    @Operation(summary = "Get contract details", description = "Retrieves contract details by UUID")
-    //@PreAuthorize("hasRole('Read-Provider-Contract')")
+    @Operation(
+            summary = "Retrieve detailed contract information with search capability",
+            description = "Fetches comprehensive contract details based on the provided contract UUID. " +
+                    "The response is tailored according to the user type (payer or provider). " +
+                    "An optional search key can be used to filter results across the following fields:\n" +
+                    "- For insured persons: full name, membership number, and phone number\n" +
+                    "- For dependants: full name, phone number, and relationship type\n"
+    )
     public ContractResponse getContract(
             @PathVariable String contractUuid,
-            @RequestParam String userType) {
-        return contractService.getContract(contractUuid, userType);
+            @RequestParam String userType,
+            @RequestParam(required = false) String searchKey) {
+        return contractService.getContract(contractUuid, userType, searchKey);
     }
 
     @PutMapping(path="/approve/{payerProviderContractUuid}")
@@ -229,12 +236,13 @@ public class ContractController {
     }
 
     @GetMapping("/eligible-services")
-    @Operation(summary = "Get eligible services for a contract and insured/dependant")
+    @Operation(summary = "Get eligible services for a contract and insured/dependant with advanced search")
     public ResponseEntity<List<EligibleServiceResponse>> getEligibleServices(
             @RequestParam String contractHeaderUuid,
             @RequestParam(required = false) String insuredUuid,
-            @RequestParam(required = false) String dependantUuid) {
-        return contractService.getEligibleServices(contractHeaderUuid, insuredUuid, dependantUuid);
+            @RequestParam(required = false) String dependantUuid,
+            @RequestParam(required = false) String searchKey) {
+        return contractService.getEligibleServices(contractHeaderUuid, insuredUuid, dependantUuid, searchKey);
     }
 
     @PutMapping("/{contractUuid}/status")
@@ -266,4 +274,5 @@ public class ContractController {
             @PathVariable String contractUuid) {
         return contractService.softDeleteRejectedContract(contractUuid);
     }
+
 }

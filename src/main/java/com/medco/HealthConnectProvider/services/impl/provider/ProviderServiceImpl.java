@@ -343,7 +343,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         }
 
         List<PayerResponse> payerResponses = payerPage.getContent().stream()
-                .map(this::mapToPayerResponse)
+                .map(payer -> mapToPayerResponse(payer, providerUuid))
                 .collect(Collectors.toList());
 
         PagedResponse<PayerResponse> pagedResponse = new PagedResponse<>(
@@ -360,12 +360,12 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         return ResponseEntity.ok(pagedResponse);
     }
 
-    private PayerResponse mapToPayerResponse(Payer payer) {
+    private PayerResponse mapToPayerResponse(Payer payer, String providerUuid) {
         PayerResponse response = new PayerResponse();
         BeanUtils.copyProperties(payer, response);
-        response.setTotalContracts((long) payer.getContractHeaders().size());
 
         List<PayerResponse.ContractSummary> contractSummaries = payer.getContractHeaders().stream()
+                .filter(contract -> contract.getProvider().getProviderUuid().equals(providerUuid))
                 .map(contract -> {
                     PayerResponse.ContractSummary summary = new PayerResponse.ContractSummary();
                     summary.setContractHeaderUuid(contract.getContractHeaderUuid());
@@ -375,6 +375,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
                 .collect(Collectors.toList());
 
         response.setContracts(contractSummaries);
+        response.setTotalContracts((long) contractSummaries.size());
 
         return response;
     }

@@ -149,7 +149,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return payer;
     }
 
-
     private DispensingResponse createDispensingResponse(MedicationDispensing savedDispensing) {
         DispensingResponse response = new DispensingResponse();
         response.setDispensingUuid(savedDispensing.getDispensingUuid());
@@ -393,7 +392,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                     .body(new ApiErrorResponse("An unexpected error occurred. Please try again later."));
         }
     }
-
 
     private Dependant validateDependant(String dependantUuid) {
         if (dependantUuid == null || dependantUuid.isEmpty()) {
@@ -685,6 +683,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             if (contractDetail == null) {
                 throw new ResourceNotFoundException("ContractDetail", "drug", drug.getDrugUuid());
             }
+
             dispensingItem.setContractDetail(contractDetail);
 
             dispensingItems.add(dispensingItem);
@@ -815,13 +814,19 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
             Payer payer = insured.getPayer();
 
-            ContractHeader activeContract = contractHeaderRepository.findActiveContractByProviderProviderUuidAndPayerPayerUuidAndStatus(provider.getProviderUuid(),payer.getPayerUuid(),Status.ACTIVE)
-                    .orElseThrow(() -> new ResourceNotFoundException("Active contract", "payer", payer.getPayerUuid()));
+            ContractHeader contract = contractHeaderRepository.findByContractHeaderUuid(request.getContractHeaderUuid());
+            if (contract == null){
+                throw new ResourceNotFoundException("Contract", "uuid", request.getContractHeaderUuid());
+            }
 
+            if (contract.getStatus() != Status.ACTIVE) {
+                throw new BadRequestException("The specified contract is not active");
+            }
             MedicationDispensing dispensingRecord = createDispensingRecord(request, provider, insured, payer);
 
-            List<Servicelist> services = validateServices(provider.getProviderUuid(), request.getMedicationItems(),activeContract);
-            List<MedicationDispensingItem> dispensingItems = createDispensingItems(dispensingRecord, services, request.getMedicationItems(), payer, activeContract);
+            List<Servicelist> services = validateServices(provider.getProviderUuid(), request.getMedicationItems(),contract);
+
+            List<MedicationDispensingItem> dispensingItems = createDispensingItems(dispensingRecord, services, request.getMedicationItems(), payer, contract);
 
             MedicationDispensing savedRecord = dispensingRepository.save(dispensingRecord);
 
@@ -1085,34 +1090,34 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensingRecord.setPatientResponsibility(patientResponsibility.doubleValue());
     }
 
-    private List<Servicelist> validateServices(String providerUuid, List<DispensingRecordRequest.DispensingItemRequest> items,ContractHeader activeContract) {
+    private List<Servicelist> validateServices(String providerUuid, List<DispensingRecordRequest.DispensingItemRequest> items, ContractHeader activeContract) {
         List<Servicelist> services = new ArrayList<>();
+        log.info("Validating services for contract: {}", activeContract.getContractHeaderUuid());
+        log.info("Number of contract details: {}", activeContract.getContractDetails().size());
+
         for (DispensingRecordRequest.DispensingItemRequest item : items) {
             String contractDetailUuid = item.getContractDetailUuid();
+            log.info("Validating item with contractDetailUuid: {}", contractDetailUuid);
 
-//            ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(contractDetailUuid);
-//            if (contractDetail == null){
-//                throw new ResourceNotFoundException("ContractDetail", "uuid", contractDetailUuid);
-//            }
+            ContractDetail contractDetail = activeContract.getContractDetails().stream()
+                    .filter(cd -> cd.getContractDetailUuid().equals(contractDetailUuid))
+                    .findFirst()
+                    .orElseThrow(() -> {
+                        log.error("ContractDetail not found for uuid: {}", contractDetailUuid);
+                        return new ResourceNotFoundException("ContractDetail", "uuid", contractDetailUuid);
+                    });
 
-            System.out.println("contractUuid "+activeContract.getContractHeaderUuid());
-            System.out.println("serviceUuid "+contractDetailUuid);
-
-            ContractDetail contractDetail=contractDetailRepository.findByContractHeaderAndServicelistServiceUuid(activeContract,contractDetailUuid);
-            if (contractDetail==null)throw new BadRequestException("contract detail not found");
-
+            log.info("Found ContractDetail with serviceUuid: {}", contractDetail.getServiceUuid());
 
             Servicelist service = servicelistRepository.findByServiceUuidAndProviderProviderUuid(
-                    contractDetailUuid, providerUuid);
-
-
-//            Servicelist service = servicelistRepository.findByServiceUuidAndProviderProviderUuid(
-//                    contractDetailUuid, providerUuid);
+                    contractDetail.getServiceUuid(), providerUuid);
 
             if (service == null) {
+                log.error("Service not found for uuid: {} and providerUuid: {}", contractDetail.getServiceUuid(), providerUuid);
                 throw new ResourceNotFoundException("Service", "uuid", contractDetail.getServiceUuid());
             }
 
+            log.info("Found Service: {}", service.getServiceName());
             services.add(service);
         }
         return services;
@@ -1190,6 +1195,14 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dto.setCreatedAt(dispensing.getRecordedAt());
         dto.setBranchName(dispensing.getBranchName());
         dto.setStatus(dispensing.getStatus());
+
+        String firstName = dispensing.getInsured().getFirstName();
+        String fatherName = dispensing.getInsured().getFatherName();
+        String fullName = (firstName != null ? firstName : "")+
+                (firstName != null && fatherName != null ? " " : "")+
+                (fatherName != null ? fatherName : "");
+        dto.setPatientName(fullName.trim());
+        dto.setInsuranceId(dispensing.getInsured().getEmployeeId());
      // dto.setStatus(Status.valueOf(dispensing.getClaimStatus()));
         dto.setInvoiceNumber(dispensing.getInvoiceNumber());
 

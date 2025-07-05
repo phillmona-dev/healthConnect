@@ -22,7 +22,6 @@ public interface ContractService {
 
     ResponseEntity<?> updateContract(String contractUuid, @Valid ContractRequest contractRequest);
 
-    ContractResponse getContract(String contractUuid, String userType);
 
     ResponseEntity<?> approveContract(String payerProviderContractUuid);
 
@@ -67,9 +66,11 @@ public interface ContractService {
 
     ResponseEntity<AssignServicesToGroupResponse> assignServicesToGroup(String groupUuid, @Valid List<String> contractDetailUuids);
 
-    ResponseEntity<List<EligibleServiceResponse>> getEligibleServices(String contractHeaderUuid, String insuredUuid, String dependantUuid);
-
     ResponseEntity<?> updateContractStatus(String contractUuid, @Valid ContractStatusUpdateRequest updateRequest);
 
     ResponseEntity<?> softDeleteRejectedContract(String contractUuid);
+
+    ResponseEntity<List<EligibleServiceResponse>> getEligibleServices(String contractHeaderUuid, String insuredUuid, String dependantUuid, String searchKey);
+
+    ContractResponse getContract(String contractUuid, String userType, String searchKey);
 }
