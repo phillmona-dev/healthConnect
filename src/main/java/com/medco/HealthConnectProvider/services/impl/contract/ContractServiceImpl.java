@@ -208,7 +208,6 @@ public class ContractServiceImpl implements ContractService {
             UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
             String preparedBy = userDetails.getUserUuid();
 
-            // Update contract header details
             contract.setStartDate(contractRequest.getBeginDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
             contract.setEndDate(contractRequest.getEndDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
             contract.setStatus(contractRequest.getStatus());
@@ -248,7 +247,6 @@ public class ContractServiceImpl implements ContractService {
                     updatedItemUuids.add(itemRequest.getItemUuid());
                 }
 
-                // Remove contract details that are not in the update request
                 int removedCount = 0;
                 Iterator<ContractDetail> iterator = contract.getContractDetails().iterator();
                 while (iterator.hasNext()) {
@@ -323,7 +321,7 @@ public class ContractServiceImpl implements ContractService {
 
 
     @Override
-    public ContractResponse getContract(String contractUuid, String userType ) {
+    public ContractResponse getContract(String contractUuid, String userType, String searchKey) {
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
 
         if (contract == null)
@@ -363,7 +361,10 @@ public class ContractServiceImpl implements ContractService {
 
         List<ContractResponse.InsuredSummary> insuredSummaries = contract.getInsured().stream()
                 .map(this::mapInsuredSummary)
+                .map(summary -> filterDependants(summary, searchKey))
+                .filter(summary -> matchesSearchCriteria(summary, searchKey) || !summary.getDependants().isEmpty())
                 .collect(Collectors.toList());
+
         contractResponse.setInsuredSummaries(insuredSummaries);
         contractResponse.setTotalInsured(insuredSummaries.size());
         contractResponse.setTotalDependants((int) insuredSummaries.stream()
@@ -376,6 +377,38 @@ public class ContractServiceImpl implements ContractService {
         contractResponse.setDescription(Optional.ofNullable(contractResponse.getDescription()).orElse(""));
 
         return contractResponse;
+
+    }
+
+    private ContractResponse.InsuredSummary filterDependants(ContractResponse.InsuredSummary summary, String searchKey) {
+        if (searchKey == null || searchKey.trim().isEmpty()) {
+            return summary;
+        }
+
+        String lowerCaseSearchKey = searchKey.toLowerCase().trim();
+        List<ContractResponse.DependantSummary> filteredDependants = summary.getDependants().stream()
+                .filter(dependant -> matchesDependantSearchCriteria(dependant, lowerCaseSearchKey))
+                .collect(Collectors.toList());
+
+        summary.setDependants(filteredDependants);
+        return summary;
+    }
+
+    private boolean matchesSearchCriteria(ContractResponse.InsuredSummary summary, String searchKey) {
+        if (searchKey == null || searchKey.trim().isEmpty()) {
+            return true;
+        }
+
+        String lowerCaseSearchKey = searchKey.toLowerCase().trim();
+
+        return summary.getFullName().toLowerCase().contains(lowerCaseSearchKey) ||
+                summary.getMembershipNumber().toLowerCase().contains(lowerCaseSearchKey) ||
+                summary.getPhone().toLowerCase().contains(lowerCaseSearchKey);
+    }
+
+    private boolean matchesDependantSearchCriteria(ContractResponse.DependantSummary dependant, String lowerCaseSearchKey) {
+        return dependant.getFullName().toLowerCase().contains(lowerCaseSearchKey) ||
+                dependant.getRelationshipType().toLowerCase().contains(lowerCaseSearchKey);
     }
 
     private ContractResponse.InsuredSummary mapInsuredSummary(Insured insured) {
@@ -383,6 +416,7 @@ public class ContractServiceImpl implements ContractService {
                 .insuredUuid(insured.getInsuredUuid())
                 .fullName(insured.getFirstName() + " " + insured.getFatherName())
                 .membershipNumber(insured.getIdNumber())
+                .phone(insured.getPhone())
                 .dependants(insured.getDependants().stream()
                         .map(this::mapDependantSummary)
                         .collect(Collectors.toList()))
@@ -394,8 +428,26 @@ public class ContractServiceImpl implements ContractService {
                 .dependantUuid(dependant.getDependantUuid())
                 .fullName(dependant.getFirstName() + " " + dependant.getFatherName())
                 .relationshipType(dependant.getRelationship().toString())
+                .phone(dependant.getPhone())
                 .build();
     }
+
+//    private ContractResponse.ContractDetailSummary mapContractDetailSummary(ContractDetail detail) {
+//        return ContractResponse.ContractDetailSummary.builder()
+//                .contractDetailUuid(detail.getContractDetailUuid())
+//                .itemType(detail.getItemType())
+//                .serviceUuid(detail.getServiceUuid())
+//                .serviceName(detail.getServicelist() != null ? detail.getServicelist().getServiceName() : null)
+//                .drugUuid(detail.getDrugUuid())
+//                .drugName(detail.getDrug() != null ? detail.getDrug().getDrugName() : null)
+//                .price(detail.getPrice())
+//                .negotiatedPrice(detail.getNegotiatedPrice())
+//                .assignedGroups(detail.getContractDetailEmployeeGroups().stream()
+//                        .map(cdeg -> cdeg.getEmployeeGroup().getGroupName())
+//                        .collect(Collectors.toList()))
+//                .description(detail.getDescription())
+//                .build();
+//    }
 
     @Override
     public ResponseEntity<?> deleteContract(String contractUuid) {
@@ -1211,11 +1263,12 @@ public class ContractServiceImpl implements ContractService {
 
         logger.info("Assignment completed. Assigned: {}, Total: {}", assignmentCount, contractDetailUuids.size());
         return ResponseEntity.ok(response);
+
     }
 
     @Override
-    public ResponseEntity<List<EligibleServiceResponse>> getEligibleServices(String contractHeaderUuid, String insuredUuid, String dependantUuid) {
-        log.info("Fetching eligible services for contract: {}, insured: {}, dependant: {}", contractHeaderUuid, insuredUuid, dependantUuid);
+    public ResponseEntity<List<EligibleServiceResponse>> getEligibleServices(String contractHeaderUuid, String insuredUuid, String dependantUuid, String searchKey) {
+        log.info("Fetching eligible services for contract: {}, insured: {}, dependant: {}, searchKey: {}", contractHeaderUuid, insuredUuid, dependantUuid, searchKey);
 
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractHeaderUuid);
         if (contract == null){
@@ -1235,7 +1288,7 @@ public class ContractServiceImpl implements ContractService {
         } else {
             Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
             if (insured == null){
-                 throw new ResourceNotFoundException("Insured", "UUID", insuredUuid);
+                throw new ResourceNotFoundException("Insured", "UUID", insuredUuid);
             }
 
             groupUuid = insured.getEmployeeDependantGroup().getGroupUuid();
@@ -1249,25 +1302,56 @@ public class ContractServiceImpl implements ContractService {
         log.info("Contract detail groups found: {}", contractDetailGroups.size());
 
         List<EligibleServiceResponse> eligibleServices = contractDetailGroups.stream()
-                .map(cdeg -> {
-                    ContractDetail detail = cdeg.getContractDetail();
-                    EligibleServiceResponse response = new EligibleServiceResponse();
-                    response.setContractHeaderUuid(contractHeaderUuid);
-                    response.setContractName(contract.getContractName());
-                    response.setContractDetailUuid(detail.getContractDetailUuid());
-                    response.setServiceUuid(detail.getServiceUuid());
-                    response.setServiceName(detail.getServicelist().getServiceName());
-                    response.setServiceCode(detail.getServicelist().getServiceCode());
-                    response.setNegotiatedPrice(detail.getNegotiatedPrice());
-                    response.setStatus(detail.getStatus().toString());
-                    // Set other fields as needed
-                    return response;
-                })
+                .map(cdeg -> mapToEligibleServiceResponse(cdeg, contract))
+                .filter(response -> matchesSearchCriteria(response, searchKey))
                 .collect(Collectors.toList());
 
         log.info("Eligible services found: {}", eligibleServices.size());
 
         return ResponseEntity.ok(eligibleServices);
+
+    }
+
+    private EligibleServiceResponse mapToEligibleServiceResponse(ContractDetailEmployeeGroup cdeg, ContractHeader contract) {
+        ContractDetail detail = cdeg.getContractDetail();
+        EligibleServiceResponse response = new EligibleServiceResponse();
+        response.setContractHeaderUuid(contract.getContractHeaderUuid());
+        response.setContractName(contract.getContractName());
+        response.setContractDetailUuid(detail.getContractDetailUuid());
+        response.setServiceUuid(detail.getServiceUuid());
+        response.setNegotiatedPrice(detail.getNegotiatedPrice());
+        response.setStatus(detail.getStatus().toString());
+
+        if (detail.getServicelist() != null) {
+            response.setServiceName(detail.getServicelist().getServiceName());
+            response.setServiceCode(detail.getServicelist().getServiceCode());
+        } else {
+            response.setServiceName("N/A");
+            response.setServiceCode("N/A");
+        }
+
+        if (detail.getDrug() != null) {
+            response.setDrugUuid(detail.getDrug().getDrugUuid());
+            response.setDrugName(detail.getDrug().getDrugName());
+        } else {
+            response.setDrugUuid(null);
+            response.setDrugName(null);
+        }
+
+        return response;
+    }
+
+    private boolean matchesSearchCriteria(EligibleServiceResponse response, String searchKey) {
+        if (searchKey == null || searchKey.trim().isEmpty()) {
+            return true;
+        }
+
+        String lowerCaseSearchKey = searchKey.toLowerCase();
+
+        return response.getServiceName().toLowerCase().contains(lowerCaseSearchKey) ||
+                response.getServiceCode().toLowerCase().contains(lowerCaseSearchKey) ||
+                response.getContractName().toLowerCase().contains(lowerCaseSearchKey) ||
+                (response.getDrugName() != null && response.getDrugName().toLowerCase().contains(lowerCaseSearchKey));
     }
 
     @Override

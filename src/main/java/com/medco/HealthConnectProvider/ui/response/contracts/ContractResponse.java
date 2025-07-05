@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -15,6 +16,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class ContractResponse {
+
     private String contractHeaderUuid;
     private String contractNumber;
     private String contractName;
@@ -58,9 +60,9 @@ public class ContractResponse {
     private int totalDependants;
     private int totalDrugs;
 
-    // You might want to include a list of contract details or a summary of them
     private List<ContractDetailSummary> contractDetails;
     private List<InsuredSummary> insuredSummaries;
+
 
     @Getter
     @Setter
@@ -89,7 +91,16 @@ public class ContractResponse {
         private String insuredUuid;
         private String fullName;
         private String membershipNumber;
+        private String phone;
         private List<DependantSummary> dependants;
+
+        public void filterDependants(String searchKey) {
+            if (searchKey != null && !searchKey.isEmpty()) {
+                this.dependants = this.dependants.stream()
+                        .filter(dep -> dep.getFullName().toLowerCase().contains(searchKey.toLowerCase()))
+                        .collect(Collectors.toList());
+            }
+        }
     }
 
     @Getter
@@ -101,8 +112,8 @@ public class ContractResponse {
         private String dependantUuid;
         private String fullName;
         private String relationshipType;
+        private String phone;
     }
-
 
     private String payerLogoBase64;
     private String providerLogoBase64;

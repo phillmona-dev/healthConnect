@@ -13,6 +13,7 @@ import java.util.List;
 @NoArgsConstructor
 public class DispensingRecordRequest {
 
+    private String contractHeaderUuid;
     private String insuredUuid;
     private String dependantUuid;
     private String primaryDiagnosis;
