@@ -504,40 +504,10 @@ public class ClaimServiceImpl implements ClaimService {
     public ResponseEntity<?> updateClaimStatus(String claimUuid, ClaimStatus newStatus, String comment) {
 
 
-//
-//        UpdateClaimStatus updater = statusUpdater.getUpdater(status);
-//        updater.updateTransferStatus(stockTransferUuid,approvedAmount);
 
-        Claim claim = claimRepository.findByClaimUuid(claimUuid)
-                .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
+        UpdateClaimStatus updater = claimStatusUpdater.getUpdater(newStatus);
+        return updater.updateTransferStatus(claimUuid,comment);
 
-        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
-        ClaimStatus previousStatus = claim.getStatus();
-
-        // Validate status transition
-        validateStatusTransition(claim, newStatus);
-
-        // Update claim status
-        claim.setStatus(ClaimStatus.valueOf(newStatus.toString()));
-
-        // Update specific status fields based on the new status
-        updateStatusSpecificFields(claim, newStatus, userDetails);
-        List<MedicationDispensing>medicationDispensingList=new ArrayList<>();
-        for (MedicationDispensing medicationDispensing:claim.getBatchRecord().getMedicationDispensing()){
-            medicationDispensing.setClaimStatus(newStatus.toString());
-            medicationDispensingList.add(medicationDispensing);
-        }
-        medicationDispensingRepository.saveAll(medicationDispensingList);
-
-
-
-        // Save updated claim
-        claimRepository.save(claim);
-
-        // Create claim log
-        createClaimLog(claim, userDetails, previousStatus, newStatus, comment);
-
-        return ResponseEntity.ok(new MessageResponse("Claim status updated successfully to " + newStatus));
     }
 
     @Override
@@ -628,65 +598,7 @@ public class ClaimServiceImpl implements ClaimService {
         return ResponseEntity.ok(new MessageResponse("Claim " + (approved ? "approved" : "rejected") + " successfully"));
     }
 
-    // Helper methods for claim processing
-    private void validateStatusTransition(Claim claim, ClaimStatus newStatus) {
-        String currentStatus = String.valueOf(claim.getStatus());
 
-        // Define valid transitions
-        if (currentStatus.equals(ClaimStatus.SUBMITTED.toString())) {
-            if (newStatus != ClaimStatus.UNDER_REVIEW && newStatus != ClaimStatus.REJECTED && newStatus != ClaimStatus.CANCELLED) {
-                throw new BadRequestException("Invalid status transition from " + currentStatus + " to " + newStatus);
-            }
-        } else if (currentStatus.equals(ClaimStatus.UNDER_REVIEW.toString())) {
-            if (newStatus != ClaimStatus.APPROVED && newStatus != ClaimStatus.REJECTED && newStatus != ClaimStatus.CANCELLED) {
-                throw new BadRequestException("Invalid status transition from " + currentStatus + " to " + newStatus);
-            }
-        } else if (currentStatus.equals(ClaimStatus.APPROVED.toString())) {
-            if (newStatus != ClaimStatus.PAYMENT_REQUESTED && newStatus != ClaimStatus.CANCELLED) {
-                throw new BadRequestException("Invalid status transition from " + currentStatus + " to " + newStatus);
-            }
-        } else if (currentStatus.equals(ClaimStatus.PAYMENT_REQUESTED.toString())) {
-            if (newStatus != ClaimStatus.PAID && newStatus != ClaimStatus.CANCELLED) {
-                throw new BadRequestException("Invalid status transition from " + currentStatus + " to " + newStatus);
-            }
-        } else if (currentStatus.equals(ClaimStatus.PAID.toString()) ||
-                currentStatus.equals(ClaimStatus.REJECTED.toString()) ||
-                currentStatus.equals(ClaimStatus.CANCELLED.toString())) {
-            throw new BadRequestException("Cannot change status of a claim that is " + currentStatus);
-        }
-    }
-
-    private void updateStatusSpecificFields(Claim claim, ClaimStatus newStatus, UserPrincipal userDetails) {
-        switch (newStatus) {
-            case SUBMITTED:
-                claim.setPreparedByProviderUuid(userDetails.getUserUuid());
-                claim.setPreparedByProviderStatus("Submitted");
-                claim.setPreparedByProviderDate(LocalDateTime.now());
-                break;
-            case UNDER_REVIEW:
-                // Already handled in reviewClaim method
-                break;
-            case APPROVED:
-                // Already handled in reviewClaim method
-                break;
-            case PAYMENT_REQUESTED:
-                claim.setCancelledDate(LocalDateTime.now());
-                claim.setPaymentRequestedByUuid(userDetails.getUserUuid());
-                break;
-            case PAID:
-                // Handled in processPayment method
-                break;
-            case REJECTED:
-                // Already handled in reviewClaim method
-                break;
-            case CANCELLED:
-                claim.setCancelledDate(LocalDateTime.from(Instant.now()));
-                claim.setCancelledByUuid(userDetails.getUserUuid());
-                break;
-            default:
-                break;
-        }
-    }
 
     private void createClaimLog(Claim claim, UserPrincipal userDetails, ClaimStatus previousStatus, ClaimStatus newStatus, String comment) {
         ClaimLogs log = new ClaimLogs();
@@ -879,36 +791,13 @@ public class ClaimServiceImpl implements ClaimService {
 
     @Override
     @Transactional
-    public ResponseEntity<?> requestPayment(String claimUuid) {
-        Claim claim = claimRepository.findByClaimUuid(claimUuid)
-                .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
+    public ResponseEntity<?> requestPayment(String claimUuid,String comment) {
 
-        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        UpdateClaimStatus updater = claimStatusUpdater.getUpdater(ClaimStatus.PAYMENT_REQUESTED);
 
-//        // Check if user has access to this claim
-//        if (userDetails.getProviderUuid() == null || !claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
-//            throw new BadRequestException("Only provider users can request payment for claims");
-//        }
+        return updater.updateTransferStatus(claimUuid,comment);
 
-        // Check if claim is in approved status
-        if (!claim.getStatus().equals(ClaimStatus.APPROVED)) {
-            throw new BadRequestException("Only approved claims can be submitted for payment");
-        }
-
-        // Update claim status
-        ClaimStatus previousStatus = claim.getStatus();
-        claim.setStatus(ClaimStatus.PAYMENT_REQUESTED);
-        claim.setPaymentRequestedDate(LocalDateTime.from(Instant.now()));
-        claim.setPaymentRequestedByUuid(userDetails.getUserUuid());
-
-        claimRepository.save(claim);
-
-        // Create log entry
-        createClaimLog(claim, userDetails, previousStatus, ClaimStatus.PAYMENT_REQUESTED,
-                "Payment requested by provider");
-
-        return ResponseEntity.ok(new MessageResponse("Payment request submitted successfully"));
-    }
+ }
 
 //    @Override
 //    @Transactional

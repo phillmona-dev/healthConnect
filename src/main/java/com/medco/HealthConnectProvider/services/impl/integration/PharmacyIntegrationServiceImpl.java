@@ -815,12 +815,10 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
             Payer payer = insured.getPayer();
 
-            ContractHeader activeContract = contractHeaderRepository.findActiveContractByProviderProviderUuidAndPayerPayerUuid(provider.getProviderUuid(),payer.getPayerUuid())
+            ContractHeader activeContract = contractHeaderRepository.findActiveContractByProviderProviderUuidAndPayerPayerUuidAndStatus(provider.getProviderUuid(),payer.getPayerUuid(),Status.ACTIVE)
                     .orElseThrow(() -> new ResourceNotFoundException("Active contract", "payer", payer.getPayerUuid()));
 
             MedicationDispensing dispensingRecord = createDispensingRecord(request, provider, insured, payer);
-
-
 
             List<Servicelist> services = validateServices(provider.getProviderUuid(), request.getMedicationItems(),activeContract);
             List<MedicationDispensingItem> dispensingItems = createDispensingItems(dispensingRecord, services, request.getMedicationItems(), payer, activeContract);

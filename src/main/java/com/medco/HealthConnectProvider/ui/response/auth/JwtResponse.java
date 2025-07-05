@@ -23,4 +23,7 @@ public class JwtResponse {
     private String payerUuid;
     private String providerUuid;
     private Set<String> authorities;
+    private String profilePicture;
+    private String Logo;
+//    private String companyName;
 }
