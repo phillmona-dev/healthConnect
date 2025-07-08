@@ -58,6 +58,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.transaction.Transactional;
 
+
 @Slf4j
 @Service
 public class InsuredServiceImpl implements InsuredService {
@@ -136,7 +137,7 @@ public class InsuredServiceImpl implements InsuredService {
 
             InsuredResponse response = new InsuredResponse();
             BeanUtils.copyProperties(savedInsured, response);
-            response.setInsuranceId(savedInsured.getInsuranceId());
+            //response.setInsuranceId(savedInsured.getInsuranceId());
             response.setEmployeeId(savedInsured.getEmployeeId());
             response.setNationalId(savedInsured.getNationalId());
             response.setProfilePicturePath(savedInsured.getProfilePicturePath());
@@ -398,12 +399,14 @@ public class InsuredServiceImpl implements InsuredService {
         response.setFatherName(insured.getFatherName());
         response.setGrandFatherName(insured.getGrandFatherName());
         response.setGender(insured.getGender());
-        response.setInsuranceId(StringUtils.hasText(insured.getInsuranceId()) ? insured.getInsuranceId() : "");
+        //response.setInsuranceId(StringUtils.hasText(insured.getInsuranceId()) ? insured.getInsuranceId() : "");
         response.setPhone(StringUtils.hasText(insured.getPhone()) ? insured.getPhone() : "");
         response.setEmail(StringUtils.hasText(insured.getEmail()) ? insured.getEmail() : "");
         response.setBirthDate(insured.getBirthDate());
         response.setStatus(insured.getStatus() != null ? insured.getStatus() : Status.PENDING);
         response.setAddress(StringUtils.hasText(insured.getAddress()) ? insured.getAddress() : "");
+        response.setWoreda(insured.getWoreda());
+        response.setKebelle(insured.getKebelle());
         response.setPosition(insured.getPosition());
         response.setIdNumber(insured.getIdNumber());
         response.setEmployeeId(insured.getEmployeeId());
@@ -565,12 +568,12 @@ public class InsuredServiceImpl implements InsuredService {
             insuredList.add(insured);
             return mapToInsuredSearchResponses(insuredList);
         }
-
-        insured = insuredRepository.findByInsuranceId(identifier);
-        if (insured != null) {
-            insuredList.add(insured);
-            return mapToInsuredSearchResponses(insuredList);
-        }
+//
+//        insured = insuredRepository.findByInsuranceId(identifier);
+//        if (insured != null) {
+//            insuredList.add(insured);
+//            return mapToInsuredSearchResponses(insuredList);
+//        }
 
         insured = insuredRepository.findByNationalId(identifier);
         if (insured != null) {
@@ -578,8 +581,8 @@ public class InsuredServiceImpl implements InsuredService {
             return mapToInsuredSearchResponses(insuredList);
         }
 
-        insuredList = insuredRepository.findByPhoneOrEmployeeIdOrInsuranceIdOrNationalId(
-                identifier, identifier, identifier, identifier);
+        insuredList = insuredRepository.findByPhoneOrEmployeeIdOrNationalId(
+                identifier, identifier, identifier);
 
         return mapToInsuredSearchResponses(insuredList);
     }
@@ -766,9 +769,9 @@ public class InsuredServiceImpl implements InsuredService {
         if (StringUtils.hasText(request.getCountry())) {
             insured.setCountry(request.getCountry());
         }
-        if (StringUtils.hasText(request.getInsuranceId())) {
-            insured.setInsuranceId(request.getInsuranceId());
-        }
+//        if (StringUtils.hasText(request.getInsuranceId())) {
+//            insured.setInsuranceId(request.getInsuranceId());
+//        }
         if (request.getStatus() != null) {
             insured.setStatus(request.getStatus());
         }
@@ -1088,7 +1091,7 @@ public class InsuredServiceImpl implements InsuredService {
                 person.setAddress(row.getCell(11).getStringCellValue());
                 person.setState(row.getCell(14).getStringCellValue());
                 person.setCountry(row.getCell(15).getStringCellValue());
-                person.setInsuranceId(row.getCell(16).getStringCellValue());
+               // person.setInsuranceId(row.getCell(16).getStringCellValue());
 
 //				person.setPayerInstitutionContractUuid(payerInstitutionContractUuid);
                 person.setStatus(Status.ACTIVE);
@@ -1172,26 +1175,38 @@ public class InsuredServiceImpl implements InsuredService {
         Workbook workbook = null;
         Logger logger = LoggerFactory.getLogger(this.getClass());
         List<String> errors = new ArrayList<>();
+        List<InsuredResponse> importedInsured = new ArrayList<>();
         int successfulImports = 0;
+
+        logger.info("Starting import process for payer UUID: {}", payerUuid);
 
         try {
             workbook = WorkbookFactory.create(file);
             Sheet sheet = workbook.getSheetAt(0);
+            int totalRows = sheet.getPhysicalNumberOfRows();
+            logger.info("Total rows in sheet: {}", totalRows);
+
             int numberOfColumns = 0;
             int numbrOfDependants = 0;
 
-            for (Row row : sheet) {
-                if (row.getCell(0) == null || row.getCell(0).getCellType() == CellType.BLANK) {
+            logger.info("Excel file loaded successfully. Processing rows...");
+
+            boolean headerValidated = false;
+            for (int rowNum = 0; rowNum < totalRows; rowNum++) {
+                Row row = sheet.getRow(rowNum);
+                logger.debug("Processing row: {}", rowNum + 1);
+
+                if (row == null || isEmptyRow(row)) {
+                    logger.debug("Skipping empty row: {}", rowNum + 1);
                     continue;
                 }
 
-                if (numberOfColumns == 0) {
-
+                if (!headerValidated) {
                     try {
                         numberOfColumns = row.getLastCellNum();
-                        String[] expectedHeaders = {"Title", "First Name", "Father Name", "Grand Father Name", "Gender",
-                                "Date of Birth", "ID Number", "Phone", "Email", "Branch Office",
-                                "Position", "Address", "State", "Country", "Insurance Number"};
+                        String[] expectedHeaders = {"ID Number", "First Name", "Father Name", "Grand Father Name", "Gender",
+                                "Date of Birth", "Phone", "Email"};
+                        String[] mandatoryHeaders = {"ID Number", "First Name", "Father Name"};
 
                         for (int i = 0; i < expectedHeaders.length; i++) {
                             String cellValue = getCellValueAsString(row.getCell(i));
@@ -1205,48 +1220,61 @@ public class InsuredServiceImpl implements InsuredService {
                             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Error: The Excel sheet for uploading insured person should use the standard format.");
                         }
 
-                        // Calculate number of dependants - each dependant has 6 columns
-                        if (numberOfColumns > 15) {
-                            numbrOfDependants = (numberOfColumns - 15) / 6;
-                            if ((numberOfColumns - 15) % 6 != 0) {
-                                logger.warn("Unexpected number of columns for dependants: {}. Each dependant should have exactly 6 columns.", numberOfColumns - 15);
+                        if (numberOfColumns > 8) {
+                            numbrOfDependants = (numberOfColumns - 8) / 6;
+                            if ((numberOfColumns - 8) % 6 != 0) {
+                                logger.warn("Unexpected number of columns for dependants: {}. Each dependant should have exactly 6 columns.", numberOfColumns - 8);
                             }
                         }
+
+                        headerValidated = true;
+                        logger.info("Validated header row successfully");
+                        continue;
                     } catch (Exception e) {
                         logger.error("Error validating header row: {}", e.getMessage());
                         errors.add("Error validating header row: " + e.getMessage());
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Error: Invalid Excel format.");
                     }
-                    continue; // Skip to next row after processing header
                 }
 
                 try {
-                    // Process data rows
-                    Insured person = createInsuredPerson(row, payerUuid);
-                    insuredRepository.save(person);
-
-                    // Process dependants
-                    List<Dependant> dependants = processDependants(row, person, numbrOfDependants);
-                    if (!dependants.isEmpty()) {
-                        person.getDependants().addAll(dependants);
-                        insuredRepository.save(person);
+                    if (isEmptyOrNull(row.getCell(0)) || isEmptyOrNull(row.getCell(1)) || isEmptyOrNull(row.getCell(2))) {
+                        logger.warn("Mandatory fields missing in row: {}", rowNum + 1);
+                        throw new IllegalArgumentException("Mandatory fields (ID Number, First Name, Father Name) cannot be empty.");
                     }
 
-                    successfulImports++;
+                    InsuredResponse insuredResponse = createInsuredPerson(row, payerUuid);
+
+                    if (insuredResponse != null) {
+                        successfulImports++;
+                        importedInsured.add(insuredResponse);
+                        logger.info("Successfully imported insured person: {}", insuredResponse.getInsuredUuid());
+
+                        // Process dependants if any
+                        List<Dependant> dependants = processDependants(row, insuredResponse, numbrOfDependants);
+                        if (!dependants.isEmpty()) {
+                            dependantRepository.saveAll(dependants);
+                            logger.info("Saved {} dependants for insured person: {}", dependants.size(), insuredResponse.getInsuredUuid());
+                        }
+                    }
+                    // If insuredResponse is null, it means it's a duplicate entry that we're skipping
+                    // We don't add an error in this case as it's an expected scenario
+                } catch (BadRequestException e) {
+                    logger.error("Error processing row {}: {}", rowNum + 1, e.getMessage());
+                    errors.add("Error in row " + (rowNum + 1) + ": " + e.getMessage());
                 } catch (Exception e) {
-                    logger.error("Error processing row {}: {}", row.getRowNum() + 1, e.getMessage());
-                    errors.add("Error in row " + (row.getRowNum() + 1) + ": " + e.getMessage());
+                    logger.error("Unexpected error processing row {}: {}", rowNum + 1, e.getMessage());
+                    errors.add("Unexpected error in row " + (rowNum + 1) + ": " + e.getMessage());
                 }
             }
 
-            String message = successfulImports + " insured persons imported successfully.";
-            if (!errors.isEmpty()) {
-                message += " There were " + errors.size() + " errors.";
-            }
-            return ResponseEntity.ok(new ImportResponse(message, errors));
+            logger.info("Import process completed. Successful imports: {}, Errors: {}", successfulImports, errors.size());
+
+            InsuredImportResponse response = new InsuredImportResponse(importedInsured, errors, successfulImports);
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            logger.error("Error during import process: {}", e.getMessage());
+            logger.error("Error during import process: {}", e.getMessage(), e);
             throw e;
         } finally {
             if (workbook != null) {
@@ -1257,62 +1285,115 @@ public class InsuredServiceImpl implements InsuredService {
                 }
             }
             if (file != null && file.exists()) {
-                file.delete();
+                boolean deleted = file.delete();
+                if (!deleted) {
+                    logger.warn("Failed to delete temporary file: {}", file.getAbsolutePath());
+                }
             }
         }
     }
 
-    private Insured createInsuredPerson(Row row, String payerUuid) throws BadRequestException {
-        String phone = getCellValueAsString(row.getCell(7));
-        String insuranceId = getCellValueAsString(row.getCell(14));
+    private boolean isEmptyRow(Row row) {
+        for (int cellNum = 0; cellNum < row.getLastCellNum(); cellNum++) {
+            Cell cell = row.getCell(cellNum);
+            if (cell != null && cell.getCellType() != CellType.BLANK) {
+                return false;
+            }
+        }
+        return true;
+    }
 
-        // Check if an insured person with the same phone number already exists
-        if (insuredRepository.existsByPhoneAndPayerUuid(phone, payerUuid)) {
-            logger.warn("Insured person with phone number {} already exists for payer {}. Skipping this entry.", phone, payerUuid);
+    private boolean isEmptyOrNull(Cell cell) {
+        return cell == null || cell.getCellType() == CellType.BLANK ||
+                (cell.getCellType() == CellType.STRING && cell.getStringCellValue().trim().isEmpty());
+    }
+
+    private InsuredResponse createInsuredPerson(Row row, String payerUuid) throws BadRequestException {
+        Logger logger = LoggerFactory.getLogger(this.getClass());
+
+        logger.debug("Creating insured person from row: {}", row.getRowNum() + 1);
+
+        String idNumber = getCellValueAsString(row.getCell(0));
+        String firstName = getCellValueAsString(row.getCell(1));
+        String fatherName = getCellValueAsString(row.getCell(2));
+        String phone = getCellValueAsString(row.getCell(6));
+        String email = getCellValueAsString(row.getCell(7));
+
+        logger.debug("Creating insured person with ID Number: {}, First Name: {}, Father Name: {}, Phone: {}, Email: {}",
+                idNumber, firstName, fatherName, phone, email);
+
+        Insured existingPerson = insuredRepository.findByIdNumberAndFirstNameAndFatherNameAndPayerUuid(idNumber, firstName, fatherName, payerUuid);
+        if (existingPerson != null) {
+            logger.warn("Insured person with ID Number {}, First Name {}, and Father Name {} already exists for payer {}. Skipping this entry.",
+                    idNumber, firstName, fatherName, payerUuid);
             return null;
         }
 
-        // Check if an insured person with the same insurance ID already exists
-        if (insuredRepository.existsByInsuranceIdAndPayerUuid(insuranceId, payerUuid)) {
-            logger.warn("Insured person with insurance ID {} already exists for payer {}. Skipping this entry.", insuranceId, payerUuid);
-            return null;
+        if (insuredRepository.existsByIdNumberAndPayerUuid(idNumber, payerUuid)) {
+            throw new BadRequestException("Insured person with ID Number " + idNumber + " already exists for this payer.");
+        }
+
+        if (isNotBlank(phone) && insuredRepository.existsByPhoneAndPayerUuid(phone, payerUuid)) {
+            throw new BadRequestException("Insured person with phone number " + phone + " already exists for this payer.");
+        }
+
+        if (isNotBlank(email) && insuredRepository.existsByEmailAndPayerUuid(email, payerUuid)) {
+            throw new BadRequestException("Insured person with email " + email + " already exists for this payer.");
         }
 
         Insured person = new Insured();
         person.setInsuredUuid(UUID.randomUUID().toString());
 
-        person.setTitle(getCellValueAsString(row.getCell(0)));
-        person.setFirstName(getCellValueAsString(row.getCell(1)));
-        person.setFatherName(getCellValueAsString(row.getCell(2)));
+        person.setIdNumber(idNumber);
+        person.setFirstName(firstName);
+        person.setFatherName(fatherName);
         person.setGrandFatherName(getCellValueAsString(row.getCell(3)));
         person.setGender(getCellValueAsString(row.getCell(4)));
         person.setBirthDate(parseDateCell(row.getCell(5)));
-        person.setIdNumber(getCellValueAsString(row.getCell(6)));
         person.setPhone(phone);
-        person.setEmail(getCellValueAsString(row.getCell(8)));
-        person.setBranchOffice(getCellValueAsString(row.getCell(9)));
-        person.setPosition(getCellValueAsString(row.getCell(10)));
-        person.setAddress(getCellValueAsString(row.getCell(11)));
-        person.setState(getCellValueAsString(row.getCell(12)));
-        person.setCountry(getCellValueAsString(row.getCell(13)));
-        person.setInsuranceId(insuranceId);
+        person.setEmail(email);
 
         person.setStatus(Status.ACTIVE);
+        person.setPayerUuid(payerUuid);
+
         Payer payer = payerRepository.findByPayerUuid(payerUuid);
         if (payer == null) {
+            logger.error("Institution not found with UUID: {}", payerUuid);
             throw new BadRequestException("Institution not found with UUID: " + payerUuid);
         }
-        person.setPayerUuid(payerUuid);
         person.setPayer(payer);
 
-        return person;
+        logger.debug("Saving insured person: {}", person);
+        Insured savedPerson = insuredRepository.save(person);
+        logger.info("Saved insured person with UUID: {}", savedPerson.getInsuredUuid());
 
+        InsuredResponse response = InsuredResponse.builder()
+                .insuredUuid(savedPerson.getInsuredUuid())
+                .payerUuid(savedPerson.getPayerUuid())
+                .email(savedPerson.getEmail())
+                .firstName(savedPerson.getFirstName())
+                .fatherName(savedPerson.getFatherName())
+                .grandFatherName(savedPerson.getGrandFatherName())
+                .Gender(savedPerson.getGender())
+                .birthDate(savedPerson.getBirthDate())
+                .phone(savedPerson.getPhone())
+                .idNumber(savedPerson.getIdNumber())
+                .status(savedPerson.getStatus())
+                .build();
+
+        logger.debug("Created InsuredResponse: {}", response);
+        return response;
     }
 
-    private List<Dependant> processDependants(Row row, Insured person, int numbrOfDependants) throws BadRequestException {
+    private boolean isNotBlank(String str) {
+        return str != null && !str.trim().isEmpty();
+    }
+
+    private List<Dependant> processDependants(Row row, InsuredResponse insuredResponse, int numbrOfDependants) throws BadRequestException {
         List<Dependant> dependants = new ArrayList<>();
         for (int j = 15; j < 15 + (numbrOfDependants * 6); j += 6) {
             if (j + 5 < row.getLastCellNum() && row.getCell(j) != null && !getCellValueAsString(row.getCell(j)).trim().isEmpty()) {
+
                 Dependant dependant = new Dependant();
                 dependant.setDependantUuid(UUID.randomUUID().toString());
                 dependant.setFirstName(getCellValueAsString(row.getCell(j)));
@@ -1322,12 +1403,21 @@ public class InsuredServiceImpl implements InsuredService {
                 dependant.setBirthDate(parseDateCell(row.getCell(j + 4)));
                 dependant.setRelationship(parseRelationship(getCellValueAsString(row.getCell(j + 5))));
                 dependant.setStatus(Status.ACTIVE);
-                dependant.setInsured(person);
+
+                Insured insured = insuredRepository.findByInsuredUuid(insuredResponse.getInsuredUuid());
+                if (insured == null) {
+                    throw new BadRequestException("Insured person not found with UUID: " + insuredResponse.getInsuredUuid());
+                }
+                dependant.setInsured(insured);
+
                 dependantRepository.save(dependant);
                 dependants.add(dependant);
+
             }
         }
+
         return dependants;
+
     }
 
     private Date parseDateCell(Cell cell) throws BadRequestException {
@@ -1352,12 +1442,16 @@ public class InsuredServiceImpl implements InsuredService {
                         // Try next format
                     }
                 }
+
                 throw new BadRequestException("Invalid date format: " + dateStr);
+
             }
         } catch (Exception e) {
             throw new BadRequestException("Error processing date: " + e.getMessage());
         }
+
         return null;
+
     }
 
     private Relationship parseRelationship(String relationshipStr) throws BadRequestException {
@@ -1374,7 +1468,6 @@ public class InsuredServiceImpl implements InsuredService {
         }
     }
 
-    // Helper method to safely get cell value as string
     private String getCellValueAsString(Cell cell) {
         if (cell == null) {
             return "";
@@ -1388,7 +1481,6 @@ public class InsuredServiceImpl implements InsuredService {
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
                     return sdf.format(cell.getDateCellValue());
                 }
-                // Format numeric values to avoid scientific notation
                 DecimalFormat df = new DecimalFormat("#.###");
                 return df.format(cell.getNumericCellValue());
             case BOOLEAN:
@@ -1413,23 +1505,20 @@ public class InsuredServiceImpl implements InsuredService {
     @Override
     public List<InsuredDependantResponse> getInsuredPersonsAndDependants(String payerInstitutionContractId,
                                                                          String search, int page, int limit) {
-        // Adjust page for 0-based indexing
+
         if (page > 0) {
             page = page - 1;
         }
 
-        // Create pageable object for pagination
         Pageable pageable = PageRequest.of(page, limit, Sort.by(
                 Sort.Order.asc("firstName"),
                 Sort.Order.asc("fatherName"),
                 Sort.Order.asc("grandFatherName")
         ));
 
-        // Get the list of insured persons and dependants using the repository method
         List<InsuredDependantListResponse> response = insuredRepository.findInsuredPersonsAndDependants(
                 payerInstitutionContractId, pageable);
 
-        // Create a map to hold the merged responses
         Map<String, InsuredDependantResponse> mergedResponses = new HashMap<>();
 
         for (InsuredDependantListResponse item : response) {
@@ -1445,7 +1534,6 @@ public class InsuredServiceImpl implements InsuredService {
             insuredDependantResponse.setInsuranceId(item.getInsuranceId());
             insuredDependantResponse.setPhone(item.getPhone());
 
-            // Only add dependant if dependantUuid is not null
             if (item.getDependantUuid() != null) {
                 DependantInsuredResponse dependant = new DependantInsuredResponse();
                 dependant.setInsuredPersonUuid(item.getInsuredUuid());
@@ -1511,12 +1599,10 @@ public class InsuredServiceImpl implements InsuredService {
             return;
         }
 
-        // Check file size (e.g., max 5MB)
         if (photo.getSize() > 5 * 1024 * 1024) {
             throw new BadRequestException("Photo size exceeds maximum limit of 5MB");
         }
 
-        // Check file type
         String contentType = photo.getContentType();
         if (contentType == null || !(contentType.equals("image/jpeg") ||
                 contentType.equals("image/png") ||
@@ -1538,7 +1624,6 @@ public class InsuredServiceImpl implements InsuredService {
             directory.mkdirs();
         }
 
-        // Delete old photo if exists
         if (oldPhotoName != null) {
             Path oldPath = Paths.get(uploadDir + oldPhotoName);
             try {

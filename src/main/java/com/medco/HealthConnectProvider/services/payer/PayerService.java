@@ -15,6 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 public interface PayerService {
@@ -57,4 +58,6 @@ public interface PayerService {
     PagedResponse<PayerResponse> getPayersWithFiltersWithOutLogo(String searchKey, int page, int limit, Status status, String category, String payerName, Long tinNumber, String level, String sortBy, String sortDir);
 
     ResponseEntity<PagedResponse<ProviderResponse>> getProvidersWithContract(String payerUuid, int page, int size, String sortBy, String sortDir, String search);
+
+    List<PayerResponse> importPayersFromExcel(MultipartFile file) throws IOException;
 }

@@ -14,7 +14,6 @@ import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDisp
 import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
-import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

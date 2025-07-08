@@ -27,6 +27,8 @@ public class InsuredDependantResponse {
     private Date birthDate;
     private Status status;
     private String address;
+    private String woreda;
+    private String kebelle;
     private String position;
     private String idNumber;
 

@@ -30,8 +30,6 @@ public interface ServicelistRepository extends JpaRepository<Servicelist, Long> 
 
     Optional<Servicelist> findByServiceUuid(String string);
 
-    List<Servicelist> findAllByServiceName(String serviceName);
-
     Servicelist findByServiceUuidAndIsDeleted(String serviceUuid, boolean isDeleted);
 
     @Query("SELECT s FROM Servicelist s WHERE s.provider.providerUuid = :providerUuid " +
@@ -43,10 +41,8 @@ public interface ServicelistRepository extends JpaRepository<Servicelist, Long> 
             @Param("searchKey") String searchKey,
             Pageable pageable);
 
-    // Updated method name
     Page<Servicelist> findAllByProviderProviderUuidAndIsDeleted(String providerUuid, boolean isDeleted, Pageable pageable);
 
-    // Updated method name
     List<Servicelist> findAllByProviderProviderUuidAndStatusAndIsDeleted(String providerUuid, String status, boolean isDeleted);
 
     Servicelist findByServiceUuidAndProviderProviderUuid(String serviceUuid, String providerUuid);

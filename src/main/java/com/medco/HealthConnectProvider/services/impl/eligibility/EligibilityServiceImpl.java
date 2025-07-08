@@ -5,7 +5,6 @@ import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.groups.ContractDetailEmployeeGroup;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
-import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.entity.services.Servicelist;
@@ -79,7 +78,7 @@ public class EligibilityServiceImpl implements EligibilityService {
 
     @Override
     public ResponseEntity<EligibilityResponse> checkEligibilityForInsured(String providerUuid, InsuredSearchResponse insured, String serviceUuid) {
-        // Create a new EligibilityCheckRequest from the InsuredSearchResponse
+
         EligibilityCheckRequest request = new EligibilityCheckRequest();
         request.setInsuranceId(insured.getInsuranceId());
         request.setEmployeeId(insured.getEmployeeId());
@@ -87,7 +86,6 @@ public class EligibilityServiceImpl implements EligibilityService {
         request.setPhoneNumber(insured.getPhone());
         request.setServiceUuid(serviceUuid);
 
-        // Perform the eligibility check
         Provider provider = providerRepository.findByProviderUuid(providerUuid);
         if (provider == null){
             throw new ResourceNotFoundException("Provider", "providerUuid", providerUuid);
@@ -109,29 +107,23 @@ public class EligibilityServiceImpl implements EligibilityService {
             throw new BadRequestException("No active contract exists between this provider and payer");
         }
 
-        // Check if insured person's policy is active
         boolean isPolicyActive = insuredPerson.getStatus() == Status.ACTIVE &&
                 (insuredPerson.getPolicyStartDate() == null || LocalDate.now().isAfter(insuredPerson.getPolicyStartDate())) &&
                 (insuredPerson.getPolicyEndDate() == null || LocalDate.now().isBefore(insuredPerson.getPolicyEndDate()));
 
-        // Build eligibility response
         EligibilityResponse response = new EligibilityResponse();
 
-        // Set insured person details
         BeanUtils.copyProperties(insured, response);
         response.setPayerUuid(payer.getPayerUuid());
 
-        // Set policy details
         response.setPolicyNumber(insuredPerson.getPolicyNumber());
         response.setPolicyStartDate(insuredPerson.getPolicyStartDate());
         response.setPolicyEndDate(insuredPerson.getPolicyEndDate());
         response.setPolicyActive(isPolicyActive);
 
-        // Get groups the insured belongs to
         List<GroupMembershipResponse> groupResponses = getInsuredGroups(insuredPerson);
         response.setGroups(groupResponses);
 
-        // Set dependents if any
         if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
             response.setDependents(insured.getDependants().stream()
                     .map(this::mapDependantResponseToDependentEligibilityResponse)
@@ -140,7 +132,6 @@ public class EligibilityServiceImpl implements EligibilityService {
             response.setDependents(new ArrayList<>());
         }
 
-        // Check specific service eligibility if requested
         if (serviceUuid != null && !serviceUuid.isEmpty()) {
             response.setRequestedService(checkServiceEligibility(
                     serviceUuid,
@@ -152,7 +143,6 @@ public class EligibilityServiceImpl implements EligibilityService {
             response.setRequestedService(null);
         }
 
-        // Determine overall eligibility
         boolean isEligible = isPolicyActive && insuredPerson.getStatus() == Status.ACTIVE;
         response.setEligible(isEligible);
 
@@ -165,6 +155,7 @@ public class EligibilityServiceImpl implements EligibilityService {
         }
 
         return ResponseEntity.ok(response);
+
     }
 
     @Override
@@ -183,6 +174,7 @@ public class EligibilityServiceImpl implements EligibilityService {
         }
 
         return checkEligibilityForInsured(insuredList.get(0));
+
     }
 
 

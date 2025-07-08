@@ -552,7 +552,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         Insured insured = insuredRepository.findByInsuredUuid(dispensing.getInsuredUuid());
         if (insured != null) {
             dto.setInsuredName(insured.getFirstName() + " " + insured.getFatherName() + " " + insured.getGrandFatherName());
-            dto.setInsuranceId(insured.getInsuranceId());
+           // dto.setInsuranceId(insured.getInsuranceId());
         }
 
         List<MedicationDispensingDTO.MedicationItemDTO> itemDTOs = dispensing.getItems().stream()
@@ -799,6 +799,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Override
     @Transactional
     public ResponseEntity<?> addDispensingRecord(DispensingRecordRequest request) {
+
         try {
             UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
@@ -870,6 +871,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Override
     @Transactional
     public ResponseEntity<DispensingResponse> recordMedicationDispensing(KenemaPharmacyDispensingRequest request) {
+
         log.info("Recording medication dispensing from Kenema pharmacy: {}", request.getIdentifier());
 
         Provider provider = (Provider) providerRepository.findByProviderName(request.getProviderName())
@@ -953,7 +955,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         response.setFirstName(insured.getFirstName());
         response.setFatherName(insured.getFatherName());
         response.setGrandFatherName(insured.getGrandFatherName());
-        response.setInsuranceId(insured.getInsuranceId());
+        //response.setInsuranceId(insured.getInsuranceId());
         response.setEmployeeId(insured.getEmployeeId());
         response.setNationalId(insured.getNationalId());
         response.setPhone(insured.getPhone());
@@ -1150,7 +1152,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 item.setContractDetail(contractDetail);
                 item.setQuantity((double) itemRequest.getQuantity());
                 item.setUnitPrice(service.getPrice());
-                item.setTotalPrice(service.getPrice()*itemRequest.getQuantity());
+                item.setTotalPrice(itemRequest.getPrice()*itemRequest.getQuantity());
                 item.setMedicationName(service.getServiceName());
                 item.setMedicationCode(service.getServiceCode());
                 item.setRemark(itemRequest.getRemark());
@@ -1209,7 +1211,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         Insured insured = insuredRepository.findByInsuredUuid(dispensing.getInsuredUuid());
         if (insured != null) {
             dto.setPatientName(insured.getFirstName() + " " + insured.getFatherName() + " " + insured.getGrandFatherName());
-            dto.setInsuranceId(insured.getInsuranceId());
+           // dto.setInsuranceId(insured.getInsuranceId());
         }
 
         dto.setDispensingDate(dispensing.getDispensingDate());
@@ -1233,6 +1235,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dto.setMedicationItems(items.stream().map(this::convertToItemDTO).collect(Collectors.toList()));
 
         return dto;
+
     }
 
     private String generateInvoiceNumber() {

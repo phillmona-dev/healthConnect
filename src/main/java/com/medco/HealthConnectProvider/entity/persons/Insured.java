@@ -53,6 +53,7 @@ public class Insured implements Serializable {
     private String policyNumber;
 
     private LocalDate policyStartDate;
+
     private LocalDate policyEndDate;
 
     @Size(max = 50)
@@ -69,44 +70,27 @@ public class Insured implements Serializable {
     @Size(min = 2, max = 25)
     private String fatherName;
 
-    @NotBlank(message = "grandFatherName cant be empty")
-    @Size(min = 2, max = 25)
     private String grandFatherName;
 
-    @NotBlank(message = "Gender cant be empty")
-    @Size( max = 8)
     private String gender;
 
-    @NotNull(message = "birth date can't be empty ")
     private Date birthDate;
 
-    @NotBlank(message = "phone can't be empty")
-    @Size(min = 9, max = 13)
     private String phone;
 
-    @Size( max = 50)
     private String branchOffice;
 
-    @NotBlank(message = "position can't be empty")
-    @Size( max = 50)
     private String position;
 
-    @Size(max = 50)
     private String idNumber;
-
-    @Size(min = 2, max = 50)
     private String insuranceId;
 
-    @NotBlank(message = "address1 can't be empty")
-    @Size(max = 50)
     private String address;
 
-    @NotBlank(message = "state can't be empty")
-    @Size(min = 2, max = 50)
     private String state;
+    private String woreda;
+    private String kebelle;
 
-    @NotBlank(message = "country can't be empty")
-    @Size(min = 2, max = 50)
     private String country;
 
     @Size(max = 255)

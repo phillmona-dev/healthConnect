@@ -33,6 +33,7 @@ import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -112,6 +113,7 @@ public class PayerServiceImpl implements PayerService {
     @Transactional
     @Override
     public PayerResponse createPayer(@Valid PayerRequest payerRequest, MultipartFile logo) {
+
         log.info("Starting payer creation process for: {}", payerRequest.getPayerName());
 
         if (payerRepository.existsByEmail(payerRequest.getEmail())) {
@@ -708,6 +710,185 @@ public class PayerServiceImpl implements PayerService {
 
         log.info("Successfully fetched {} providers with contract for payer UUID: {}", providerResponses.size(), payerUuid);
         return ResponseEntity.ok(pagedResponse);
+    }
+
+    @Override
+    @Transactional
+    public List<PayerResponse> importPayersFromExcel(MultipartFile file) throws IOException {
+
+        List<PayerResponse> importedPayers = new ArrayList<>();
+
+        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            Iterator<Row> rows = sheet.iterator();
+
+            if (!rows.hasNext()) {
+                throw new IllegalArgumentException("Excel file is empty");
+            }
+
+            Row headerRow = rows.next();
+            Map<String, Integer> headerMap = createHeaderMap(headerRow);
+
+            while (rows.hasNext()) {
+                Row currentRow = rows.next();
+                Payer payer = createPayerFromRow(currentRow, headerMap);
+
+                if (payer != null) {
+                    Payer savedPayer = payerRepository.save(payer);
+                    importedPayers.add(getPayerResponse(savedPayer));
+                }
+            }
+        }
+
+        return importedPayers;
+
+    }
+
+    private Map<String, Integer> createHeaderMap(Row headerRow) {
+
+        Map<String, Integer> headerMap = new HashMap<>();
+        for (Cell cell : headerRow) {
+            String headerName = cell.getStringCellValue().trim().toLowerCase();
+            headerMap.put(headerName, cell.getColumnIndex());
+        }
+
+        return headerMap;
+
+    }
+
+    private Payer createPayerFromRow(Row row, Map<String, Integer> headerMap) {
+        Payer payer = new Payer();
+
+        try {
+
+            payer.setPayerName(getStringCellValue(row, headerMap, "payer name"));
+            payer.setEmail(getStringCellValue(row, headerMap, "email"));
+            payer.setTelephone(getStringCellValue(row, headerMap, "telephone"));
+            payer.setCategory(getStringCellValue(row, headerMap, "category"));
+            payer.setAddress1(getStringCellValue(row, headerMap, "address1"));
+            payer.setAddress2(getStringCellValue(row, headerMap, "address2"));
+            payer.setAddress3(getStringCellValue(row, headerMap, "address3"));
+            payer.setCity(getStringCellValue(row, headerMap, "city"));
+            payer.setState(getStringCellValue(row, headerMap, "state"));
+            payer.setZipCode(getStringCellValue(row, headerMap, "zip code"));
+            payer.setCountry(getStringCellValue(row, headerMap, "country"));
+            payer.setStatus(Status.valueOf(getStringCellValue(row, headerMap, "status")));
+            payer.setTaxIdentification(getStringCellValue(row, headerMap, "tax identification"));
+            payer.setTinNumber(getLongCellValue(row, headerMap, "tin number"));
+            payer.setBankingDetails(getStringCellValue(row, headerMap, "banking details"));
+            payer.setPayerNumber(getStringCellValue(row, headerMap, "payer number"));
+            payer.setLatitude(getDoubleCellValue(row, headerMap, "latitude"));
+            payer.setLongitude(getDoubleCellValue(row, headerMap, "longitude"));
+            payer.setReferralType(getStringCellValue(row, headerMap, "referral type"));
+            payer.setReferredBy(getStringCellValue(row, headerMap, "referred by"));
+            payer.setDescription(getStringCellValue(row, headerMap, "description"));
+            payer.setDependantCoverage(getBooleanCellValue(row, headerMap, "dependant coverage"));
+
+            payer.setPayerUuid(UUID.randomUUID().toString());
+            payer.setRegistrationDate(new Date());
+
+            if (payerRepository.existsByEmail(payer.getEmail()) ||
+                    payerRepository.existsByTelephone(payer.getTelephone()) ||
+                    payerRepository.existsByPayerName(payer.getPayerName())) {
+                log.warn("Duplicate payer found: {}", payer.getPayerName());
+                return null;
+            }
+
+        } catch (Exception e) {
+            log.error("Error processing row: {}", e.getMessage());
+            return null;
+        }
+
+        return payer;
+    }
+
+    private String getStringCellValue(Row row, Map<String, Integer> headerMap, String headerName) {
+        Integer columnIndex = headerMap.get(headerName.toLowerCase());
+        if (columnIndex == null) return "";
+        Cell cell = row.getCell(columnIndex);
+        return getCellValueAsString(cell);
+    }
+
+    private Long getLongCellValue(Row row, Map<String, Integer> headerMap, String headerName) {
+        Integer columnIndex = headerMap.get(headerName.toLowerCase());
+        if (columnIndex == null) return null;
+        Cell cell = row.getCell(columnIndex);
+        return getCellValueAsLong(cell);
+    }
+
+    private Double getDoubleCellValue(Row row, Map<String, Integer> headerMap, String headerName) {
+        Integer columnIndex = headerMap.get(headerName.toLowerCase());
+        if (columnIndex == null) return null;
+        Cell cell = row.getCell(columnIndex);
+        return getCellValueAsDouble(cell);
+    }
+
+    private Boolean getBooleanCellValue(Row row, Map<String, Integer> headerMap, String headerName) {
+        Integer columnIndex = headerMap.get(headerName.toLowerCase());
+        if (columnIndex == null) return false;
+        Cell cell = row.getCell(columnIndex);
+        return getCellValueAsBoolean(cell);
+    }
+
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) return "";
+        return switch (cell.getCellType()) {
+            case STRING -> cell.getStringCellValue();
+            case NUMERIC -> {
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    yield cell.getLocalDateTimeCellValue().toString();
+                }
+                yield String.valueOf(cell.getNumericCellValue());
+            }
+            case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
+            default -> "";
+        };
+    }
+
+    private Long getCellValueAsLong(Cell cell) {
+        if (cell == null) return null;
+        switch (cell.getCellType()) {
+            case NUMERIC:
+                return (long) cell.getNumericCellValue();
+            case STRING:
+                try {
+                    return Long.parseLong(cell.getStringCellValue());
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+            default:
+                return null;
+        }
+    }
+
+    private Double getCellValueAsDouble(Cell cell) {
+        if (cell == null) return null;
+        switch (cell.getCellType()) {
+            case NUMERIC:
+                return cell.getNumericCellValue();
+            case STRING:
+                try {
+                    return Double.parseDouble(cell.getStringCellValue());
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+            default:
+                return null;
+        }
+    }
+
+    private Boolean getCellValueAsBoolean(Cell cell) {
+        if (cell == null) return false;
+        switch (cell.getCellType()) {
+            case BOOLEAN:
+                return cell.getBooleanCellValue();
+            case STRING:
+                return Boolean.parseBoolean(cell.getStringCellValue());
+            case NUMERIC:
+                return cell.getNumericCellValue() != 0;
+            default:
+                return false;
+        }
     }
 
     private ProviderResponse mapToProviderResponse(Provider provider) {

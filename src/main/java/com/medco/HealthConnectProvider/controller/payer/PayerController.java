@@ -3,6 +3,7 @@ package com.medco.HealthConnectProvider.controller.payer;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.services.payer.PayerService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerRequest;
+import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
@@ -159,6 +160,18 @@ public class PayerController {
             @RequestParam(defaultValue = "asc") String sortDir,
             @RequestParam(required = false) String search) {
         return payerService.getProvidersWithContract(payerUuid, page, size, sortBy, sortDir, search);
+    }
+
+
+    @PostMapping("/import")
+    public ResponseEntity<?> importPayers(@RequestParam("file") MultipartFile file) {
+
+        try {
+            List<PayerResponse> importedPayers = payerService.importPayersFromExcel(file);
+            return ResponseEntity.ok(new MessageResponse("Payers imported successfully", importedPayers));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Error importing payers: " + e.getMessage()));
+        }
     }
 
 }

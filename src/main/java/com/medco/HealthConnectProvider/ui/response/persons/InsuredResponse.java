@@ -22,11 +22,9 @@ public class InsuredResponse {
 
     private String firstName;
 
-
     private String fatherName;
 
     private String grandFatherName;
-
 
     private String Gender;
 
@@ -37,7 +35,6 @@ public class InsuredResponse {
     private Date birthDate;
 
     private String phone;
-
 
     private String branchOffice;
 
@@ -52,7 +49,8 @@ public class InsuredResponse {
     private String address;
 
     private String state;
-
+    private String woreda;
+    private String kebelle;
     private String country;
 
     private Status status;
