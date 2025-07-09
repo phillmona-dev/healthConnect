@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import java.util.List;
 
 public interface ContractService {
+
     ResponseEntity<ContractResponse> createContract(@Valid ContractRequest contractRequest);
 
     ResponseEntity<?> updateContract(String contractUuid, @Valid ContractRequest contractRequest);
@@ -73,4 +74,7 @@ public interface ContractService {
     ResponseEntity<List<EligibleServiceResponse>> getEligibleServices(String contractHeaderUuid, String insuredUuid, String dependantUuid, String searchKey);
 
     ContractResponse getContract(String contractUuid, String userType, String searchKey);
+
+
+    ResponseEntity<List<ContractResponse>> createKenemaContracts(List<String> payerUuids);
 }

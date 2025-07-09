@@ -214,7 +214,7 @@ public class InsuredController {
     @Operation(summary = "Get all insured persons with dependants", description = "Retrieves all insured persons with their dependants, with pagination and optional search")
     public ResponseEntity<PagedResponse<InsuredWithDependantsResponse>> getAllInsuredPersonsWithDependants(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "25") int size,
             @RequestParam(required = false) String search) {
         return insuredService.getAllInsuredPersonsWithDependants(page, size, search);
     }
@@ -225,7 +225,7 @@ public class InsuredController {
     public ResponseEntity<PagedResponse<InsuredDependantResponse>> getAllInsuredPersonsWithDependentsByPayer(
             @PathVariable String payerUuid,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "25") int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String contractUuid) {
         return insuredService.getAllInsuredPersonsWithDependentsByPayer(payerUuid, page, size, search, contractUuid);

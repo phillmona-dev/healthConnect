@@ -35,6 +35,8 @@ public class InsuredWithDependantsResponse {
     private String insuranceId;
     private String address;
     private String state;
+    private String woreda;
+    private String kebelle;
     private String country;
     private String profilePictureBase64;
     private Status status;

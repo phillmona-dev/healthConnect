@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.repository.drug;
 
 import com.medco.HealthConnectProvider.entity.drug.Drug;
+import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -43,4 +44,6 @@ public interface DrugRepository extends JpaRepository<Drug, Long> {
     Page<Drug> findAllByProviderProviderUuidAndIsDeletedFalse(String providerUuid, Pageable pageable);
 
     List<Drug> findByDrugUuidIn(List<String> drugUuids);
+
+    List<Drug> findByProvider(Provider provider);
 }

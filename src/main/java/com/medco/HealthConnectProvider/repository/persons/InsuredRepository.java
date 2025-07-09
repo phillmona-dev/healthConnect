@@ -42,47 +42,6 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
 
     Page<Insured> findByPayerPayerUuid(String payerUuid, Pageable pageable);
 
-    /**
-     * Find insured persons by payer UUID and not deleted, with search capability
-     * @param payerUuid The UUID of the payer
-     * @param isDeleted Whether the insured person is deleted
-     * @param firstName Search by first name
-     * @param fatherName Search by father name
-     * @param grandFatherName Search by grandfather name
-     * @param phone Search by phone
-     * @param insuranceId Search by insurance ID
-     * @param pageable Pagination information
-     * @return Page of insured persons
-     */
-    Page<Insured> findByPayerPayerUuidAndIsDeletedAndFirstNameContainingOrFatherNameContainingOrGrandFatherNameContainingOrPhoneContainingOrInsuranceIdContaining(
-            String payerUuid, boolean isDeleted,
-            String firstName, String fatherName, String grandFatherName,
-            String phone, String insuranceId, Pageable pageable);
-
-
-    /**
-     * Count insured persons by payer UUID and not deleted, with search capability
-     * @param payerUuid The UUID of the payer
-     * @param isDeleted Whether the insured person is deleted
-     * @param searchKey The search key for multiple fields
-     * @return Count of insured persons
-     */
-    @Query("SELECT COUNT(DISTINCT i) FROM Insured i " +
-            "WHERE i.payer.payerUuid = :payerUuid " +
-            "AND i.isDeleted = :isDeleted " +
-            "AND (:searchKey IS NULL OR :searchKey = '' OR " +
-            "    i.firstName LIKE %:searchKey% OR " +
-            "    i.fatherName LIKE %:searchKey% OR " +
-            "    i.grandFatherName LIKE %:searchKey% OR " +
-            "    i.phone LIKE %:searchKey% OR " +
-            "    i.insuranceId LIKE %:searchKey% OR " +
-            "    CONCAT(i.firstName, ' ', i.fatherName) LIKE %:searchKey% OR " +
-            "    CONCAT(i.firstName, ' ', i.fatherName, ' ', i.grandFatherName) LIKE %:searchKey%)")
-    long countByPayerAndSearchKey(
-            @Param("payerUuid") String payerUuid,
-            @Param("isDeleted") boolean isDeleted,
-            @Param("searchKey") String searchKey);
-
 
     /**
      * Find insured persons and their dependants by payer contract UUID with pagination
@@ -152,16 +111,6 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
             "LOWER(i.insuranceId) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
     Page<Insured> findBySearchTerm(@Param("searchTerm") String searchTerm, Pageable pageable);
 
-    @Query("SELECT i FROM Insured i WHERE i.payer.payerUuid = :payerUuid AND i.isDeleted = false AND " +
-            "(LOWER(i.firstName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-            "LOWER(i.fatherName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-            "LOWER(i.grandFatherName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-            "LOWER(i.phone) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-            "LOWER(i.insuranceId) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
-    Page<Insured> findByPayerUuidAndSearchTerm(@Param("payerUuid") String payerUuid,
-                                               @Param("searchTerm") String searchTerm,
-                                               Pageable pageable);
-
     @Query("SELECT i FROM Insured i WHERE i.payer.payerUuid = :payerUuid AND i.isDeleted = false")
     Page<Insured> findByPayerUuid(@Param("payerUuid") String payerUuid, Pageable pageable);
 
@@ -189,7 +138,7 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
 
     //Insured findByPhone(String phone);
 
-    List<Insured> findByPhoneOrEmployeeIdOrInsuranceIdOrNationalId(String phone, String employeeId, String insuranceId, String nationalId);
+    List<Insured> findByPhoneOrEmployeeIdOrNationalId(String phone, String employeeId, String nationalId);
 
 //    Insured findByIdNumber(String identifier);
 
@@ -230,4 +179,11 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
             @Param("isDeleted") boolean isDeleted,
             @Param("searchKey") String searchKey,
             Pageable pageable);
+
+    boolean existsByIdNumberAndPayerUuid(String idNumber, String payerUuid);
+
+    boolean existsByEmailAndPayerUuid(String email, String payerUuid);
+
+    Insured findByIdNumberAndFirstNameAndFatherNameAndPayerUuid(String idNumber, String firstName, String fatherName, String payerUuid);
+
 }

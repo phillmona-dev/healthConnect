@@ -41,21 +41,15 @@ public class InsuredRequest {
     @Size(min = 2, max = 25)
     private String fatherName;
 
-
-    @NotBlank(message = " grandFatherName must not be null ")
     @Size(min = 2, max = 25)
     private String grandFatherName;
 
-
-    @NotBlank(message = " Gender must not be null ")
     @Size(min = 1, max = 10)
     private String Gender;
 
     @NotNull
     private Date birthDate;
 
-
-    @NotBlank(message = " phone must not be null ")
     @Size(min = 9, max = 13)
     private String phone;
 
@@ -70,24 +64,24 @@ public class InsuredRequest {
     private String idNumber;
 
     //
-    @NotBlank(message = " insuranceId must be null ")
 //	@Size(min = 1, max = 50)
 //	private String insuranceId;
 
-
-    @NotBlank(message = " address1 must be null ")
     @Size( max = 50)
     private String address;
 
-    @NotBlank(message = " state must be null ")
+    private String woreda;
+
+    private String kebelle;
+
     @Size(min = 1, max = 50)
     private String state;
 
-
-    @NotBlank(message = " country must be null ")
     @Size(min = 2, max = 50)
     private String country;
 
     private Status status;
+
+    private String groupUuid;
 
 }
