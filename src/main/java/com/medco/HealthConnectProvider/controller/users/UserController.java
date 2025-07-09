@@ -22,10 +22,14 @@ import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 
 @RestController
@@ -38,6 +42,7 @@ public class UserController {
     private final AuthenticationManager authenticationManager;
     private final UserService userService;
     private final PasswordService passwordService;
+
 
     public UserController(AuthenticationManager authenticationManager, UserService userService, PasswordService passwordService) {
         this.authenticationManager = authenticationManager;
@@ -135,6 +140,14 @@ public class UserController {
     public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest resetPasswordDetail,
                                             @PathVariable String userUuid) {
         return userService.changePassword(resetPasswordDetail, userUuid);
+
+    }
+
+    @PutMapping(path = "/changeProfile/",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    // @PreAuthorize("hasRole('Change-Password')")
+    @Operation(summary = "Change profile", description = "Allows a user to change their profile", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<?> changePassword(@Valid @RequestBody(required = false) MultipartFile profilePicture) throws IOException {
+        return userService.changeProfile( profilePicture);
 
     }
 

@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.repository.user;
 
 import com.medco.HealthConnectProvider.entity.user.Privilege;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -11,7 +12,7 @@ import java.util.Optional;
 @Repository
 public interface PrivilegeRepository extends JpaRepository<Privilege,Long> {
 
-    List<Privilege> findAllByPrivilegeNameContaining(String search, Pageable pageable);
+    Page<Privilege> findAllByPrivilegeNameContaining(String search, Pageable pageable);
 
     Optional<Privilege> findByPrivilegeUuid(String privilegeUuid);
 }

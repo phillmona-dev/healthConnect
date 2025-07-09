@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.entity.user;
 
+import com.medco.HealthConnectProvider.utils.enums.PrivilegeType;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -35,8 +36,12 @@ public class Privilege {
     private String privilegeDescription;
 
     @NotBlank
-    @Column(length = 50)
+//    @Column(length = 50)
     private String privilegeCategory;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 50)
+    private PrivilegeType privilegeType;
 
     @ManyToMany(cascade = CascadeType.ALL)
     @JoinTable(

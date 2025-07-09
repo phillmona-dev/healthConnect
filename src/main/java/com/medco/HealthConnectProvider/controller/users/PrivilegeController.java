@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Privilege Management", description = "APIs for managing user privileges and permissions")
 public class PrivilegeController {
 
-    private PrivilegeService privilegeService;
+    private final PrivilegeService privilegeService;
 
     public PrivilegeController(PrivilegeService privilegeService) {
         this.privilegeService = privilegeService;
@@ -53,15 +53,19 @@ public class PrivilegeController {
         return ResponseEntity.ok(response);
     }
 
+
     @PutMapping("/{privilegeUuid}")
     @Operation(summary = "Update privilege", description = "Updates an existing privilege by UUID")
     public ResponseEntity<?> updatePrivilege(@PathVariable String privilegeUuid, @Valid @RequestBody PrivilegeRequest request){
         return privilegeService.updatePrivilege(privilegeUuid,request);
+
     }
+
 
     @DeleteMapping("/{privilegeUuid}")
     @Operation(summary = "Delete privilege", description = "Deletes a privilege by UUID")
     public ResponseEntity<?> deletePrivilege(@PathVariable String privilegeUuid){
         return privilegeService.deletePrivilege(privilegeUuid);
     }
+
 }

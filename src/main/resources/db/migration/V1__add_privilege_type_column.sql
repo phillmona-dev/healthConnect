@@ -1,0 +1,10 @@
+---- First, create the ENUM type (PostgreSQL-specific)
+--DO $$ BEGIN
+--    CREATE TYPE privilege_type AS ENUM ('FOR_ALL', 'FOR_SYSTEM_ADMIN', 'FOR_PAYER', 'FOR_PROVIDER');
+--EXCEPTION
+--    WHEN duplicate_object THEN null;
+--END $$;
+--
+---- Add the column
+--ALTER TABLE privilege
+--ADD COLUMN privilege_type privilege_type;

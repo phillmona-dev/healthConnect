@@ -1012,6 +1012,8 @@ public class ClaimServiceImpl implements ClaimService {
         claim.setProviderUuid(userDetails.getProviderUuid());
 //        claim.setCoinsuranceAmount(100);
         Claim savedClaim =claimRepository.save(claim);
+        batch.setStatus(ClaimStatus.APPROVED.toString());
+        batchRecordRepository.save(batch);
         createClaimLog( savedClaim,  userDetails,  ClaimStatus.DRAFT, ClaimStatus.DRAFT, "creating new claim status");
         return ResponseEntity.ok("claim created successfully");
 

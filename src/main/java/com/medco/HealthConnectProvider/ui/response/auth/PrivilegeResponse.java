@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.ui.response.auth;
 
+import com.medco.HealthConnectProvider.utils.enums.PrivilegeType;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,4 +17,5 @@ public class PrivilegeResponse implements Serializable {
     private String privilegeName;
     private String privilegeDescription;
     private String privilegeCategory;
+    private PrivilegeType privilegeType;
 }

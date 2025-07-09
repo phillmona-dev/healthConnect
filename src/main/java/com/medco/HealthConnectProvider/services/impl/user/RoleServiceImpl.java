@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.services.impl.user;
 
+import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.entity.user.Privilege;
 import com.medco.HealthConnectProvider.entity.user.Role;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
@@ -10,6 +11,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.RoleRequest;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.PrivilegeResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.RoleResponse;
+import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -38,6 +40,7 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public ResponseEntity<PagedResponse<RoleResponse>> createRole(RoleRequest roleRequest) {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         var role = new Role();
         BeanUtils.copyProperties(roleRequest, role);
 
@@ -49,6 +52,12 @@ public class RoleServiceImpl implements RoleService {
                 }).collect(Collectors.toList());
 
         role.setPrivileges(privilegeList);
+        if (userDetails.getPayerUuid()!=null)
+         role.setPayerUuid(userDetails.getPayerUuid());
+        else if (userDetails.getProviderUuid()!=null) {
+            role.setProviderUuid(userDetails.getProviderUuid());
+        }
+
         privilegeList.forEach(privilege -> privilege.getRoles().add(role));
 
         Role savedRole = roleRepository.save(role);
@@ -96,13 +105,13 @@ public class RoleServiceImpl implements RoleService {
 
         response.setPrivilegeList(
                 role.getPrivileges().stream()
-                        .map(privilege -> new PrivilegeResponse(
-                                privilege.getPrivilegeUuid(),
-                                privilege.getPrivilegeName(),
-                                privilege.getPrivilegeDescription(),
-                                privilege.getPrivilegeCategory())
+                        .map(privilege -> {
+                            PrivilegeResponse response1=new PrivilegeResponse();
+                            BeanUtils.copyProperties(privilege,response1);
+                            return response1;
+                                }
                         )
-                        .collect(Collectors.toList())
+                        .toList()
         );
 
         return response;
@@ -110,19 +119,30 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public PagedResponse<RoleResponse> getAllRoles(String search, int page, int limit) {
-        Pageable pageable = PageRequest.of(page, limit, Sort.by(Sort.Direction.DESC, "id"));
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
-        Specification<Role> spec = (root, query, cb) -> {
-            if (search != null && !search.trim().isEmpty()) {
-                String likeSearch = "%" + search.toLowerCase() + "%";
-                return cb.or(
-                        cb.like(cb.lower(root.get("roleName")), likeSearch),
-                        cb.like(cb.lower(root.get("providerUuid")), likeSearch),
-                        cb.like(cb.lower(root.get("payerUuid")), likeSearch)
-                );
+        Pageable pageable = PageRequest.of(page, limit, Sort.by(Sort.Direction.DESC, "id"));
+//
+//        Specification<Role> spec = (root, query, cb) -> {
+        Specification<Role> spec = Specification.where(null);
+
+            // Filter by provider or payer
+            if (userDetails.getProviderUuid() != null && !userDetails.getProviderUuid().isEmpty()) {
+                spec = spec.and((root, query, cb) ->
+                        cb.equal(root.get("providerUuid"), userDetails.getProviderUuid()));
             }
-            return null;
-        };
+
+            if (userDetails.getPayerUuid() != null && !userDetails.getPayerUuid().isEmpty()) {
+                spec = spec.and((root, query, cb) ->
+                        cb.equal(root.get("payerUuid"), userDetails.getPayerUuid()));
+            }
+
+            // Apply search on roleName
+            if (search != null && !search.trim().isEmpty()) {
+                String likeSearch = "%" + search.trim().toLowerCase() + "%";
+                spec = spec.and((root, query, cb) ->
+                        cb.like(cb.lower(root.get("roleName")), likeSearch));
+            }
 
         Page<Role> rolePage = roleRepository.findAll(spec, pageable);
 
@@ -142,13 +162,13 @@ public class RoleServiceImpl implements RoleService {
 
     private RoleResponse mapRoleToResponse(Role role) {
         List<PrivilegeResponse> privilegeResponses = role.getPrivileges().stream()
-                .map(privilege -> new PrivilegeResponse(
-                        privilege.getPrivilegeUuid(),
-                        privilege.getPrivilegeName(),
-                        privilege.getPrivilegeDescription(),
-                        privilege.getPrivilegeCategory()
-                ))
-                .collect(Collectors.toList());
+                .map(privilege -> {
+                            PrivilegeResponse response1=new PrivilegeResponse();
+                            BeanUtils.copyProperties(privilege,response1);
+                            return response1;
+                        }
+                )
+                .toList();
 
         return new RoleResponse(
                 role.getRoleUuid(),
@@ -177,9 +197,15 @@ public class RoleServiceImpl implements RoleService {
                 .stream()
                 .map(role -> new RoleResponse(role.getRoleUuid(), role.getRoleName(),role.getRoleDescription(), role.getPrivileges()
                         .stream()
-                        .map(privilege -> new PrivilegeResponse(privilege.getPrivilegeUuid(), privilege.getPrivilegeName(), privilege.getPrivilegeDescription(), privilege.getPrivilegeCategory()))
-                        .collect(Collectors.toList())
-                )).collect(Collectors.toList());
+                        .map(privilege -> {
+                                    PrivilegeResponse response1=new PrivilegeResponse();
+                                    BeanUtils.copyProperties(privilege,response1);
+                                    return response1;
+                                }
+                        )
+                        .toList()
+                )).collect(Collectors.toList()
+                );
     }
 
     private List<RoleResponse> getAllRolesBySearch(String search, Pageable pageable) {
@@ -187,8 +213,13 @@ public class RoleServiceImpl implements RoleService {
                 .stream()
                 .map(role -> new RoleResponse(role.getRoleUuid(),role.getRoleName(), role.getRoleDescription(), role.getPrivileges()
                         .stream()
-                        .map(privilege -> new PrivilegeResponse(privilege.getPrivilegeUuid(), privilege.getPrivilegeName(), privilege.getPrivilegeDescription(), privilege.getPrivilegeCategory()))
-                        .collect(Collectors.toList())
+                        .map(privilege -> {
+                                    PrivilegeResponse response1=new PrivilegeResponse();
+                                    BeanUtils.copyProperties(privilege,response1);
+                                    return response1;
+                                }
+                        )
+                        .toList()
                 )).collect(Collectors.toList());
     }
 

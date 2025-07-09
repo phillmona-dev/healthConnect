@@ -29,5 +29,6 @@ public class UserResponse implements Serializable {
     private String profilePicture;
     private boolean isDeleted;
     private String roleName;
+    private byte[] imageData;
 
 }

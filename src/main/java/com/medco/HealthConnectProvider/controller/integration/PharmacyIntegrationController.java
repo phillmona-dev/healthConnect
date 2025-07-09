@@ -210,7 +210,7 @@ public class PharmacyIntegrationController {
             @RequestParam(defaultValue = "desc") String sortDirection
     ) {
 
-        Page<BatchRecordDTO> results = batchRecordService.searchBatchRecords(
+        Page<BatchRecordDTO> results = batchRecordService.searchBatchRecords(status,
                 search, requestedOnStart, requestedOnEnd, claimDatingFrom, claimDatingTo,
                 page - 1, size, sortBy, sortDirection
         );

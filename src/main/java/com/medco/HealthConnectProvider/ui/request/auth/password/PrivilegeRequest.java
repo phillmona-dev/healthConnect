@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.ui.request.auth.password;
 
+import com.medco.HealthConnectProvider.utils.enums.PrivilegeType;
 import jakarta.persistence.Column;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -21,4 +22,8 @@ public class PrivilegeRequest {
     @NotBlank
     @Column(length = 50)
     private String privilegeCategory;
+
+//    @NotBlank
+    private PrivilegeType  privilegeType;
+
 }
