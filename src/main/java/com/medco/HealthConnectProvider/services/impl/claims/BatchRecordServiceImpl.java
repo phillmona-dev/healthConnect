@@ -27,7 +27,7 @@ public class BatchRecordServiceImpl implements BatchRecordService {
     }
 
     @Override
-    public Page<BatchRecordDTO> searchBatchRecords(
+    public Page<BatchRecordDTO> searchBatchRecords(String status,
             String search, LocalDateTime requestedOnStart, LocalDateTime requestedOnEnd,
             LocalDate claimDatingFrom, LocalDate claimDatingTo,
             int page, int size, String sortBy, String sortDirection
@@ -50,6 +50,9 @@ public class BatchRecordServiceImpl implements BatchRecordService {
             });
         }
 
+        if (status != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), "SUBMITTED"));
+        }
         if (requestedOnStart != null) {
             spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("requestedOn"), requestedOnStart));
         }

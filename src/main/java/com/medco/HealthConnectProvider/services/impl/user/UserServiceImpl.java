@@ -29,9 +29,11 @@ import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.JwtResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.RefreshTokenResponse;
 import com.medco.HealthConnectProvider.ui.response.user.UserResponse;
+import com.medco.HealthConnectProvider.utils.Image.ImageUtils;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.mapper.MapperClass;
 import com.medco.HealthConnectProvider.utils.paginationUtils.Pagination;
+import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,8 +55,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -70,10 +74,11 @@ public class UserServiceImpl implements UserService {
 
     private final TokenService tokenService;
 
-    private RoleRepository roleRepository;
+    private final RoleRepository roleRepository;
     private final PayerRepository payerRepository;
 //    private final PayerService payerService;
     private final ProviderService providerService;
+
     @Autowired
     private LogoGetter logoGetter;
 
@@ -120,6 +125,11 @@ public class UserServiceImpl implements UserService {
                 User user = userRepository.findByEmail(loginRequest.getEmail())
                         .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + loginRequest.getEmail()));
 
+                boolean firstTime=user.isFirstTimeLogin();
+                if (!user.isFirstTimeLogin()){
+                    user.setFirstTimeLogin(true);
+                    userRepository.save(user);
+                }
                 logger.info("User found: {}", user.getEmail());
 
                 String jwt = JwtServiceImpl.generateToken(userDetails.getEmail());
@@ -138,21 +148,39 @@ public class UserServiceImpl implements UserService {
 
                 String profilePicture=user.getProfilePicture();
                 String logo = "";
-//                String companyName = "";
+                String companyName = "";
                 if (user.getProviderUuid()!=null){
                     ResponseEntity<ByteArrayResource>  providerLogoResponse=providerService.getProviderLogo(user.getProviderUuid());
+                    Provider provider=providerRepository.findByProviderUuid(userDetails.getProviderUuid());
+                    companyName=provider.getProviderName();
                     logo=convertTo64Bit(providerLogoResponse);
-//                    if (user.getProvider()!=null)
-//                     companyName=user.getProvider().getProviderName();
+
+
                 } else if (user.getPayerUuid()!=null) {
                     ResponseEntity<ByteArrayResource>  payerLogoResponse= logoGetter.PayerLogo(user.getPayerUuid());
+                    Payer payer=payerRepository.findByPayerUuid(user.getPayerUuid());
+                    companyName=payer.getPayerName();
                     logo= convertTo64Bit(payerLogoResponse);
-//                    if (user.getPayer()!=null)
-//                     companyName=user.getPayer().getPayerName();
 
                 }
 
+                if (user.getPayer()!=null) {
+                    companyName = user.getPayer().getPayerName();
+                    System.out.println("company name  payer " + companyName);
+                }
+
+                if (user.getProvider()!=null) {
+
+                    companyName = user.getProvider().getProviderName();
+                    log.info("user's company : {}",companyName);
+                    System.out.println("company name1 "+companyName);
+                }
+                System.out.println("company name2 "+companyName);
                 logger.info("Authorities: {}", authorities);
+                 byte[] imageData = new byte[0];
+                if (user.getImageData()!=null)
+                    imageData=ImageUtils.decompressImage(user.getImageData());
+
 
                 JwtResponse response = new JwtResponse(
                         jwt,
@@ -167,8 +195,11 @@ public class UserServiceImpl implements UserService {
                         providerUuid,
                         authorities,
                         profilePicture,
-                        logo
-//                        companyName
+                        logo,
+                        companyName,
+                        firstTime,
+                        imageData
+               
 
                 );
 
@@ -203,6 +234,9 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserResponse createUser(SignUpRequest signUpRequest) {
+
+
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         log.info("Starting user creation process for email: {}", signUpRequest.getEmail());
 
         // Validate email and mobile phone
@@ -237,33 +271,49 @@ public class UserServiceImpl implements UserService {
         if (user.getUserStatus() == null) {
             user.setUserStatus(Status.ACTIVE);
         }
+
         log.info("User status set to: {}", user.getUserStatus());
 
         // Determine the institution type and set Payer or Provider
         String institutionName = "your institution";
-        if (role.getRoleName().startsWith("PA_")) {
-            log.info("Processing payer role");
-            Payer payer = payerRepository.findByPayerUuid(role.getPayerUuid());
-            if (payer == null) {
-                log.error("No payer found for UUID: {}", role.getPayerUuid());
-                throw new BadRequestException("No payer found for the given role");
-            }
-            user.setPayerUuid(payer.getPayerUuid());
-            institutionName = payer.getPayerName();
-            log.info("User associated with payer: {}", payer.getPayerName());
-        } else if (role.getRoleName().startsWith("PR_")) {
-            log.info("Processing provider role");
-            Provider provider = providerRepository.findByProviderUuid(role.getProviderUuid());
-            if (provider == null) {
-                log.error("No provider found for UUID: {}", role.getProviderUuid());
-                throw new BadRequestException("No provider found for the given role");
-            }
-            user.setProviderUuid(provider.getProviderUuid());
-            institutionName = provider.getProviderName();
-            log.info("User associated with provider: {}", provider.getProviderName());
-        } else {
-            log.warn("Role is neither payer nor provider: {}", role.getRoleName());
+//        if (role.getRoleName().startsWith("PA_")) {
+//            log.info("Processing payer role");
+//            Payer payer = payerRepository.findByPayerUuid(role.getPayerUuid());
+//            if (payer == null) {
+//                log.error("No payer found for UUID: {}", role.getPayerUuid());
+//                throw new BadRequestException("No payer found for the given role");
+//            }
+//            user.setPayerUuid(payer.getPayerUuid());
+//            institutionName = payer.getPayerName();
+//            log.info("User associated with payer: {}", payer.getPayerName());
+//        } else if (role.getRoleName().startsWith("PR_")) {
+//            log.info("Processing provider role");
+//            Provider provider = providerRepository.findByProviderUuid(role.getProviderUuid());
+//            if (provider == null) {
+//                log.error("No provider found for UUID: {}", role.getProviderUuid());
+//                throw new BadRequestException("No provider found for the given role");
+//            }
+//            user.setProviderUuid(provider.getProviderUuid());
+//            institutionName = provider.getProviderName();
+//            log.info("User associated with provider: {}", provider.getProviderName());
+//        } else {
+//            log.warn("Role is neither payer nor provider: {}", role.getRoleName());
+//
+//
+//        }
+
+        if (userDetails.getProviderUuid()!=null){
+            Provider provider=providerRepository.findByProviderUuid(userDetails.getProviderUuid());
+            if (provider==null)throw new BadRequestException("provider not found");
+            user.setProvider(provider);
+            user.setProviderUuid(userDetails.getProviderUuid());
+        } else if (userDetails.getPayerUuid()!=null) {
+            Payer payer=payerRepository.findByPayerUuid(userDetails.getPayerUuid());
+            if (payer==null)throw new BadRequestException("payer not found");
+            user.setPayer(payer);
+            user.setPayerUuid(userDetails.getPayerUuid());
         }
+
 
         // Save the user
         User savedUser = userRepository.save(user);
@@ -374,6 +424,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public PagedResponse<UserResponse> getAllSystemUsers(String search, int page, int limit) {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         log.debug("Searching users with search={}, page={}, limit={}", search, page, limit);
 
         Pageable pageable = Pagination.paginateResource(page, limit, "id", "desc");
@@ -397,13 +448,30 @@ public class UserServiceImpl implements UserService {
         );
     }
 
+    @Transactional
+    @Override
+    public ResponseEntity<?> changeProfile(MultipartFile profilePicture) throws IOException {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        User user=userRepository.findByUserUuid(userDetails.getUserUuid()).orElseThrow(()-> new BadRequestException("user not found"));
+        byte[] profilePictureBytes = profilePicture.getBytes();
+
+        if (profilePictureBytes.length > 1048576)
+            throw new BadRequestException("Profile should be less than 1mb");
+
+        user.setImageData(ImageUtils.compressImage(profilePictureBytes));
+        userRepository.save(user);
+
+        return ResponseEntity.ok("Your profile picture changed successfully");
+
+    }
+
 
     @Override
     public ResponseEntity<?> changePassword(ChangePasswordRequest resetPasswordDetail, String userUuid) {
 
         var user = userRepository.findByUserUuid(userUuid).orElseThrow(() -> new BadRequestException("User Not Found"));
 
-        if(!passwordEncoder.matches(user.getPassword(), resetPasswordDetail.getOldPassword())) throw new BadRequestException("Your Password is not correct!");
+        if(!passwordEncoder.matches( resetPasswordDetail.getOldPassword(),user.getPassword())) throw new BadRequestException("Your Password is not correct!");
 
         if(!resetPasswordDetail.getNewPassword().equals(resetPasswordDetail.getConfirmPassword())) throw new BadRequestException("password did not match");
 
@@ -483,6 +551,8 @@ public class UserServiceImpl implements UserService {
             if(user.getRole() != null){
                 response.setRoleName(user.getRole().getRoleName());
             }
+            if (user.getImageData()!=null)
+                 response.setImageData( ImageUtils.decompressImage(user.getImageData()));
 
             if (user.getUserStatus() != null){
                 response.setUserStatus(user.getUserStatus());

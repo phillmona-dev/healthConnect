@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.services.impl.user;
 
+import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.entity.user.Privilege;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.repository.user.PrivilegeRepository;
@@ -7,11 +8,14 @@ import com.medco.HealthConnectProvider.services.user.PrivilegeService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.PrivilegeRequest;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.auth.PrivilegeResponse;
+import com.medco.HealthConnectProvider.utils.enums.PrivilegeType;
+import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -20,7 +24,7 @@ import java.util.stream.Collectors;
 @Service
 public class PrivilegeServiceImpl implements PrivilegeService {
 
-    private PrivilegeRepository privilegeRepository;
+    private final PrivilegeRepository privilegeRepository;
 
     public PrivilegeServiceImpl(PrivilegeRepository privilegeRepository) {
         this.privilegeRepository = privilegeRepository;
@@ -28,8 +32,16 @@ public class PrivilegeServiceImpl implements PrivilegeService {
 
     @Override
     public PagedResponse<PrivilegeResponse> createPrivilege(PrivilegeRequest privilegeRequest) {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         var privileges = new Privilege();
         BeanUtils.copyProperties(privilegeRequest, privileges);
+        if (userDetails.getPayerUuid()!=null){
+            privileges.setPrivilegeType(PrivilegeType.FOR_PAYER);
+
+        } else if (userDetails.getProviderUuid()!=null) {
+            privileges.setPrivilegeType(PrivilegeType.FOR_PROVIDER);
+
+        }else privileges.setPrivilegeType(PrivilegeType.FOR_ALL);
 
         Privilege savedPrivilege = privilegeRepository.save(privileges);
 
@@ -51,21 +63,42 @@ public class PrivilegeServiceImpl implements PrivilegeService {
     @Override
     public PrivilegeResponse getPrivilege(String privilegeUuid) {
         return privilegeRepository.findByPrivilegeUuid(privilegeUuid)
-                .map(privilege -> new PrivilegeResponse(privilege.getPrivilegeUuid(),privilege.getPrivilegeName(),privilege.getPrivilegeDescription(),privilege.getPrivilegeCategory()))
+                .map(privilege -> new PrivilegeResponse(privilege.getPrivilegeUuid(),privilege.getPrivilegeName(),privilege.getPrivilegeDescription(),privilege.getPrivilegeCategory(),privilege.getPrivilegeType()))
                 .orElseThrow(() -> new BadRequestException("Can't find Privilege With the provided Id"));
     }
 
     @Override
-    @Cacheable(value = "privilegeCache", key = "#search ?: 'default'")
+    @Cacheable(value = "privilegeCache", key = "#search ?: 'default' ")
     public PagedResponse<PrivilegeResponse> getAllPrivileges(String search, Pageable pageable) {
+
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        PrivilegeType privilegeType;
+        if (userDetails.getPayerUuid()!=null)
+            privilegeType=PrivilegeType.FOR_PAYER;
+        else if (userDetails.getProviderUuid()!=null) {
+            privilegeType=PrivilegeType.FOR_PROVIDER;
+
+        } else {
+            privilegeType = null;
+        }
+        System.out.println("privilege type "+privilegeType);
         Page<Privilege> privilegePage = search != null ?
-                (Page<Privilege>) privilegeRepository.findAllByPrivilegeNameContaining(search, pageable) :
+                 privilegeRepository.findAllByPrivilegeNameContaining(search, pageable) :
                 privilegeRepository.findAll(pageable);
 
-        List<PrivilegeResponse> privilegeResponses = privilegePage.getContent().stream()
-                .map(this::mapPrivilegeToResponse)
-                .collect(Collectors.toList());
 
+        List<PrivilegeResponse> privilegeResponses;
+        if (privilegeType==null) {
+            privilegeResponses = privilegePage.getContent().stream()
+
+                    .map(this::mapPrivilegeToResponse)
+                    .collect(Collectors.toList());
+        }else {
+           privilegeResponses = privilegePage.getContent().stream()
+                   .filter(privilege -> privilege.getPrivilegeType().equals(privilegeType)||privilege.getPrivilegeType().equals(PrivilegeType.FOR_ALL))
+                    .map(this::mapPrivilegeToResponse)
+                    .collect(Collectors.toList());
+        }
         return new PagedResponse<>(
                 privilegeResponses,
                 privilegePage.getNumber(),

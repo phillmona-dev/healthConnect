@@ -25,5 +25,7 @@ public class JwtResponse {
     private Set<String> authorities;
     private String profilePicture;
     private String Logo;
-//    private String companyName;
+    private String companyName;
+    private boolean firstTimeLogin;
+    private byte[] imageData;
 }

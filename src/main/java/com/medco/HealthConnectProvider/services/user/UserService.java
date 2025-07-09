@@ -7,9 +7,12 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.token.RefreshTok
 import com.medco.HealthConnectProvider.ui.request.auth.password.user.SignUpRequest;
 import com.medco.HealthConnectProvider.ui.response.auth.RefreshTokenResponse;
 import com.medco.HealthConnectProvider.ui.response.user.UserResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 public interface UserService {
@@ -23,7 +26,6 @@ public interface UserService {
 
     ResponseEntity<?> deleteUser(String userUuid);
 
-
     ResponseEntity<?> changePassword(ChangePasswordRequest resetPasswordDetail, String userUuid);
 
     RefreshTokenResponse getNewToken(RefreshTokenRequest tokenRequest);
@@ -32,4 +34,5 @@ public interface UserService {
 
     PagedResponse<UserResponse> getAllSystemUsers(String search, int page, int limit);
 
+    ResponseEntity<?> changeProfile(@Valid MultipartFile profilePicture) throws IOException;
 }

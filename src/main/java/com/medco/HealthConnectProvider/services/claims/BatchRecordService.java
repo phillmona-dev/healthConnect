@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 
 public interface BatchRecordService {
 
-    Page<BatchRecordDTO> searchBatchRecords(String search, LocalDateTime requestedOnStart,
+    Page<BatchRecordDTO> searchBatchRecords(String status,String search, LocalDateTime requestedOnStart,
                                             LocalDateTime requestedOnEnd, LocalDate claimDatingFrom,
                                             LocalDate claimDatingTo, int page, int size, String sortBy, String sortDirection);
 }

@@ -75,6 +75,19 @@ public class User extends UserDateAudit {
     private String emailVerificationToken;
     private String profilePicture;
 
+    //    @Lob @Basic(fetch= FetchType.LAZY)
+    //    @Column(name = "Profile", columnDefinition = "LONGBLOB")
+    //    private byte[] imageData;
+
+    // In your User entity class
+
+
+    @Lob
+//    @Column(name = "profile")
+    private byte[] imageData;
+
+
+
     @Column(columnDefinition = "boolean default false")
     private boolean isDeleted;
 
@@ -87,6 +100,9 @@ public class User extends UserDateAudit {
     private String createdBy;
     private String lastModifiedBy;
 
+    @Column(columnDefinition = "boolean default false")
+    private boolean firstTimeLogin;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payer_id")
     private Payer payer;
@@ -94,6 +110,8 @@ public class User extends UserDateAudit {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "provider_id")
     private Provider provider;
+
+
 
     public void setPayer(Payer payer) {
         this.payer = payer;
