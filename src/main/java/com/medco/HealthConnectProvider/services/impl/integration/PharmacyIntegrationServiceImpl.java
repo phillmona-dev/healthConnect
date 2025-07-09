@@ -877,8 +877,10 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("provider", "provider name containing 'kenema'", request.getProviderName()));
-        
+        log.info("Provider found: {}", provider.getProviderName());
+
         List<InsuredSearchResponse> insuredResponses = insuredService.searchInsuredPersons(request.getIdentifier());
+        log.info("Insured search responses: {}", insuredResponses);
 
         if (insuredResponses.isEmpty()) {
             throw new ResourceNotFoundException("Insured", "provided identifiers", "Not found");
@@ -889,20 +891,32 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
 
         InsuredSearchResponse insuredResponse = insuredResponses.get(0);
+        log.info("Selected insured response: {}", insuredResponse);
+
         Insured insured = insuredRepository.findByInsuredUuid(insuredResponse.getInsuredUuid());
+        log.info("Insured person found: {}", insured != null ? insured.getInsuredUuid() : "null");
+
         if (insured == null){
             throw new ResourceNotFoundException("Insured", "insuredUuid", insuredResponse.getInsuredUuid());
         }
 
         EligibilityResponse eligibilityResponse = checkEligibility(insured, provider.getProviderUuid());
+        log.info("Eligibility check response: {}", eligibilityResponse);
 
         MedicationDispensing dispensing = createDispensingRecord(request, insured, provider, eligibilityResponse);
+        log.info("Dispensing record created: {}", dispensing);
+
         MedicationDispensing savedDispensing = dispensingRepository.save(dispensing);
+        log.info("Dispensing record saved: {}", savedDispensing.getDispensingUuid());
 
         List<MedicationDispensingItem> items = createDispensingItems(request, savedDispensing);
-        dispensingItemRepository.saveAll(items);
+        log.info("Dispensing items created: {}", items.size());
+
+        List<MedicationDispensingItem> savedItems = dispensingItemRepository.saveAll(items);
+        log.info("Dispensing items saved: {}", savedItems.size());
 
         DispensingResponse response = createDispensingResponse(savedDispensing);
+        log.info("Dispensing response created: {}", response);
 
         return ResponseEntity.ok(response);
     }
@@ -949,22 +963,41 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     private EligibilityResponse checkEligibility(Insured insured, String providerUuid) {
+        log.info("Checking eligibility for insured: {}, provider: {}", insured.getInsuredUuid(), providerUuid);
 
         InsuredSearchResponse insuredSearchResponse = convertToInsuredSearchResponse(insured);
+        log.info("Converted InsuredSearchResponse: {}", insuredSearchResponse);
 
-        ResponseEntity<EligibilityResponse> eligibilityResponseEntity =
-                eligibilityService.checkEligibilityForInsured(providerUuid, insuredSearchResponse, null);
+        try {
+            log.info("Calling eligibilityService.checkEligibilityForInsured");
+            ResponseEntity<EligibilityResponse> eligibilityResponseEntity =
+                    eligibilityService.checkEligibilityForInsured(providerUuid, insuredSearchResponse, null);
+            log.info("Received eligibility response entity: {}", eligibilityResponseEntity);
 
-        EligibilityResponse eligibilityResponse = eligibilityResponseEntity.getBody();
-        if (eligibilityResponse == null) {
-            throw new BadRequestException("Failed to retrieve eligibility information");
+            if (eligibilityResponseEntity == null) {
+                log.error("Eligibility response entity is null");
+                throw new BadRequestException("Failed to retrieve eligibility information: null response");
+            }
+
+            EligibilityResponse eligibilityResponse = eligibilityResponseEntity.getBody();
+            log.info("Extracted eligibility response body: {}", eligibilityResponse);
+
+            if (eligibilityResponse == null) {
+                log.error("Eligibility response body is null");
+                throw new BadRequestException("Failed to retrieve eligibility information: null body");
+            }
+
+            if (!eligibilityResponse.isEligible()) {
+                log.warn("Patient is not eligible. Reason: {}", eligibilityResponse.getIneligibilityReason());
+                throw new BadRequestException("Patient is not eligible for services: " + eligibilityResponse.getIneligibilityReason());
+            }
+
+            log.info("Eligibility check completed successfully");
+            return eligibilityResponse;
+        } catch (Exception e) {
+            log.error("Error during eligibility check", e);
+            throw new BadRequestException("Error during eligibility check: " + e.getMessage());
         }
-
-        if (!eligibilityResponse.isEligible()) {
-            throw new BadRequestException("Patient is not eligible for services: " + eligibilityResponse.getIneligibilityReason());
-        }
-
-        return eligibilityResponse;
     }
 
     private InsuredSearchResponse convertToInsuredSearchResponse(Insured insured) {
@@ -1021,10 +1054,38 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensing.setInsuranceCoverage(insuranceCoverage);
     }
 
+
     private List<MedicationDispensingItem> createDispensingItems(KenemaPharmacyDispensingRequest request, MedicationDispensing savedDispensing) {
-        return request.getPrescriptionDetails().stream()
-                .map(item -> createDispensingItem(item, savedDispensing))
-                .collect(Collectors.toList());
+        List<MedicationDispensingItem> items = new ArrayList<>();
+        for (KenemaPharmacyDispensingRequest.PrescriptionDetail prescriptionDetail : request.getPrescriptionDetails()) {
+            MedicationDispensingItem item = createDispensingItem(prescriptionDetail, savedDispensing);
+            items.add(item);
+        }
+        return items;
+    }
+
+    private Drug findOrCreateDrug(KenemaPharmacyDispensingRequest.PrescriptionDetail prescriptionDetail) {
+        // First, try to find the drug by name
+        Optional<Drug> existingDrug = drugRepository.findByDrugName(prescriptionDetail.getMedicationName());
+
+        if (existingDrug.isPresent()) {
+            // If the drug exists, return it
+            return existingDrug.get();
+        } else {
+            // If the drug doesn't exist, create a new one
+            Drug newDrug = new Drug();
+            newDrug.setDrugName(prescriptionDetail.getMedicationName());
+            newDrug.setDosage(prescriptionDetail.getDosage().toString());
+            newDrug.setRoute(prescriptionDetail.getRoute());
+            newDrug.setPrice(BigDecimal.valueOf(prescriptionDetail.getPrice()));
+            newDrug.setStatus(Status.ACTIVE);
+
+            // You might want to set other fields here as well, depending on what information
+            // is available in the PrescriptionDetail and what's required for a Drug
+
+            // Save the new drug to the database
+            return drugRepository.save(newDrug);
+        }
     }
 
     private MedicationDispensingItem createDispensingItem(KenemaPharmacyDispensingRequest.PrescriptionDetail item, MedicationDispensing savedDispensing) {
@@ -1037,8 +1098,40 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensingItem.setUnitPrice(item.getPrice());
         dispensingItem.setTotalPrice(item.getPrice() * item.getQuantity());
         dispensingItem.setDosageInstructions(item.getDosage() + " " + item.getFrequency() + " for " + item.getDuration());
-        dispensingItem.setFormulation(item.getRoute());
+        dispensingItem.setRoute(item.getRoute());
         dispensingItem.setItemType(ItemType.DRUG);
+
+        // Find or create the drug
+        Drug drug = findOrCreateDrug(item);
+
+        // Find the active contract header
+        List<ContractHeader> activeContracts = contractHeaderRepository.findActiveContractsBetweenProviderAndPayer(
+                savedDispensing.getProviderUuid(), savedDispensing.getPayerUuid(), Status.ACTIVE);
+
+        if (activeContracts.isEmpty()) {
+            throw new ResourceNotFoundException("Active contract", "provider and payer",
+                    savedDispensing.getProviderUuid() + " and " + savedDispensing.getPayerUuid());
+        }
+
+        ContractHeader activeContract = activeContracts.get(0); // Get the most recent active contract
+
+        // Look up the contract detail or create a new one
+        ContractDetail contractDetail = contractDetailRepository.findByContractHeaderAndDrug(activeContract, drug)
+                .orElseGet(() -> {
+                    ContractDetail newDetail = new ContractDetail();
+                    newDetail.setContractHeader(activeContract);
+                    newDetail.setContractHeaderUuid(activeContract.getContractHeaderUuid());
+                    newDetail.setDrug(drug);
+                    newDetail.setDrugUuid(drug.getDrugUuid());
+                    newDetail.setNegotiatedPrice(BigDecimal.valueOf(item.getPrice()));
+                    newDetail.setStatus(Status.ACTIVE);
+                    newDetail.setItemType("DRUG");
+                    newDetail.setContractDetailUuid(UUID.randomUUID().toString());
+                    return contractDetailRepository.save(newDetail);
+                });
+
+        dispensingItem.setContractDetail(contractDetail);
+
         return dispensingItem;
     }
 

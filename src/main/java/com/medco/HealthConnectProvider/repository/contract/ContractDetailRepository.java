@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.repository.contract;
 
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
+import com.medco.HealthConnectProvider.entity.drug.Drug;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -85,5 +86,20 @@ public interface ContractDetailRepository extends JpaRepository<ContractDetail, 
     void deleteByContractHeader(ContractHeader contract);
 
     ContractDetail findByContractHeaderAndServicelistServiceUuid(ContractHeader activeContract, String contractDetailUuid);
+
+    @Query("SELECT cd FROM ContractDetail cd " +
+            "JOIN cd.contractHeader ch " +
+            "WHERE ch.provider.providerUuid = :providerUuid " +
+            "AND ch.payer.payerUuid = :payerUuid " +
+            "AND (cd.drug.drugName = :medicationName OR cd.servicelist.serviceName = :medicationName) " +
+            "AND ch.status = 'ACTIVE' " +
+            "AND CURRENT_DATE BETWEEN ch.startDate AND ch.endDate")
+    ContractDetail findByContractHeaderAndMedicationName(
+            @Param("providerUuid") String providerUuid,
+            @Param("payerUuid") String payerUuid,
+            @Param("medicationName") String medicationName
+    );
+
+    Optional<ContractDetail> findByContractHeaderAndDrug(ContractHeader contractHeader, Drug drug);
 
 }
