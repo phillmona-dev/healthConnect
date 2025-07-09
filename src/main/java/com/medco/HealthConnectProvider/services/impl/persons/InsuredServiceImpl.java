@@ -14,11 +14,13 @@ import java.text.ParseException;
 import java.util.Date;
 import java.util.stream.Collectors;
 
+import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
+import com.medco.HealthConnectProvider.repository.group.EmployeeDependantGroupRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
 import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
@@ -28,7 +30,6 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.persons.InsuredR
 import com.medco.HealthConnectProvider.ui.request.auth.password.persons.InsuredWithDependantsRequest;
 import com.medco.HealthConnectProvider.ui.request.persons.InsuredUpdateRequest;
 import com.medco.HealthConnectProvider.ui.response.ApiErrorResponse;
-import com.medco.HealthConnectProvider.ui.response.ImportResponse;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.*;
@@ -71,13 +72,16 @@ public class InsuredServiceImpl implements InsuredService {
 
     private final DependantRepository dependantRepository;
 
+    private final EmployeeDependantGroupRepository groupRepository;
+
     @Value("${file.upload-dir-payer-logos:C:/Users/Administrator/OneDrive/Desktop/MedcoProjects/logos/payers}")
     private String payerLogosDirectory;
 
-    public InsuredServiceImpl(InsuredRepository insuredRepository, PayerRepository payerRepository, DependantRepository dependantRepository) {
+    public InsuredServiceImpl(InsuredRepository insuredRepository, PayerRepository payerRepository, DependantRepository dependantRepository, EmployeeDependantGroupRepository groupRepository) {
         this.insuredRepository = insuredRepository;
         this.payerRepository = payerRepository;
         this.dependantRepository = dependantRepository;
+        this.groupRepository = groupRepository;
     }
 
     @Override
@@ -135,6 +139,10 @@ public class InsuredServiceImpl implements InsuredService {
 
             Insured savedInsured = insuredRepository.save(insured);
 
+            if(insuredRequest.getGroupUuid() !=null && !insuredRequest.getGroupUuid().isEmpty()){
+                addInsuredToGroup(savedInsured, insuredRequest.getGroupUuid());
+            }
+
             InsuredResponse response = new InsuredResponse();
             BeanUtils.copyProperties(savedInsured, response);
             //response.setInsuranceId(savedInsured.getInsuranceId());
@@ -143,6 +151,7 @@ public class InsuredServiceImpl implements InsuredService {
             response.setProfilePicturePath(savedInsured.getProfilePicturePath());
 
             if (savedInsured.getProfilePicturePath() != null) {
+
                 try {
                     Path path = Paths.get(payerLogosDirectory + "/" + savedInsured.getProfilePicturePath());
                     byte[] fileContent = Files.readAllBytes(path);
@@ -151,6 +160,7 @@ public class InsuredServiceImpl implements InsuredService {
                 } catch (IOException e) {
                     logger.warn("Could not read photo for insured {}: {}", savedInsured.getInsuredUuid(), e.getMessage());
                 }
+
             }
 
             return ResponseEntity.ok(response);
@@ -160,6 +170,17 @@ public class InsuredServiceImpl implements InsuredService {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new MessageResponse("Error creating insured person: " + e.getMessage()));
         }
+    }
+
+    private void addInsuredToGroup(Insured savedInsured, String groupUuid) {
+        EmployeeDependantGroup group = groupRepository.findByGroupUuid(groupUuid);
+        if (group == null){
+            throw new ResourceNotFoundException("Employee group", "groupUuid", groupUuid);
+        }
+
+        savedInsured.setEmployeeDependantGroup(group);
+        group.getInsureds().add(savedInsured);
+        groupRepository.save(group);
     }
 
     private String saveProfilePhoto(MultipartFile photo, String insuredUuid) throws IOException {
@@ -198,6 +219,7 @@ public class InsuredServiceImpl implements InsuredService {
         }
 
         return newFileName;
+
     }
 
     @Override
@@ -248,6 +270,7 @@ public class InsuredServiceImpl implements InsuredService {
 
     @Override
     public ResponseEntity<?> getInsuredPersonByUuid(String insuredUuid) {
+
         try {
             Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
             if (insured == null) {
@@ -551,21 +574,21 @@ public class InsuredServiceImpl implements InsuredService {
 
         List<Insured> insuredList = new ArrayList<>();
 
-        Insured insured = (Insured) insuredRepository.findByPhone(identifier);
-        if (insured != null) {
-            insuredList.add(insured);
+        List<Insured> insuredByPhone = (List<Insured>) insuredRepository.findByPhone(identifier);
+        if (!insuredByPhone.isEmpty()) {
+            insuredList.addAll(insuredByPhone);
             return mapToInsuredSearchResponses(insuredList);
         }
 
-         insured = (Insured) insuredRepository.findByIdNumber(identifier);
-        if (insured != null) {
-            insuredList.add(insured);
+        List<Insured> insuredByIdNumber = insuredRepository.findByIdNumber(identifier);
+        if (!insuredByIdNumber.isEmpty()) {
+            insuredList.addAll(insuredByIdNumber);
             return mapToInsuredSearchResponses(insuredList);
         }
 
-        insured = insuredRepository.findByEmployeeId(identifier);
-        if (insured != null) {
-            insuredList.add(insured);
+       List<Insured> insuredByEmployeeId = (List<Insured>) insuredRepository.findByEmployeeId(identifier);
+        if (!insuredByEmployeeId.isEmpty()) {
+            insuredList.addAll(insuredByEmployeeId);
             return mapToInsuredSearchResponses(insuredList);
         }
 //
@@ -575,9 +598,9 @@ public class InsuredServiceImpl implements InsuredService {
 //            return mapToInsuredSearchResponses(insuredList);
 //        }
 
-        insured = insuredRepository.findByNationalId(identifier);
-        if (insured != null) {
-            insuredList.add(insured);
+      List<Insured>  insuredByNationalId = (List<Insured>) insuredRepository.findByNationalId(identifier);
+        if (!insuredByNationalId.isEmpty()) {
+            insuredList.addAll(insuredByNationalId);
             return mapToInsuredSearchResponses(insuredList);
         }
 

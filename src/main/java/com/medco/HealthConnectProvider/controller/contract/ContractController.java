@@ -277,9 +277,9 @@ public class ContractController {
 
 
     @PostMapping("/create-kenema-contract")
-    @Operation(summary = "Create a new contract for Kenema provider", description = "Creates a new active contract between the specified payer and the Kenema provider")
-    public ResponseEntity<ContractResponse> createKenemaContract(@RequestParam String payerUuid) {
-        return contractService.createKenemaContract(payerUuid);
+    @Operation(summary = "Create new contracts for Kenema provider", description = "Creates new active contracts between the specified payers and the Kenema provider")
+    public ResponseEntity<List<ContractResponse>> createKenemaContracts(@RequestBody List<String> payerUuids) {
+        return contractService.createKenemaContracts(payerUuids);
     }
 
 }

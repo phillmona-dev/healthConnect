@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.util.List;
 
 public interface InsuredService {
+
     ResponseEntity<?> createInsuredPerson(InsuredRequest insuredRequest, MultipartFile photo);
 
     @Transactional

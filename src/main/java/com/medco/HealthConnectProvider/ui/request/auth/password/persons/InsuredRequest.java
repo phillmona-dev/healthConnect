@@ -82,4 +82,6 @@ public class InsuredRequest {
 
     private Status status;
 
+    private String groupUuid;
+
 }

@@ -15,6 +15,7 @@ public class InsuredResponse {
 
     private String insuredUuid;
     private String payerUuid;
+    private String groupUuid;
     private String payerInstitutionContractUuid;
     private String email;
 

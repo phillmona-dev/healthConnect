@@ -871,18 +871,28 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Override
     @Transactional
     public ResponseEntity<DispensingResponse> recordMedicationDispensing(KenemaPharmacyDispensingRequest request) {
-
         log.info("Recording medication dispensing from Kenema pharmacy: {}", request.getIdentifier());
 
-        Provider provider = (Provider) providerRepository.findByProviderName(request.getProviderName())
-                .orElseThrow(() -> new ResourceNotFoundException("Provider", "providerName", request.getProviderName()));
+        Provider provider = providerRepository.findByProviderNameContainingIgnoreCase("kenema")
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("provider", "provider name containing 'kenema'", request.getProviderName()));
+        
+        List<InsuredSearchResponse> insuredResponses = insuredService.searchInsuredPersons(request.getIdentifier());
 
-        Insured insured = findInsuredPerson(request);
-        if (insured == null) {
+        if (insuredResponses.isEmpty()) {
             throw new ResourceNotFoundException("Insured", "provided identifiers", "Not found");
         }
 
-       // validateUniqueTransaction(request.getMrn());
+        if (insuredResponses.size() > 1) {
+            throw new BadRequestException("Multiple insured persons found. Please provide a more specific identifier.");
+        }
+
+        InsuredSearchResponse insuredResponse = insuredResponses.get(0);
+        Insured insured = insuredRepository.findByInsuredUuid(insuredResponse.getInsuredUuid());
+        if (insured == null){
+            throw new ResourceNotFoundException("Insured", "insuredUuid", insuredResponse.getInsuredUuid());
+        }
 
         EligibilityResponse eligibilityResponse = checkEligibility(insured, provider.getProviderUuid());
 
@@ -903,31 +913,39 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             throw new BadRequestException("Identifier is required to find the insured person");
         }
 
-        Insured insured = null;
+        String identifier = request.getIdentifier();
+        List<Insured> insuredList;
 
-        insured = insuredRepository.findByInsuranceId(request.getIdentifier());
+        insuredList = (List<Insured>) insuredRepository.findByInsuranceId(identifier);
+        if (insuredList != null && !insuredList.isEmpty()) return selectInsured(insuredList, "insurance ID", identifier);
 
-        if (insured == null) {
-            insured = insuredRepository.findByEmployeeId(request.getIdentifier());
+        insuredList = (List<Insured>) insuredRepository.findByEmployeeId(identifier);
+        if (insuredList != null && !insuredList.isEmpty()) return selectInsured(insuredList, "employee ID", identifier);
+
+        insuredList = insuredRepository.findByIdNumber(identifier);
+        if (insuredList != null && !insuredList.isEmpty()) return selectInsured(insuredList, "ID number", identifier);
+
+        insuredList = (List<Insured>) insuredRepository.findByNationalId(identifier);
+        if (insuredList != null && !insuredList.isEmpty()) return selectInsured(insuredList, "national ID", identifier);
+
+        insuredList = (List<Insured>) insuredRepository.findByPhone(identifier);
+        if (insuredList != null && !insuredList.isEmpty()) return selectInsured(insuredList, "phone number", identifier);
+
+        throw new ResourceNotFoundException("Insured Person", "identifier", identifier);
+
+    }
+
+    private Insured selectInsured(List<Insured> insuredList, String identifierType, String identifier) {
+        if (insuredList.size() == 1) {
+            return insuredList.get(0);
+        } else {
+
+            log.warn("Multiple insured persons found with the same {} : {}",
+                    identifierType, insuredList.stream().map(Insured::getInsuredUuid).collect(Collectors.joining(", ")));
+
+            throw new BadRequestException("Multiple insured persons found with the same " + identifierType +
+                    " (" + identifier + "). Please use a more specific identifier.");
         }
-
-        if (insured == null) {
-            insured = (Insured) insuredRepository.findByIdNumber(request.getIdentifier());
-        }
-
-        if (insured == null) {
-            insured = insuredRepository.findByNationalId(request.getIdentifier());
-        }
-
-        if (insured == null) {
-            insured = (Insured) insuredRepository.findByPhone(request.getIdentifier());
-        }
-
-        if (insured == null) {
-            throw new ResourceNotFoundException("Insured Person", "identifier", request.getIdentifier());
-        }
-
-        return insured;
     }
 
     private EligibilityResponse checkEligibility(Insured insured, String providerUuid) {

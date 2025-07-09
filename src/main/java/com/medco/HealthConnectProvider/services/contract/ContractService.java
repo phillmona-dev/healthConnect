@@ -75,6 +75,6 @@ public interface ContractService {
 
     ContractResponse getContract(String contractUuid, String userType, String searchKey);
 
-    ResponseEntity<ContractResponse> createKenemaContract(String payerUuid);
 
+    ResponseEntity<List<ContractResponse>> createKenemaContracts(List<String> payerUuids);
 }

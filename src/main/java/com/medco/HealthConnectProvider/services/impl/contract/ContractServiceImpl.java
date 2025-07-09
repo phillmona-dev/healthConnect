@@ -387,7 +387,7 @@ public class ContractServiceImpl implements ContractService {
 
     @Transactional
     @Override
-    public ResponseEntity<ContractResponse> createKenemaContract(String payerUuid) {
+    public ResponseEntity<List<ContractResponse>> createKenemaContracts(List<String> payerUuids) {
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String providerUuid = userDetails.getProviderUuid();
 
@@ -396,64 +396,70 @@ public class ContractServiceImpl implements ContractService {
             throw new BadRequestException("This operation is only allowed for Kenema providers");
         }
 
-        Payer payer = payerRepository.findByPayerUuid(payerUuid);
-        if (payer == null) {
-            throw new ResourceNotFoundException("Payer", "payerUuid", payerUuid);
-        }
+        List<ContractResponse> contractResponses = new ArrayList<>();
 
-        String contractName = payer.getPayerName() + " - " + provider.getThreeDigitAcronym();
-        String uniqueContractName = generateUniqueContractName(contractName);
-        String contractCode = generateContractCode();
+        for (String payerUuid : payerUuids) {
+            Payer payer = payerRepository.findByPayerUuid(payerUuid);
+            if (payer == null) {
+                throw new ResourceNotFoundException("Payer", "payerUuid", payerUuid);
+            }
 
-        LocalDate startDate = LocalDate.now();
-        LocalDate endDate = startDate.plusYears(1);
+            String contractName = payer.getPayerName() + " - " + provider.getThreeDigitAcronym();
+            String uniqueContractName = generateUniqueContractName(contractName);
+            String contractCode = generateContractCode();
 
-        ContractHeader contract = ContractHeader.builder()
-                .contractName(uniqueContractName)
-                .contractCode(contractCode)
-                .payer(payer)
-                .provider(provider)
-                .status(Status.ACTIVE)
-                .startDate(startDate)
-                .endDate(endDate)
-                .build();
+            LocalDate startDate = LocalDate.now();
+            LocalDate endDate = startDate.plusYears(1);
 
-        ContractHeader savedContract = contractRepository.save(contract);
-
-        // Add services belonging to the provider to the contract
-        Optional<Provider> optionalProvider = Optional.of(provider);
-        Page<Servicelist> providerServicesPage = servicelistRepository.findByProvider(optionalProvider, Pageable.unpaged());
-        List<Servicelist> providerServices = providerServicesPage.getContent();
-
-        for (Servicelist service : providerServices) {
-            ContractDetail contractDetail = ContractDetail.builder()
-                    .contractHeader(savedContract)
-                    .contractHeaderUuid(savedContract.getContractHeaderUuid())
-                    .servicelist(service)
-                    .serviceUuid(service.getServiceUuid())
-                    .negotiatedPrice(BigDecimal.valueOf(service.getPrice()))
+            ContractHeader contract = ContractHeader.builder()
+                    .contractName(uniqueContractName)
+                    .contractCode(contractCode)
+                    .payer(payer)
+                    .provider(provider)
                     .status(Status.ACTIVE)
+                    .startDate(startDate)
+                    .endDate(endDate)
                     .build();
-            contractDetailRepository.save(contractDetail);
+
+            ContractHeader savedContract = contractRepository.save(contract);
+
+            // Add services belonging to the provider to the contract
+            Optional<Provider> optionalProvider = Optional.of(provider);
+            Page<Servicelist> providerServicesPage = servicelistRepository.findByProvider(optionalProvider, Pageable.unpaged());
+            List<Servicelist> providerServices = providerServicesPage.getContent();
+
+            for (Servicelist service : providerServices) {
+                ContractDetail contractDetail = ContractDetail.builder()
+                        .contractHeader(savedContract)
+                        .contractHeaderUuid(savedContract.getContractHeaderUuid())
+                        .servicelist(service)
+                        .serviceUuid(service.getServiceUuid())
+                        .negotiatedPrice(BigDecimal.valueOf(service.getPrice()))
+                        .status(Status.ACTIVE)
+                        .build();
+                contractDetailRepository.save(contractDetail);
+            }
+
+            // Add drugs belonging to the provider to the contract
+            List<Drug> providerDrugs = drugRepository.findByProvider(provider);
+            for (Drug drug : providerDrugs) {
+                ContractDetail contractDetail = ContractDetail.builder()
+                        .contractHeader(savedContract)
+                        .contractHeaderUuid(savedContract.getContractHeaderUuid())
+                        .drug(drug)
+                        .drugUuid(drug.getDrugUuid())
+                        .negotiatedPrice(drug.getPrice())
+                        .status(Status.ACTIVE)
+                        .build();
+                contractDetailRepository.save(contractDetail);
+            }
+
+            ContractResponse response = new ContractResponse();
+            modelMapper.map(savedContract, response);
+            contractResponses.add(response);
         }
 
-        // Add drugs belonging to the provider to the contract
-        List<Drug> providerDrugs = drugRepository.findByProvider(provider);
-        for (Drug drug : providerDrugs) {
-            ContractDetail contractDetail = ContractDetail.builder()
-                    .contractHeader(savedContract)
-                    .contractHeaderUuid(savedContract.getContractHeaderUuid())
-                    .drug(drug)
-                    .drugUuid(drug.getDrugUuid())
-                    .negotiatedPrice(drug.getPrice())
-                    .status(Status.ACTIVE)
-                    .build();
-            contractDetailRepository.save(contractDetail);
-        }
-
-        ContractResponse response = new ContractResponse();
-        modelMapper.map(savedContract, response);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(contractResponses);
     }
 
     private String generateUniqueContractName(String baseName) {
@@ -465,6 +471,7 @@ public class ContractServiceImpl implements ContractService {
     }
 
     private ContractResponse.InsuredSummary filterDependants(ContractResponse.InsuredSummary summary, String searchKey) {
+
         if (searchKey == null || searchKey.trim().isEmpty()) {
             return summary;
         }
