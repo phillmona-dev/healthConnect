@@ -35,13 +35,15 @@ public class PrivilegeServiceImpl implements PrivilegeService {
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         var privileges = new Privilege();
         BeanUtils.copyProperties(privilegeRequest, privileges);
-        if (userDetails.getPayerUuid()!=null){
-            privileges.setPrivilegeType(PrivilegeType.FOR_PAYER);
+        privileges.setPrivilegeType(privilegeRequest.getPrivilegeType());
 
-        } else if (userDetails.getProviderUuid()!=null) {
-            privileges.setPrivilegeType(PrivilegeType.FOR_PROVIDER);
-
-        }else privileges.setPrivilegeType(PrivilegeType.FOR_ALL);
+//        if (userDetails.getPayerUuid()!=null){
+//            privileges.setPrivilegeType(PrivilegeType.FOR_PAYER);
+//
+//        } else if (userDetails.getProviderUuid()!=null) {
+//            privileges.setPrivilegeType(PrivilegeType.FOR_PROVIDER);
+//
+//        }else privileges.setPrivilegeType(PrivilegeType.FOR_ALL);
 
         Privilege savedPrivilege = privilegeRepository.save(privileges);
 
@@ -85,6 +87,11 @@ public class PrivilegeServiceImpl implements PrivilegeService {
         Page<Privilege> privilegePage = search != null ?
                  privilegeRepository.findAllByPrivilegeNameContaining(search, pageable) :
                 privilegeRepository.findAll(pageable);
+//        for (Privilege privilege:privilegePage){
+//            privilege.setPrivilegeType(PrivilegeType.FOR_ALL);
+//            privilegeRepository.save(privilege);
+//        }
+
 
 
         List<PrivilegeResponse> privilegeResponses;

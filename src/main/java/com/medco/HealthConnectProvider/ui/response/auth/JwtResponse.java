@@ -22,6 +22,8 @@ public class JwtResponse {
     private String mobilePhone;
     private String payerUuid;
     private String providerUuid;
+    private String roleUuid;
+    private String roleName;
     private Set<String> authorities;
     private String profilePicture;
     private String Logo;

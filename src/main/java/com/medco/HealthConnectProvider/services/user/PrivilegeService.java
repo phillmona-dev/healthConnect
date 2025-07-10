@@ -15,6 +15,7 @@ public interface PrivilegeService {
 
     PagedResponse<PrivilegeResponse> getAllPrivileges(String search, Pageable pageable);
 
+
     ResponseEntity<?> updatePrivilege(String privilegeUuid, PrivilegeRequest request);
 
     ResponseEntity<?> deletePrivilege(String privilegeUuid);
