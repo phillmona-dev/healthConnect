@@ -78,84 +78,103 @@ public class EligibilityServiceImpl implements EligibilityService {
 
     @Override
     public ResponseEntity<EligibilityResponse> checkEligibilityForInsured(String providerUuid, InsuredSearchResponse insured, String serviceUuid) {
+        log.info("Starting eligibility check for insured: {}, provider: {}, service: {}", insured.getInsuredUuid(), providerUuid, serviceUuid);
 
-        EligibilityCheckRequest request = new EligibilityCheckRequest();
-        request.setInsuranceId(insured.getInsuranceId());
-        request.setEmployeeId(insured.getEmployeeId());
-        request.setNationalId(insured.getNationalId());
-        request.setPhoneNumber(insured.getPhone());
-        request.setServiceUuid(serviceUuid);
+        try {
+            EligibilityCheckRequest request = new EligibilityCheckRequest();
+            request.setInsuranceId(insured.getInsuranceId());
+            request.setEmployeeId(insured.getEmployeeId());
+            request.setNationalId(insured.getNationalId());
+            request.setPhoneNumber(insured.getPhone());
+            request.setServiceUuid(serviceUuid);
 
-        Provider provider = providerRepository.findByProviderUuid(providerUuid);
-        if (provider == null){
-            throw new ResourceNotFoundException("Provider", "providerUuid", providerUuid);
-        }
-
-        Payer payer = payerRepository.findByPayerUuid(insured.getPayerUuid());
-        if (payer == null) {
-            throw new ResourceNotFoundException("Payer", "payerUuid", insured.getPayerUuid());
-        }
-
-        Insured insuredPerson = insuredRepository.findByInsuredUuid(insured.getInsuredUuid());
-        if (insuredPerson == null) {
-            throw new ResourceNotFoundException("Insured", "insuredUuid", insured.getInsuredUuid());
-        }
-
-        ContractHeader contract = contractHeaderRepository.findActiveContractBetweenProviderAndPayer(
-                providerUuid, payer.getPayerUuid(), Status.ACTIVE);
-        if (contract == null) {
-            throw new BadRequestException("No active contract exists between this provider and payer");
-        }
-
-        boolean isPolicyActive = insuredPerson.getStatus() == Status.ACTIVE &&
-                (insuredPerson.getPolicyStartDate() == null || LocalDate.now().isAfter(insuredPerson.getPolicyStartDate())) &&
-                (insuredPerson.getPolicyEndDate() == null || LocalDate.now().isBefore(insuredPerson.getPolicyEndDate()));
-
-        EligibilityResponse response = new EligibilityResponse();
-
-        BeanUtils.copyProperties(insured, response);
-        response.setPayerUuid(payer.getPayerUuid());
-
-        response.setPolicyNumber(insuredPerson.getPolicyNumber());
-        response.setPolicyStartDate(insuredPerson.getPolicyStartDate());
-        response.setPolicyEndDate(insuredPerson.getPolicyEndDate());
-        response.setPolicyActive(isPolicyActive);
-
-        List<GroupMembershipResponse> groupResponses = getInsuredGroups(insuredPerson);
-        response.setGroups(groupResponses);
-
-        if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
-            response.setDependents(insured.getDependants().stream()
-                    .map(this::mapDependantResponseToDependentEligibilityResponse)
-                    .collect(Collectors.toList()));
-        } else {
-            response.setDependents(new ArrayList<>());
-        }
-
-        if (serviceUuid != null && !serviceUuid.isEmpty()) {
-            response.setRequestedService(checkServiceEligibility(
-                    serviceUuid,
-                    contract,
-                    provider,
-                    insuredPerson,
-                    groupResponses));
-        } else {
-            response.setRequestedService(null);
-        }
-
-        boolean isEligible = isPolicyActive && insuredPerson.getStatus() == Status.ACTIVE;
-        response.setEligible(isEligible);
-
-        if (!isEligible) {
-            if (!isPolicyActive) {
-                response.setIneligibilityReason("Policy is not active or has expired");
-            } else if (insuredPerson.getStatus() != Status.ACTIVE) {
-                response.setIneligibilityReason("Insured person's status is not active");
+            log.info("Validating provider: {}", providerUuid);
+            Provider provider = providerRepository.findByProviderUuid(providerUuid);
+            if (provider == null) {
+                throw new ResourceNotFoundException("Provider", "providerUuid", providerUuid);
             }
+
+            log.info("Validating payer: {}", insured.getPayerUuid());
+            Payer payer = payerRepository.findByPayerUuid(insured.getPayerUuid());
+            if (payer == null) {
+                throw new ResourceNotFoundException("Payer", "payerUuid", insured.getPayerUuid());
+            }
+
+            log.info("Validating insured person: {}", insured.getInsuredUuid());
+            Insured insuredPerson = insuredRepository.findByInsuredUuid(insured.getInsuredUuid());
+            if (insuredPerson == null) {
+                throw new ResourceNotFoundException("Insured", "insuredUuid", insured.getInsuredUuid());
+            }
+
+            log.info("Checking for active contract between provider and payer");
+            List<ContractHeader> activeContracts = contractHeaderRepository.findActiveContractsBetweenProviderAndPayer(
+                    providerUuid, payer.getPayerUuid(), Status.ACTIVE);
+
+            if (activeContracts.isEmpty()) {
+                throw new BadRequestException("No active contract exists between this provider and payer");
+            }
+
+            // Get the first (most recent) active contract
+            ContractHeader contract = activeContracts.get(0);
+            log.info("Found active contract: {}", contract.getContractHeaderUuid());
+
+            boolean isPolicyActive = insuredPerson.getStatus() == Status.ACTIVE &&
+                    (insuredPerson.getPolicyStartDate() == null || LocalDate.now().isAfter(insuredPerson.getPolicyStartDate())) &&
+                    (insuredPerson.getPolicyEndDate() == null || LocalDate.now().isBefore(insuredPerson.getPolicyEndDate()));
+
+            log.info("Creating eligibility response");
+            EligibilityResponse response = new EligibilityResponse();
+            BeanUtils.copyProperties(insured, response);
+            response.setPayerUuid(payer.getPayerUuid());
+            response.setPolicyNumber(insuredPerson.getPolicyNumber());
+            response.setPolicyStartDate(insuredPerson.getPolicyStartDate());
+            response.setPolicyEndDate(insuredPerson.getPolicyEndDate());
+            response.setPolicyActive(isPolicyActive);
+
+            log.info("Getting insured groups");
+            List<GroupMembershipResponse> groupResponses = getInsuredGroups(insuredPerson);
+            response.setGroups(groupResponses);
+
+            if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
+                log.info("Processing dependants");
+                response.setDependents(insured.getDependants().stream()
+                        .map(this::mapDependantResponseToDependentEligibilityResponse)
+                        .collect(Collectors.toList()));
+            } else {
+                response.setDependents(new ArrayList<>());
+            }
+
+            if (serviceUuid != null && !serviceUuid.isEmpty()) {
+                log.info("Checking service eligibility for service: {}", serviceUuid);
+                response.setRequestedService(checkServiceEligibility(
+                        serviceUuid,
+                        contract,
+                        provider,
+                        insuredPerson,
+                        groupResponses));
+            } else {
+                response.setRequestedService(null);
+            }
+
+            boolean isEligible = isPolicyActive && insuredPerson.getStatus() == Status.ACTIVE;
+            response.setEligible(isEligible);
+
+            if (!isEligible) {
+                log.warn("Insured person is not eligible");
+                if (!isPolicyActive) {
+                    response.setIneligibilityReason("Policy is not active or has expired");
+                } else if (insuredPerson.getStatus() != Status.ACTIVE) {
+                    response.setIneligibilityReason("Insured person's status is not active");
+                }
+            }
+
+            log.info("Eligibility check completed successfully");
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error during eligibility check", e);
+            throw new BadRequestException("Error during eligibility check: " + e.getMessage());
         }
-
-        return ResponseEntity.ok(response);
-
     }
 
     @Override
@@ -226,7 +245,7 @@ public class EligibilityServiceImpl implements EligibilityService {
             throw new ResourceNotFoundException("Payer", "payerName", insuredResponse.getPayerName());
         }
 
-        ContractHeader contract = contractHeaderRepository.findActiveContractBetweenProviderAndPayer(
+        ContractHeader contract = (ContractHeader) contractHeaderRepository.findActiveContractsBetweenProviderAndPayer(
                 provider.getProviderUuid(), payer.getPayerUuid(), Status.ACTIVE);
         if (contract == null) {
             throw new BadRequestException("No active contract exists between this provider and payer");

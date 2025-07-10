@@ -46,4 +46,6 @@ public interface DrugRepository extends JpaRepository<Drug, Long> {
     List<Drug> findByDrugUuidIn(List<String> drugUuids);
 
     List<Drug> findByProvider(Provider provider);
+
+    Optional<Drug> findByDrugName(String medicationName);
 }

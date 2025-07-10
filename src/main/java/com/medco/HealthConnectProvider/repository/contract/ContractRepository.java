@@ -125,8 +125,9 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
             "AND ch.payer.payerUuid = :payerUuid " +
             "AND ch.status = :status " +
             "AND ch.isDeleted = false " +
-            "AND CURRENT_DATE BETWEEN ch.startDate AND ch.endDate")
-    ContractHeader findActiveContractBetweenProviderAndPayer(
+            "AND CURRENT_DATE BETWEEN ch.startDate AND ch.endDate " +
+            "ORDER BY ch.startDate DESC")
+    List<ContractHeader> findActiveContractsBetweenProviderAndPayer(
             @Param("providerUuid") String providerUuid,
             @Param("payerUuid") String payerUuid,
             @Param("status") Status status);
@@ -238,7 +239,5 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
     Optional<ContractHeader> findActiveContractByPayerUuid(@Param("payerUuid") String payerUuid);
 
     Optional<ContractHeader> findActiveContractByProviderProviderUuidAndPayerPayerUuid(@Size(min = 36, max = 40, message = "Provided Uuid Must be between 36 and 40") String providerUuid, String payerUuid);
-
-    Optional<ContractHeader> findActiveContractByProviderProviderUuidAndPayerPayerUuidAndStatus(@Size(min = 36, max = 40, message = "Provided Uuid Must be between 36 and 40") String providerUuid, String payerUuid, Status status);
 
 }
