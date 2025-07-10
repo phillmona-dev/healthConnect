@@ -193,6 +193,8 @@ public class UserServiceImpl implements UserService {
                         user.getMobilePhone(),
                         payerUuid,
                         providerUuid,
+                        user.getRole().getRoleUuid(),
+                        user.getRole().getRoleName(),
                         authorities,
                         profilePicture,
                         logo,

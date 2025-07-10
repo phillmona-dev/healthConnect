@@ -3,6 +3,7 @@ package com.medco.HealthConnectProvider.ui.request.auth.password;
 import com.medco.HealthConnectProvider.utils.enums.PrivilegeType;
 import jakarta.persistence.Column;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -23,7 +24,7 @@ public class PrivilegeRequest {
     @Column(length = 50)
     private String privilegeCategory;
 
-//    @NotBlank
+    @NotNull(message = "privilege type can't be empty ")
     private PrivilegeType  privilegeType;
 
 }

@@ -36,7 +36,7 @@ public class Privilege {
     private String privilegeDescription;
 
     @NotBlank
-//    @Column(length = 50)
+    @Column(length = 50)
     private String privilegeCategory;
 
     @Enumerated(EnumType.STRING)
