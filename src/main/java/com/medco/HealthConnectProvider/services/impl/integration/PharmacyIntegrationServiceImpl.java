@@ -334,6 +334,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Override
     @Transactional
     public ResponseEntity<?> editDispensingRecord(String dispensingUuid, DispensingRecordEditRequest editRequest) {
+
         try {
             UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
@@ -919,6 +920,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         log.info("Dispensing response created: {}", response);
 
         return ResponseEntity.ok(response);
+        
     }
 
 
@@ -1065,14 +1067,11 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     private Drug findOrCreateDrug(KenemaPharmacyDispensingRequest.PrescriptionDetail prescriptionDetail) {
-        // First, try to find the drug by name
         Optional<Drug> existingDrug = drugRepository.findByDrugName(prescriptionDetail.getMedicationName());
 
         if (existingDrug.isPresent()) {
-            // If the drug exists, return it
             return existingDrug.get();
         } else {
-            // If the drug doesn't exist, create a new one
             Drug newDrug = new Drug();
             newDrug.setDrugName(prescriptionDetail.getMedicationName());
             newDrug.setDosage(prescriptionDetail.getDosage().toString());
@@ -1101,10 +1100,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensingItem.setRoute(item.getRoute());
         dispensingItem.setItemType(ItemType.DRUG);
 
-        // Find or create the drug
         Drug drug = findOrCreateDrug(item);
 
-        // Find the active contract header
         List<ContractHeader> activeContracts = contractHeaderRepository.findActiveContractsBetweenProviderAndPayer(
                 savedDispensing.getProviderUuid(), savedDispensing.getPayerUuid(), Status.ACTIVE);
 
@@ -1113,9 +1110,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                     savedDispensing.getProviderUuid() + " and " + savedDispensing.getPayerUuid());
         }
 
-        ContractHeader activeContract = activeContracts.get(0); // Get the most recent active contract
+        ContractHeader activeContract = activeContracts.get(0);
 
-        // Look up the contract detail or create a new one
         ContractDetail contractDetail = contractDetailRepository.findByContractHeaderAndDrug(activeContract, drug)
                 .orElseGet(() -> {
                     ContractDetail newDetail = new ContractDetail();

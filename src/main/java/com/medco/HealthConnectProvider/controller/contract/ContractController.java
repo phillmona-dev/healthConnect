@@ -275,7 +275,6 @@ public class ContractController {
         return contractService.softDeleteRejectedContract(contractUuid);
     }
 
-
     @PostMapping("/create-kenema-contract")
     @Operation(summary = "Create new contracts for Kenema provider", description = "Creates new active contracts between the specified payers and the Kenema provider")
     public ResponseEntity<List<ContractResponse>> createKenemaContracts(@RequestBody List<String> payerUuids) {

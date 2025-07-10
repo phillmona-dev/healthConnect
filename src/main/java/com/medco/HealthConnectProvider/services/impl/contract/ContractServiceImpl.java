@@ -28,7 +28,6 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.contract.Contrac
 import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractRenewalRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractTerminationRequest;
-import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractServiceGroupAssignmentRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
@@ -49,7 +48,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.ErrorResponse;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpHeaders;
@@ -423,7 +421,6 @@ public class ContractServiceImpl implements ContractService {
 
             ContractHeader savedContract = contractRepository.save(contract);
 
-            // Add services belonging to the provider to the contract
             Optional<Provider> optionalProvider = Optional.of(provider);
             Page<Servicelist> providerServicesPage = servicelistRepository.findByProvider(optionalProvider, Pageable.unpaged());
             List<Servicelist> providerServices = providerServicesPage.getContent();
@@ -440,7 +437,6 @@ public class ContractServiceImpl implements ContractService {
                 contractDetailRepository.save(contractDetail);
             }
 
-            // Add drugs belonging to the provider to the contract
             List<Drug> providerDrugs = drugRepository.findByProvider(provider);
             for (Drug drug : providerDrugs) {
                 ContractDetail contractDetail = ContractDetail.builder()
