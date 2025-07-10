@@ -63,10 +63,10 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unAuthorizedHandler))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(
-                                "/api/v1/healthConnect/users/**",
-                                "/api/provider/healthConnectProvider/claim/**",
-                                "/api/v1/healthConnect/payer-provider-contract/**",
-                                "/api/v1/healthConnect/dependant/createDependant/**",
+                                "/api/v1/healthConnect/users/signin",
+                                "/api/v1/healthConnect/users/signup",
+                                "/api/v1/healthConnect/integration/pharmacy/check",
+                                "/api/v1/healthConnect/integration/pharmacy/dispensing",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"

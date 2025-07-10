@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.controller.integration;
 
+import com.medco.HealthConnectProvider.annotation.RequiresApiKey;
 import com.medco.HealthConnectProvider.dto.BatchRecordDTO;
 import com.medco.HealthConnectProvider.dto.MedicationDispensingDTO;
 import com.medco.HealthConnectProvider.dto.PendingDispensingRecordDTO;
@@ -51,6 +52,7 @@ public class PharmacyIntegrationController {
         this.batchRecordService = batchRecordService;
     }
 
+    @RequiresApiKey
     @GetMapping("/check")
     @Operation(summary = "check patient eligibility",
             description = "verifies if a patient is eligible based on their identifiers")
@@ -60,6 +62,7 @@ public class PharmacyIntegrationController {
      return eligibilityService.checkEligibility(identifier);
     }
 
+    @RequiresApiKey
     @PostMapping("/dispensing")
     @Operation(summary = "Record medication dispensing",
             description = "Records medications dispensed to a patient from Kenema pharmacies")
