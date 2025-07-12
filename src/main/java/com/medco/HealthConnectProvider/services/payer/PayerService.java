@@ -2,7 +2,9 @@ package com.medco.HealthConnectProvider.services.payer;
 
 import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimReviewRequest;
+import com.medco.HealthConnectProvider.ui.response.ImportResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimResponse;
+import com.medco.HealthConnectProvider.ui.response.payer.PayerImportResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
@@ -59,5 +61,5 @@ public interface PayerService {
 
     ResponseEntity<PagedResponse<ProviderResponse>> getProvidersWithContract(String payerUuid, int page, int size, String sortBy, String sortDir, String search);
 
-    List<PayerResponse> importPayersFromExcel(MultipartFile file) throws IOException;
+    PayerImportResponse importPayersFromExcel(MultipartFile file) throws IOException;
 }

@@ -3,7 +3,9 @@ package com.medco.HealthConnectProvider.controller.payer;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.services.payer.PayerService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerRequest;
+import com.medco.HealthConnectProvider.ui.response.ImportResponse;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
+import com.medco.HealthConnectProvider.ui.response.payer.PayerImportResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
@@ -163,12 +165,12 @@ public class PayerController {
     }
 
 
-    @PostMapping("/import")
+    @PostMapping(path = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> importPayers(@RequestParam("file") MultipartFile file) {
 
         try {
-            List<PayerResponse> importedPayers = payerService.importPayersFromExcel(file);
-            return ResponseEntity.ok(new MessageResponse("Payers imported successfully", importedPayers));
+            PayerImportResponse importedPayers = payerService.importPayersFromExcel(file);
+            return ResponseEntity.ok(importedPayers);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse("Error importing payers: " + e.getMessage()));
         }

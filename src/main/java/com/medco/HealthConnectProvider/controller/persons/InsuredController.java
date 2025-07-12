@@ -154,7 +154,7 @@ public class InsuredController {
     }
 
     @PostMapping(path = "/import-insured-and-dependant", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-//	@PreAuthorize("hasRole('Upload-Insured-Persons')")
+   //@PreAuthorize("hasRole('Upload-Insured-Persons')")
     @Operation(summary = "Import insured persons and dependants", description = "Imports insured persons and their dependants from a file")
     public ResponseEntity<?> importInsuredAndDependant(@RequestParam("file") MultipartFile file,
                                                        @RequestParam("payerUuid") String payerUuid) throws Exception {

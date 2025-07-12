@@ -131,7 +131,6 @@ public class Payer extends Audit {
         }
     }
 
-    // Helper methods to maintain bidirectional relationships
     public void addUser(User user) {
         users.add(user);
         user.setPayer(this);

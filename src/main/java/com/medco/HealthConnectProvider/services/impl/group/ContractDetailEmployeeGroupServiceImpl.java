@@ -89,7 +89,6 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
 
     @Override
     public List<ContractDetailEmployeeGroupResponse> getContractDetailEmployeeGroupsByContract(String contractUuid) {
-        // Validate user access
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
 
@@ -103,7 +102,6 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
 
     @Override
     public List<ContractDetailEmployeeGroupResponse> getContractDetailEmployeeGroupsByContractDetail(String contractDetailUuid) {
-        // Validate user access
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
 
@@ -117,11 +115,9 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
 
     @Override
     public List<ContractDetailEmployeeGroupResponse> getContractDetailEmployeeGroupsByEmployeeGroup(String employeeGroupUuid) {
-        // Validate user access
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
 
-        // Validate employee group belongs to payer
         EmployeeDependantGroup employeeGroup = employeeDependantGroupRepository.findByGroupUuid(employeeGroupUuid);
         if (employeeGroup == null) {
             throw new ResourceNotFoundException("Employee Group", "groupUuid", employeeGroupUuid);
@@ -141,7 +137,6 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
     @Override
     public Page<ContractDetailEmployeeGroupResponse> searchContractDetailEmployeeGroups(
             String contractUuid, String search, Pageable pageable) {
-        // Validate user access
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
 
@@ -154,17 +149,14 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
     @Override
     @Transactional
     public ResponseEntity<?> deleteContractDetailEmployeeGroup(String contractDetailUuid, String employeeGroupUuid) {
-        // Validate user access
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
 
-        // Validate association exists
         ContractDetailEmployeeGroup association = contractDetailEmployeeGroupRepository
                 .findByContractDetailUuidAndEmployeeGroupUuid(contractDetailUuid, employeeGroupUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Association", "contractDetailUuid and employeeGroupUuid", 
                         contractDetailUuid + " and " + employeeGroupUuid));
 
-        // Validate association belongs to payer
         if (!association.getEmployeeDependantGroup().getPayerUuid().equals(payerUuid)) {
             throw new BadRequestException("Association does not belong to this payer");
         }
@@ -178,7 +170,6 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
     @Override
     @Transactional
     public ResponseEntity<?> batchCreateContractDetailEmployeeGroups(String employeeGroupUuid ,ContractDetailEmployeeGroupRequest request) {
-        // Validate user access
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String payerUuid = userDetails.getPayerUuid();
         EmployeeDependantGroup employeeDependantGroup=employeeDependantGroupRepository.findByGroupUuid(employeeGroupUuid);
@@ -187,27 +178,18 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
         List<ContractDetailEmployeeGroup>associations=new ArrayList<>();
         int createdCount=0;
         for (ContractDetail contractDetail : contractDetails) {
-            // Validate contract detail exists
 
-
-
-            // Validate contract belongs to payer
             if (!contractDetail.getContractHeader().getPayer().getPayerUuid().equals(payerUuid)) {
                 throw new BadRequestException("Contract does not belong to this payer");
             }
 
-
-
-            // Validate employee group belongs to payer
             if (!employeeDependantGroup.getPayerUuid().equals(payerUuid)) {
                 throw new BadRequestException("Employee group does not belong to this payer");
             }
 
-            // Check if association already exists
             boolean exists = contractDetailEmployeeGroupRepository.existsByContractDetailAndEmployeeDependantGroup(
                     contractDetail, employeeDependantGroup);
             if (!exists) {
-                // Create new association
                 ContractDetailEmployeeGroup association = new ContractDetailEmployeeGroup();
                 association.setContractDetail(contractDetail);
                 association.setEmployeeDependantGroup(employeeDependantGroup);
@@ -233,7 +215,6 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
         response.setContractDetailUuid(association.getContractDetailUuid());
         response.setEmployeeGroupUuid(association.getEmployeeGroupUuid());
         
-        // Add contract detail information
         if (association.getContractDetail() != null) {
             response.setServiceName(association.getContractDetail().getServicelist().getServiceName());
             response.setServiceCode(association.getContractDetail().getServicelist().getServiceCode());
@@ -242,7 +223,6 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
             response.setContractCode(association.getContractDetail().getContractHeader().getContractCode());
         }
         
-        // Add employee group information
         if (association.getEmployeeDependantGroup() != null) {
             response.setGroupName(association.getEmployeeDependantGroup().getGroupName());
             response.setGroupDescription(association.getEmployeeDependantGroup().getGroupDescription());

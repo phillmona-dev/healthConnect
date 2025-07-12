@@ -411,6 +411,7 @@ public class ClaimServiceImpl implements ClaimService {
         response.setTotalComments(commentsCount);
 
         return response;
+
     }
 
     private ClaimAttachmentResponse mapToAttachmentResponse(ClaimAttachment attachment) {
@@ -520,12 +521,10 @@ public class ClaimServiceImpl implements ClaimService {
         ClaimStatus previousStatus = claim.getStatus();
         ClaimStatus newStatus;
 
-        // Determine if this is a provider review or payer review
         boolean isProviderReview = userDetails.getProviderUuid() != null;
         boolean isPayerReview = userDetails.getPayerUuid() != null;
 
         if (isProviderReview) {
-            // Provider review
             if (!claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
                 throw new BadRequestException("You don't have access to review this claim");
             }
@@ -544,7 +543,6 @@ public class ClaimServiceImpl implements ClaimService {
                 newStatus = ClaimStatus.REJECTED;
             }
         } else if (isPayerReview) {
-            // Payer review
             if (!claim.getPayerUuid().equals(userDetails.getPayerUuid())) {
                 throw new BadRequestException("You don't have access to review this claim");
             }
@@ -566,13 +564,10 @@ public class ClaimServiceImpl implements ClaimService {
             throw new BadRequestException("Only provider or payer users can review claims");
         }
 
-        // Update claim status
         claim.setStatus(ClaimStatus.valueOf(newStatus.toString()));
 
-        // Save updated claim
         claimRepository.save(claim);
 
-        // Create claim log
         String logComment = approved ? "Claim approved" : "Claim rejected";
         if (reviewComment != null && !reviewComment.isEmpty()) {
             logComment += ": " + reviewComment;
@@ -580,7 +575,6 @@ public class ClaimServiceImpl implements ClaimService {
 
         createClaimLog(claim, userDetails, previousStatus, newStatus, logComment);
 
-        // Add comment if provided
         if (reviewComment != null && !reviewComment.isEmpty()) {
             ClaimComment comment = new ClaimComment();
             comment.setCommentUuid(UUID.randomUUID().toString());
@@ -598,9 +592,8 @@ public class ClaimServiceImpl implements ClaimService {
         return ResponseEntity.ok(new MessageResponse("Claim " + (approved ? "approved" : "rejected") + " successfully"));
     }
 
-
-
     private void createClaimLog(Claim claim, UserPrincipal userDetails, ClaimStatus previousStatus, ClaimStatus newStatus, String comment) {
+
         ClaimLogs log = new ClaimLogs();
         log.setLogUuid(UUID.randomUUID().toString());
         log.setClaimUuid(claim.getClaimUuid());
@@ -614,8 +607,8 @@ public class ClaimServiceImpl implements ClaimService {
         log.setComment(comment);
 
         claimLogsRepository.save(log);
-    }
 
+    }
 
     @Override
     @Transactional
@@ -625,7 +618,6 @@ public class ClaimServiceImpl implements ClaimService {
 
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
-        // Check if user has access to this claim
         if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("You don't have access to add attachments to this claim");
         }
@@ -634,33 +626,27 @@ public class ClaimServiceImpl implements ClaimService {
             throw new BadRequestException("You don't have access to add attachments to this claim");
         }
 
-        // Validate file
         if (file.isEmpty()) {
             throw new BadRequestException("File cannot be empty");
         }
 
-        // Validate file type
         String fileExtension = getFileExtension(file.getOriginalFilename());
         if (!isValidFileExtension(fileExtension)) {
             throw new BadRequestException("Invalid file type. Allowed types: pdf, jpg, jpeg, png, doc, docx, xls, xlsx");
         }
 
         try {
-            // Create directory if it doesn't exist
             File directory = new File(uploadDir + "/" + claimUuid);
             if (!directory.exists()) {
                 directory.mkdirs();
             }
 
-            // Generate unique filename
             String uniqueFilename = UUID.randomUUID().toString() + "." + fileExtension;
             String filePath = uploadDir + "/" + claimUuid + "/" + uniqueFilename;
 
-            // Save file to disk
             File dest = new File(filePath);
             file.transferTo(dest);
 
-            // Create attachment record
             ClaimAttachment attachment = new ClaimAttachment();
             attachment.setAttachmentUuid(UUID.randomUUID().toString());
             attachment.setClaim(claim);
@@ -674,7 +660,6 @@ public class ClaimServiceImpl implements ClaimService {
 
             claimAttachmentRepository.save(attachment);
 
-            // Create log entry
             createClaimLog(claim, userDetails, claim.getStatus(), claim.getStatus(),
                     "Attachment added: " + file.getOriginalFilename());
 
@@ -693,7 +678,6 @@ public class ClaimServiceImpl implements ClaimService {
 
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
-        // Check if user has access to this attachment
         Claim claim = attachment.getClaim();
         if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("You don't have access to delete this attachment");
@@ -703,24 +687,20 @@ public class ClaimServiceImpl implements ClaimService {
             throw new BadRequestException("You don't have access to delete this attachment");
         }
 
-        // Check if attachment can be deleted (only if claim is not in final state)
         if (claim.getStatus().equals(ClaimStatus.PAID.toString()) ||
                 claim.getStatus().equals(ClaimStatus.REJECTED.toString())) {
             throw new BadRequestException("Cannot delete attachments for claims that are paid or rejected");
         }
 
         try {
-            // Delete file from disk
             String filePath = uploadDir + attachment.getFileUrl().replace("/claims/attachments", "");
             File file = new File(filePath);
             if (file.exists()) {
                 file.delete();
             }
 
-            // Delete attachment record
             claimAttachmentRepository.delete(attachment);
 
-            // Create log entry
             createClaimLog(claim, userDetails, claim.getStatus(), claim.getStatus(),
                     "Attachment deleted: " + attachment.getFileName());
 
@@ -731,7 +711,6 @@ public class ClaimServiceImpl implements ClaimService {
         }
     }
 
-    // Helper methods for file handling
     private String getFileExtension(String filename) {
         if (filename == null) {
             return "";
@@ -756,7 +735,6 @@ public class ClaimServiceImpl implements ClaimService {
 
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
-        // Check if user has access to this claim
         if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("You don't have access to add comments to this claim");
         }
@@ -765,7 +743,6 @@ public class ClaimServiceImpl implements ClaimService {
             throw new BadRequestException("You don't have access to add comments to this claim");
         }
 
-        // Create comment
         ClaimComment comment = new ClaimComment();
         comment.setCommentUuid(UUID.randomUUID().toString());
         comment.setClaim(claim);
@@ -780,7 +757,6 @@ public class ClaimServiceImpl implements ClaimService {
 
         claimCommentRepository.save(comment);
 
-        // Create log entry
         createClaimLog(claim, userDetails, claim.getStatus(), claim.getStatus(),
                 "Comment added: " + commentRequest.getComment().substring(0, Math.min(50, commentRequest.getComment().length())) +
                         (commentRequest.getComment().length() > 50 ? "..." : ""));
@@ -871,7 +847,6 @@ public class ClaimServiceImpl implements ClaimService {
 
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
-        // Check if user has access to this claim
         if (userDetails.getProviderUuid() != null && !claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("You don't have access to view logs for this claim");
         }
@@ -897,26 +872,22 @@ public class ClaimServiceImpl implements ClaimService {
 
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
-        // Check if user has access to this claim
         if (userDetails.getPayerUuid() == null || !claim.getPayerUuid().equals(userDetails.getPayerUuid())) {
             throw new BadRequestException("Only payer users can process payments for claims");
         }
 
-        // Check if claim is in approved status
         if (!claim.getStatus().equals(ClaimStatus.APPROVED)) {
             throw new BadRequestException("Only approved claims can be processed for payment");
         }
 
-        // Initiate payment through Chapa
         String paymentResponse = String.valueOf(paymentService.initiatePayment(claimUuid, BigDecimal.valueOf(paymentRequest.getAmount()), "ETB"));
 
-        // Create payment record
         ClaimPayment payment = new ClaimPayment();
         payment.setPaymentUuid(UUID.randomUUID().toString());
         payment.setClaim(claim);
         payment.setAmount(paymentRequest.getAmount());
         payment.setPaymentType("CHAPA");
-        payment.setTransactionNumber(paymentResponse); // Assuming the response contains the transaction ID
+        payment.setTransactionNumber(paymentResponse);
         payment.setPaymentDate(Date.from(Instant.now()));
         payment.setPaidByUuid(userDetails.getUserUuid());
         payment.setPaidByName(userDetails.getFirstName() + " " + userDetails.getFatherName());
@@ -935,7 +906,6 @@ public class ClaimServiceImpl implements ClaimService {
 
         claimRepository.save(claim);
 
-        // Create log entry
         createClaimLog(claim, userDetails, previousStatus, ClaimStatus.PAYMENT_INITIATED,
                 "Payment initiated through Chapa. Amount: " + paymentRequest.getAmount());
 

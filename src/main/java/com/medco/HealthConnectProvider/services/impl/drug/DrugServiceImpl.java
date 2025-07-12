@@ -52,6 +52,7 @@ public class DrugServiceImpl implements DrugService {
 
     @Override
     public ResponseEntity<DrugResponse> createDrug(String providerUuid, DrugRequest drugRequest) {
+
         Provider provider = providerRepository.findByProviderUuid(providerUuid);
         if (provider == null){
             throw new BadRequestException("Can't find provider with the provided Id");

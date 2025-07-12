@@ -72,7 +72,10 @@ public class InsuredRequest {
 
     private String woreda;
 
-    private String kebelle;
+    //private String kebelle;
+
+    private String city;
+    private String subcity;
 
     @Size(min = 1, max = 50)
     private String state;

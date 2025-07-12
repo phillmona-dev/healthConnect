@@ -10,22 +10,18 @@ import lombok.Setter;
 @Setter
 @Getter
 public class PayerRequest {
+
     @NotBlank
     @Size(min = 3, max = 50)
     private String payerName;
 
     private Long tinNumber;
 
-    @NotBlank
-    @Size(min = 5, max = 50)
-    @Email
     private String email;
-
 
     @Size( max = 500)
     private String description;
 
-    @NotBlank
     @Size(min = 9, max = 13)
     private String telephone;
 
@@ -33,15 +29,15 @@ public class PayerRequest {
     @Size( max = 50)
     private String category;
 
-    @NotBlank
     @Size(max = 50)
     private String address1;
 
-    @NotBlank
+    private String address2;
+    private String address3;
+
     @Size(max = 50)
     private String state;
 
-    @NotBlank
     @Size(max = 50)
     private String country;
 

@@ -1,6 +1,5 @@
 package com.medco.HealthConnectProvider.services.impl.payer;
 
-
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
@@ -21,6 +20,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerReque
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimReviewRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimResponse;
+import com.medco.HealthConnectProvider.ui.response.payer.PayerImportResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
@@ -116,10 +116,12 @@ public class PayerServiceImpl implements PayerService {
 
         log.info("Starting payer creation process for: {}", payerRequest.getPayerName());
 
-        if (payerRepository.existsByEmail(payerRequest.getEmail())) {
-            log.warn("Duplicate payer email: {}", payerRequest.getEmail());
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Error: Duplicated Payer Email is not allowed.");
+        if (payerRequest.getEmail() != null && !payerRequest.getEmail().trim().isEmpty()) {
+            if (payerRepository.existsByEmail(payerRequest.getEmail())) {
+                log.warn("Duplicate payer email: {}", payerRequest.getEmail());
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                        "Error: Duplicated Payer Email is not allowed.");
+            }
         }
 
         if (payerRepository.existsByTelephone(payerRequest.getTelephone())) {
@@ -141,6 +143,7 @@ public class PayerServiceImpl implements PayerService {
         payer.setStatus(payerRequest.getStatus() != null ? payerRequest.getStatus() : Status.PENDING);
 
         if (logo != null && !logo.isEmpty()) {
+
             try {
                 File directory = new File(payerLogosDirectory);
                 if (!directory.exists()) {
@@ -262,7 +265,6 @@ public class PayerServiceImpl implements PayerService {
 
     }
 
-
     @Override
     public ResponseEntity<?> updatePayerStatus(String payerUuid, Status payerStatus) {
         Payer payer=payerRepository.findByPayerUuid(payerUuid);
@@ -344,6 +346,7 @@ public class PayerServiceImpl implements PayerService {
 
     @Override
     public ResponseEntity<?> deletePayer(String payerUuid) {
+
         Payer institution = payerRepository.findByPayerUuid(payerUuid);
         if (institution == null)
             throw new ResourceNotFoundException("Institution", "institutionUuid", payerUuid);
@@ -351,10 +354,12 @@ public class PayerServiceImpl implements PayerService {
         institution.setDeleted(true);
         payerRepository.save(institution);
         return ResponseEntity.ok(new MessageResponse("Institution deleted successfully!"));
+
     }
 
     @Override
     public ResponseEntity<ByteArrayResource> getPayerLogo(String payerUuid) {
+
         try {
             Payer payer = payerRepository.findByPayerUuid(payerUuid);
             if (payer == null || payer.getLogoPath() == null || payer.getLogoPath().isEmpty()) {
@@ -403,6 +408,7 @@ public class PayerServiceImpl implements PayerService {
             logger.error("Error serving default logo: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+
     }
 
     @Override
@@ -482,6 +488,7 @@ public class PayerServiceImpl implements PayerService {
             }
 
             payerResponses.add(response);
+
         }
 
         PagedResponse<PayerResponse> pagedResponse = new PagedResponse<>();
@@ -714,97 +721,131 @@ public class PayerServiceImpl implements PayerService {
 
     @Override
     @Transactional
-    public List<PayerResponse> importPayersFromExcel(MultipartFile file) throws IOException {
-
+    public PayerImportResponse importPayersFromExcel(MultipartFile file) throws IOException {
         List<PayerResponse> importedPayers = new ArrayList<>();
+        List<String> skippedPayers = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
 
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
             Iterator<Row> rows = sheet.iterator();
 
             if (!rows.hasNext()) {
-                throw new IllegalArgumentException("Excel file is empty");
+                errors.add("Excel file is empty");
+                return new PayerImportResponse(importedPayers, skippedPayers, errors);
             }
 
             Row headerRow = rows.next();
             Map<String, Integer> headerMap = createHeaderMap(headerRow);
 
-            while (rows.hasNext()) {
-                Row currentRow = rows.next();
-                Payer payer = createPayerFromRow(currentRow, headerMap);
+            if (!validateHeaders(headerMap)) {
+                errors.add("Missing required headers in the Excel file");
+                return new PayerImportResponse(importedPayers, skippedPayers, errors);
+            }
 
-                if (payer != null) {
-                    Payer savedPayer = payerRepository.save(payer);
-                    importedPayers.add(getPayerResponse(savedPayer));
+            int rowNumber = 1;
+            while (rows.hasNext()) {
+                rowNumber++;
+                Row currentRow = rows.next();
+
+                try {
+                    Payer payer = createPayerFromRow(currentRow, headerMap);
+
+                    if (payer != null) {
+                        if (isDuplicatePayer(payer)) {
+                            skippedPayers.add("Row " + rowNumber + ": " + payer.getPayerName() + " (duplicate name or phone)");
+                        } else {
+                            Payer savedPayer = payerRepository.save(payer);
+                            importedPayers.add(mapToPayerResponse(savedPayer));
+                        }
+                    } else {
+                        skippedPayers.add("Row " + rowNumber + ": Invalid or missing required data");
+                    }
+                } catch (Exception e) {
+                    errors.add("Error in row " + rowNumber + ": " + e.getMessage());
                 }
             }
+
+        } catch (Exception e) {
+            errors.add("Error processing Excel file: " + e.getMessage());
         }
 
-        return importedPayers;
+        log.info("Import process completed. Imported: {}, Skipped: {}, Errors: {}",
+                importedPayers.size(), skippedPayers.size(), errors.size());
+
+        return new PayerImportResponse(importedPayers, skippedPayers, errors);
 
     }
 
     private Map<String, Integer> createHeaderMap(Row headerRow) {
-
         Map<String, Integer> headerMap = new HashMap<>();
         for (Cell cell : headerRow) {
-            String headerName = cell.getStringCellValue().trim().toLowerCase();
-            headerMap.put(headerName, cell.getColumnIndex());
+            String headerName = getCellValueAsString(cell).trim().toLowerCase();
+            if (!headerName.isEmpty()) {
+                headerMap.put(headerName, cell.getColumnIndex());
+            }
         }
-
         return headerMap;
+    }
 
+    private boolean validateHeaders(Map<String, Integer> headerMap) {
+        return headerMap.containsKey("payer name") &&
+                headerMap.containsKey("phone") &&
+                headerMap.containsKey("subcity") &&
+                headerMap.containsKey("email") &&
+                headerMap.containsKey("tin number");
     }
 
     private Payer createPayerFromRow(Row row, Map<String, Integer> headerMap) {
-        Payer payer = new Payer();
 
-        try {
+        String payerName = getStringCellValue(row, headerMap, "payer name");
+        String phone = getStringCellValue(row, headerMap, "phone");
+        String address1 = getStringCellValue(row, headerMap, "woreda");
+        String address2 = getStringCellValue(row, headerMap, "subcity");
+        String address3 = getStringCellValue(row, headerMap, "city");
+        String state = getStringCellValue(row, headerMap, "state");
+        String email = getStringCellValue(row, headerMap, "email");
+        Long tinNumber = getLongCellValue(row, headerMap, "tin number");
 
-            payer.setPayerName(getStringCellValue(row, headerMap, "payer name"));
-            payer.setEmail(getStringCellValue(row, headerMap, "email"));
-            payer.setTelephone(getStringCellValue(row, headerMap, "telephone"));
-            payer.setCategory(getStringCellValue(row, headerMap, "category"));
-            payer.setAddress1(getStringCellValue(row, headerMap, "address1"));
-            payer.setAddress2(getStringCellValue(row, headerMap, "address2"));
-            payer.setAddress3(getStringCellValue(row, headerMap, "address3"));
-            payer.setCity(getStringCellValue(row, headerMap, "city"));
-            payer.setState(getStringCellValue(row, headerMap, "state"));
-            payer.setZipCode(getStringCellValue(row, headerMap, "zip code"));
-            payer.setCountry(getStringCellValue(row, headerMap, "country"));
-            payer.setStatus(Status.valueOf(getStringCellValue(row, headerMap, "status")));
-            payer.setTaxIdentification(getStringCellValue(row, headerMap, "tax identification"));
-            payer.setTinNumber(getLongCellValue(row, headerMap, "tin number"));
-            payer.setBankingDetails(getStringCellValue(row, headerMap, "banking details"));
-            payer.setPayerNumber(getStringCellValue(row, headerMap, "payer number"));
-            payer.setLatitude(getDoubleCellValue(row, headerMap, "latitude"));
-            payer.setLongitude(getDoubleCellValue(row, headerMap, "longitude"));
-            payer.setReferralType(getStringCellValue(row, headerMap, "referral type"));
-            payer.setReferredBy(getStringCellValue(row, headerMap, "referred by"));
-            payer.setDescription(getStringCellValue(row, headerMap, "description"));
-            payer.setDependantCoverage(getBooleanCellValue(row, headerMap, "dependant coverage"));
-
-            payer.setPayerUuid(UUID.randomUUID().toString());
-            payer.setRegistrationDate(new Date());
-
-            if (payerRepository.existsByEmail(payer.getEmail()) ||
-                    payerRepository.existsByTelephone(payer.getTelephone()) ||
-                    payerRepository.existsByPayerName(payer.getPayerName())) {
-                log.warn("Duplicate payer found: {}", payer.getPayerName());
-                return null;
-            }
-
-        } catch (Exception e) {
-            log.error("Error processing row: {}", e.getMessage());
+        if (payerName == null || payerName.trim().isEmpty() ||
+                phone == null || phone.trim().isEmpty() ||
+                address2 == null || address2.trim().isEmpty()) {
+            log.warn("Skipping row due to missing mandatory fields (Payer Name, Phone, or subcity)");
             return null;
         }
 
+        Payer payer = new Payer();
+
+        payer.setPayerName(payerName);
+        payer.setTelephone(phone);
+        payer.setAddress1(address1);
+        payer.setEmail(email);
+        payer.setTinNumber(tinNumber);
+        payer.setAddress2(address2);
+        payer.setAddress3(address3);
+        payer.setState(state);
+
+        payer.setPayerUuid(UUID.randomUUID().toString());
+        payer.setRegistrationDate(new Date());
+        payer.setStatus(Status.ACTIVE);
+
         return payer;
+
+    }
+
+    private boolean isDuplicatePayer(Payer payer) {
+        return payerRepository.existsByPayerNameOrTelephone(payer.getPayerName(), payer.getTelephone());
+    }
+
+    private PayerResponse mapToPayerResponse(Payer payer) {
+        PayerResponse response = new PayerResponse();
+        BeanUtils.copyProperties(payer, response);
+        return response;
     }
 
     private String getStringCellValue(Row row, Map<String, Integer> headerMap, String headerName) {
         Integer columnIndex = headerMap.get(headerName.toLowerCase());
-        if (columnIndex == null) return "";
+        if (columnIndex == null) return null;
         Cell cell = row.getCell(columnIndex);
         return getCellValueAsString(cell);
     }
@@ -816,36 +857,25 @@ public class PayerServiceImpl implements PayerService {
         return getCellValueAsLong(cell);
     }
 
-    private Double getDoubleCellValue(Row row, Map<String, Integer> headerMap, String headerName) {
-        Integer columnIndex = headerMap.get(headerName.toLowerCase());
-        if (columnIndex == null) return null;
-        Cell cell = row.getCell(columnIndex);
-        return getCellValueAsDouble(cell);
-    }
-
-    private Boolean getBooleanCellValue(Row row, Map<String, Integer> headerMap, String headerName) {
-        Integer columnIndex = headerMap.get(headerName.toLowerCase());
-        if (columnIndex == null) return false;
-        Cell cell = row.getCell(columnIndex);
-        return getCellValueAsBoolean(cell);
-    }
-
     private String getCellValueAsString(Cell cell) {
         if (cell == null) return "";
-        return switch (cell.getCellType()) {
-            case STRING -> cell.getStringCellValue();
-            case NUMERIC -> {
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue();
+            case NUMERIC:
                 if (DateUtil.isCellDateFormatted(cell)) {
-                    yield cell.getLocalDateTimeCellValue().toString();
+                    return cell.getLocalDateTimeCellValue().toString();
                 }
-                yield String.valueOf(cell.getNumericCellValue());
-            }
-            case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
-            default -> "";
-        };
+                return String.valueOf(cell.getNumericCellValue());
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            default:
+                return "";
+        }
     }
 
     private Long getCellValueAsLong(Cell cell) {
+
         if (cell == null) return null;
         switch (cell.getCellType()) {
             case NUMERIC:
@@ -859,52 +889,23 @@ public class PayerServiceImpl implements PayerService {
             default:
                 return null;
         }
-    }
 
-    private Double getCellValueAsDouble(Cell cell) {
-        if (cell == null) return null;
-        switch (cell.getCellType()) {
-            case NUMERIC:
-                return cell.getNumericCellValue();
-            case STRING:
-                try {
-                    return Double.parseDouble(cell.getStringCellValue());
-                } catch (NumberFormatException e) {
-                    return null;
-                }
-            default:
-                return null;
-        }
-    }
-
-    private Boolean getCellValueAsBoolean(Cell cell) {
-        if (cell == null) return false;
-        switch (cell.getCellType()) {
-            case BOOLEAN:
-                return cell.getBooleanCellValue();
-            case STRING:
-                return Boolean.parseBoolean(cell.getStringCellValue());
-            case NUMERIC:
-                return cell.getNumericCellValue() != 0;
-            default:
-                return false;
-        }
     }
 
     private ProviderResponse mapToProviderResponse(Provider provider) {
+
         ProviderResponse response = new ProviderResponse();
         BeanUtils.copyProperties(provider, response);
 
         response.setTotalContracts((long) provider.getContractHeaders().size());
 
         return response;
-    }
 
+    }
 
     private ClaimResponse mapClaimToClaimResponse(Claim claim) {
         ClaimResponse response = new ClaimResponse();
         BeanUtils.copyProperties(claim, response);
-        // Add any additional mapping logic here
         return response;
     }
 

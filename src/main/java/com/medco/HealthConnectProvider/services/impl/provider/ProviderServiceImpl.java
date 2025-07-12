@@ -40,7 +40,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 
 import org.springframework.data.jpa.domain.Specification;
 import com.medco.HealthConnectProvider.specifications.ProviderSpecifications;
@@ -173,7 +172,6 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         providerResponse.setProviderUuid(savedProvider.getProviderUuid());
         providerResponse.setRoleUuid(savedRole.getRoleUuid());
 
-        // Set logo base64
         if (logoFileName != null) {
             try {
                 Path path = Paths.get(providerLogosDirectory + "/" + logoFileName);
@@ -295,7 +293,6 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         Page<Provider> providerPage = providerRepository.findAll(spec, pageable);
         List<Provider> providerList = providerPage.getContent();
 
-        // Map to response objects
         List<ProviderResponse> providerResponses = new ArrayList<>();
         for (Provider provider : providerList) {
             ProviderResponse response = new ProviderResponse();
@@ -595,7 +592,6 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         BeanUtils.copyProperties(provider, providerResponse);
         providerResponse.setStatus(String.valueOf(provider.getStatus()));
 
-        // Add logo as base64 if available
         if (provider.getLogoPath() != null && !provider.getLogoPath().isEmpty()) {
             try {
                 String logoPath = providerLogosDirectory + "/" + provider.getLogoPath();
@@ -606,16 +602,13 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
                     String base64Logo = Base64.getEncoder().encodeToString(fileContent);
                     providerResponse.setLogoBase64("data:" + determineContentType(logoPath) + ";base64," + base64Logo);
                 } else {
-                    // Set default logo if provider logo doesn't exist
                     setDefaultLogoBase64(providerResponse);
                 }
             } catch (IOException e) {
                 log.warn("Could not read logo for provider {}: {}", provider.getProviderUuid(), e.getMessage());
-                // Set default logo on error
                 setDefaultLogoBase64(providerResponse);
             }
         } else {
-            // Set default logo if provider has no logo path
             setDefaultLogoBase64(providerResponse);
         }
 
@@ -669,7 +662,6 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         Pageable pageRequest = PageRequest.of(page, limit, Sort.by("id").descending());
         Page<Provider> providerPage;
 
-        // Find providers not already in contract with this payer
         if (searchKey != null && !searchKey.isEmpty()) {
 
             providerPage = providerRepository.findAvailableProvidersForPayerWithSearch(payerUuid, searchKey, pageRequest);
@@ -685,7 +677,6 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
             ProviderResponse response = new ProviderResponse();
             BeanUtils.copyProperties(provider, response);
 
-            // Add total pages to first response
             if (providerResponses.isEmpty()) {
                 response.setTotalPages((int) providerPage.getTotalPages());
             }

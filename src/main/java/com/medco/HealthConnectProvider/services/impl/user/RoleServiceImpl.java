@@ -126,7 +126,6 @@ public class RoleServiceImpl implements RoleService {
 //        Specification<Role> spec = (root, query, cb) -> {
         Specification<Role> spec = Specification.where(null);
 
-            // Filter by provider or payer
             if (userDetails.getProviderUuid() != null && !userDetails.getProviderUuid().isEmpty()) {
                 spec = spec.and((root, query, cb) ->
                         cb.equal(root.get("providerUuid"), userDetails.getProviderUuid()));
@@ -137,7 +136,6 @@ public class RoleServiceImpl implements RoleService {
                         cb.equal(root.get("payerUuid"), userDetails.getPayerUuid()));
             }
 
-            // Apply search on roleName
             if (search != null && !search.trim().isEmpty()) {
                 String likeSearch = "%" + search.trim().toLowerCase() + "%";
                 spec = spec.and((root, query, cb) ->

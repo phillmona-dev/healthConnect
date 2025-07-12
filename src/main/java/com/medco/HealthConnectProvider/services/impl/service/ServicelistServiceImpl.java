@@ -3,14 +3,11 @@ package com.medco.HealthConnectProvider.services.impl.service;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
-
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
@@ -49,7 +46,6 @@ public class ServicelistServiceImpl implements ServicelistService {
     private final ServicelistRepository servicelistRepository;
     private final ProviderRepository providerRepository;
 
-    // Make RabbitTemplate optional
     @Autowired(required = false)
     private RabbitTemplate template;
 
@@ -101,7 +97,6 @@ public class ServicelistServiceImpl implements ServicelistService {
         response.setServiceSubCategory(serviceEntity.getServiceSubCategory());
         response.setProviderName(provider.getProviderName());
 
-        // Convert Instant to LocalDateTime for audit fields
         if (serviceEntity.getCreatedAt() != null) {
             response.setCreatedAt(LocalDateTime.ofInstant(serviceEntity.getCreatedAt(), ZoneId.systemDefault()));
         }
@@ -110,7 +105,6 @@ public class ServicelistServiceImpl implements ServicelistService {
             response.setUpdatedAt(LocalDateTime.ofInstant(serviceEntity.getUpdatedAt(), ZoneId.systemDefault()));
         }
 
-        // Handle price - use either price or defaultPrice
         if (serviceEntity.getPrice() != null) {
             response.setPrice(BigDecimal.valueOf(serviceEntity.getPrice()));
         } else if (serviceEntity.getDefaultPrice() != null) {
@@ -119,19 +113,16 @@ public class ServicelistServiceImpl implements ServicelistService {
             response.setPrice(BigDecimal.valueOf(0.0));
         }
 
-        // Set status as string
         if (serviceEntity.getStatus() != null) {
             response.setStatus(serviceEntity.getStatus().toString());
         } else {
-            response.setStatus("ACTIVE"); // Default status
+            response.setStatus("ACTIVE");
         }
 
-        // Only send message if RabbitTemplate is available
         if (template != null) {
             try {
                 template.convertAndSend(serviceExchange, serviceKey, "Testing rabbit mq configuration");
             } catch (Exception e) {
-                // Log the error but don't fail the operation
                 System.err.println("Failed to send message to RabbitMQ: " + e.getMessage());
             }
         }
@@ -284,7 +275,6 @@ public class ServicelistServiceImpl implements ServicelistService {
 
                 Cell serPriceCell = serDataRow.createCell(5);
                 serPriceCell.setCellStyle(cellStyle);
-                // Handle both price fields
                 if (service.getPrice() != null) {
                     serPriceCell.setCellValue((service.getPrice()));
                 } else if (service.getDefaultPrice() != null) {

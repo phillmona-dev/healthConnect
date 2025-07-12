@@ -114,7 +114,6 @@ public class EligibilityServiceImpl implements EligibilityService {
                 throw new BadRequestException("No active contract exists between this provider and payer");
             }
 
-            // Get the first (most recent) active contract
             ContractHeader contract = activeContracts.get(0);
             log.info("Found active contract: {}", contract.getContractHeaderUuid());
 
@@ -215,7 +214,7 @@ public class EligibilityServiceImpl implements EligibilityService {
         }
 
         // Set groups if available
-        // You might need to implement a method to get the groups for an insured person
+        //  implement a method to get the groups for an insured person
         // response.setGroups(getInsuredGroups(insured));
 
         if (insured.getDependants() != null) {
@@ -230,7 +229,7 @@ public class EligibilityServiceImpl implements EligibilityService {
 
     private boolean isPolicyActive(InsuredSearchResponse insured) {
         // Implement the logic to check if the policy is active
-        // This is a placeholder implementation; replace with your actual logic
+        // This is a placeholder implementation
         return insured.getStatus() == Status.ACTIVE;
     }
 
@@ -251,31 +250,25 @@ public class EligibilityServiceImpl implements EligibilityService {
             throw new BadRequestException("No active contract exists between this provider and payer");
         }
 
-        // Check if insured person's policy is active
         boolean isPolicyActive = insured.getStatus() == Status.ACTIVE &&
                 (insured.getPolicyStartDate() == null || LocalDate.now().isAfter(insured.getPolicyStartDate())) &&
                 (insured.getPolicyEndDate() == null || LocalDate.now().isBefore(insured.getPolicyEndDate()));
 
-        // Build eligibility response
         EligibilityResponse response = new EligibilityResponse();
 
-        // Set insured person details
         BeanUtils.copyProperties(insuredResponse, response);
         response.setPayerUuid(payer.getPayerUuid());
         response.setPhoneNumber(insuredResponse.getPhone());
         response.setBirthDate(insuredResponse.getBirthDate());
 
-        // Set policy details
         response.setPolicyNumber(insured.getPolicyNumber());
         response.setPolicyStartDate(insured.getPolicyStartDate());
         response.setPolicyEndDate(insured.getPolicyEndDate());
         response.setPolicyActive(isPolicyActive);
 
-        // Get groups the insured belongs to
         List<GroupMembershipResponse> groupResponses = getInsuredGroups(insured);
         response.setGroups(groupResponses);
 
-        // Set dependents if any
         if (insuredResponse.getDependants() != null && !insuredResponse.getDependants().isEmpty()) {
             response.setDependents(insuredResponse.getDependants().stream()
                     .map(this::mapDependantResponseToDependentEligibilityResponse)
@@ -284,7 +277,6 @@ public class EligibilityServiceImpl implements EligibilityService {
             response.setDependents(new ArrayList<>());
         }
 
-        // Check specific service eligibility if requested
         if (serviceUuid != null && !serviceUuid.isEmpty() && !serviceUuid.equals("string")) {
             try {
                 UUID.fromString(serviceUuid);
@@ -302,7 +294,6 @@ public class EligibilityServiceImpl implements EligibilityService {
             response.setRequestedService(null);
         }
 
-        // Determine overall eligibility
         boolean isEligible = isPolicyActive && insured.getStatus() == Status.ACTIVE;
         response.setEligible(isEligible);
 
@@ -372,7 +363,6 @@ public class EligibilityServiceImpl implements EligibilityService {
     }
 
     private List<GroupMembershipResponse> getInsuredGroups(Insured insured) {
-        // Get all groups for this insured
         List<EmployeeDependantGroup> employeeGroups = employeeDependantGroupRepository
                 .findByInsuredsAndIsDeleted(insured, false);
 
@@ -480,12 +470,10 @@ public class EligibilityServiceImpl implements EligibilityService {
             }
         }
 
-        // If no group-specific contract detail found, use a general one if available
         if (bestContractDetail == null) {
             bestContractDetail = findGeneralContractDetail(contractDetails);
         }
 
-        // If still no contract detail found, use the first one as fallback
         if (bestContractDetail == null && !contractDetails.isEmpty()) {
             bestContractDetail = contractDetails.get(0);
         }

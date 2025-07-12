@@ -71,4 +71,6 @@ public interface PayerRepository extends JpaRepository<Payer, Long>, JpaSpecific
 
     @Query("SELECT DISTINCT p FROM Payer p JOIN p.contractHeaders c WHERE c.provider.providerUuid = :providerUuid")
     Page<Payer> findPayersWithContractByProvider(@Param("providerUuid") String providerUuid, Pageable pageable);
+
+    boolean existsByPayerNameOrTelephone(String payerName, String telephone);
 }

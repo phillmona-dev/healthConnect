@@ -61,28 +61,23 @@ public class DependantServiceImpl implements DependantService {
     public ResponseEntity<?> createDependant(DependantRequest dependantRequest, MultipartFile photo) {
         logger.info("Creating new dependant for insured person with UUID: {}", dependantRequest.getInsuredPersonUuid());
 
-        // Validate insured person exists
         Insured insured = insuredRepository.findByInsuredUuid(dependantRequest.getInsuredPersonUuid());
         if (insured == null){
             throw new ResourceNotFoundException("Insured", "UUID", dependantRequest.getInsuredPersonUuid());
         }
 
-        // Create and populate the Dependant entity
         Dependant dependant = new Dependant();
         dependant.setDependantUuid(UUID.randomUUID().toString());
         updateDependantDetails(dependant, dependantRequest);
         dependant.setInsured(insured);
 
-        // Save photo if provided
         if (photo != null && !photo.isEmpty()) {
             String photoPath = saveProfilePhoto(photo, dependant.getDependantUuid());
             dependant.setProfilePicturePath(photoPath);
         }
 
-        // Save the dependant
         dependant = dependantRepository.save(dependant);
 
-        // Create and return response
         DependantResponse response = mapToDependantResponse(dependant);
         logger.info("Successfully created dependant with UUID: {}", dependant.getDependantUuid());
         return ResponseEntity.ok(response);
@@ -245,20 +240,13 @@ public class DependantServiceImpl implements DependantService {
 
     private String determineContentType(String fileName) {
         String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
-        switch (extension) {
-            case "jpg":
-            case "jpeg":
-                return "image/jpeg";
-            case "png":
-                return "image/png";
-            case "gif":
-                return "image/gif";
-            default:
-                return "application/octet-stream";
-        }
+        return switch (extension) {
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "gif" -> "image/gif";
+            default -> "application/octet-stream";
+        };
     }
-
-
 
     private String getDependantPhotoBase64(String dependantUuid) {
         try {
@@ -292,7 +280,6 @@ public class DependantServiceImpl implements DependantService {
             return "";
         }
     }
-
 
     @Override
     public DependantResponse getDependant(String dependantUuid) {

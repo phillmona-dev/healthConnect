@@ -237,11 +237,9 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserResponse createUser(SignUpRequest signUpRequest) {
 
-
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         log.info("Starting user creation process for email: {}", signUpRequest.getEmail());
 
-        // Validate email and mobile phone
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
             log.warn("Email already in use: {}", signUpRequest.getEmail());
             throw new BadRequestException("Email is already in use!");
@@ -251,7 +249,6 @@ public class UserServiceImpl implements UserService {
             throw new BadRequestException("Mobile Phone is already in use!");
         }
 
-        // Find the role
         Role role = roleRepository.findByRoleUuid(signUpRequest.getRoleUuid());
         if (role == null) {
             log.error("Role not found for UUID: {}", signUpRequest.getRoleUuid());
@@ -259,50 +256,45 @@ public class UserServiceImpl implements UserService {
         }
         log.info("Role found: {}", role.getRoleName());
 
-        // Create and populate user object
         User user = new User();
         BeanUtils.copyProperties(signUpRequest, user);
         log.info("User object created and populated");
 
-        // Generate a random password
         String randomPassword = generateRandomPassword();
         user.setPassword(passwordEncoder.encode(randomPassword));
         user.setRole(role);
 
-        // Set user status if not provided
         if (user.getUserStatus() == null) {
             user.setUserStatus(Status.ACTIVE);
         }
 
         log.info("User status set to: {}", user.getUserStatus());
 
-        // Determine the institution type and set Payer or Provider
         String institutionName = "your institution";
-//        if (role.getRoleName().startsWith("PA_")) {
-//            log.info("Processing payer role");
-//            Payer payer = payerRepository.findByPayerUuid(role.getPayerUuid());
-//            if (payer == null) {
-//                log.error("No payer found for UUID: {}", role.getPayerUuid());
-//                throw new BadRequestException("No payer found for the given role");
-//            }
-//            user.setPayerUuid(payer.getPayerUuid());
-//            institutionName = payer.getPayerName();
-//            log.info("User associated with payer: {}", payer.getPayerName());
-//        } else if (role.getRoleName().startsWith("PR_")) {
-//            log.info("Processing provider role");
-//            Provider provider = providerRepository.findByProviderUuid(role.getProviderUuid());
-//            if (provider == null) {
-//                log.error("No provider found for UUID: {}", role.getProviderUuid());
-//                throw new BadRequestException("No provider found for the given role");
-//            }
-//            user.setProviderUuid(provider.getProviderUuid());
-//            institutionName = provider.getProviderName();
-//            log.info("User associated with provider: {}", provider.getProviderName());
-//        } else {
-//            log.warn("Role is neither payer nor provider: {}", role.getRoleName());
-//
-//
-//        }
+        if (role.getRoleName().startsWith("PA_")) {
+            log.info("Processing payer role");
+            Payer payer = payerRepository.findByPayerUuid(role.getPayerUuid());
+            if (payer == null) {
+                log.error("No payer found for UUID: {}", role.getPayerUuid());
+                throw new BadRequestException("No payer found for the given role");
+            }
+            user.setPayerUuid(payer.getPayerUuid());
+            institutionName = payer.getPayerName();
+            log.info("User associated with payer: {}", payer.getPayerName());
+        } else if (role.getRoleName().startsWith("PR_")) {
+            log.info("Processing provider role");
+            Provider provider = providerRepository.findByProviderUuid(role.getProviderUuid());
+            if (provider == null) {
+                log.error("No provider found for UUID: {}", role.getProviderUuid());
+                throw new BadRequestException("No provider found for the given role");
+            }
+            user.setProviderUuid(provider.getProviderUuid());
+            institutionName = provider.getProviderName();
+            log.info("User associated with provider: {}", provider.getProviderName());
+        } else {
+            log.warn("Role is neither payer nor provider: {}", role.getRoleName());
+
+        }
 
         if (userDetails.getProviderUuid()!=null){
             Provider provider=providerRepository.findByProviderUuid(userDetails.getProviderUuid());
@@ -316,15 +308,11 @@ public class UserServiceImpl implements UserService {
             user.setPayerUuid(userDetails.getPayerUuid());
         }
 
-
-        // Save the user
         User savedUser = userRepository.save(user);
         log.info("User saved to database with ID: {}", savedUser.getId());
 
-        // Log the saved user details
         log.info("Saved user details - PayerUuid: {}, ProviderUuid: {}", savedUser.getPayerUuid(), savedUser.getProviderUuid());
 
-        // Send welcome email
         String loginUrl = frontendUrl + "/login?newUser=true&email=" + savedUser.getEmail();
         try {
             emailService.sendWelcomeEmail(
@@ -339,7 +327,6 @@ public class UserServiceImpl implements UserService {
             log.error("Failed to send welcome email to user {}: {}", savedUser.getEmail(), e.getMessage());
         }
 
-        // Prepare and return the response
         UserResponse userResponse = new UserResponse();
         BeanUtils.copyProperties(savedUser, userResponse);
         userResponse.setPayerUuid(savedUser.getPayerUuid());
@@ -362,12 +349,9 @@ public class UserServiceImpl implements UserService {
     }
 
     private String determineInstitutionName(Role role) {
-        // This method should determine the institution name based on the role
-        // You might need to adjust this based on your role naming convention
         if (role.getRoleName().endsWith("_Manager")) {
             return role.getRoleName().replace("_Manager", "");
         }
-        // Default case if we can't determine the institution name
         return "HealthConnect";
     }
 

@@ -86,6 +86,7 @@ public class InsuredServiceImpl implements InsuredService {
 
     @Override
     public ResponseEntity<?> createInsuredPerson(InsuredRequest insuredRequest, MultipartFile photo) {
+
         try {
 
             if (insuredRepository.existsByEmailAndPayerPayerUuid(insuredRequest.getEmail(),
@@ -282,7 +283,6 @@ public class InsuredServiceImpl implements InsuredService {
 
             setProfilePictureBase64(insured.getProfilePicturePath(), response);
 
-            // Get dependantCoverage from Payer
             Payer payer = insured.getPayer();
             if (payer != null) {
                 response.setDependantCoverage(payer.isDependantCoverage());
@@ -959,9 +959,8 @@ public class InsuredServiceImpl implements InsuredService {
 
             insuredRepository.save(insured);
 
-            // Process dependants if provided
             if (insuredRequest.getDependants() != null && !insuredRequest.getDependants().isEmpty()) {
-                // Rest of the dependant processing code remains the same
+                // Rest of the dependant processing
                 // ...
             }
 
@@ -1159,12 +1158,6 @@ public class InsuredServiceImpl implements InsuredService {
         return ResponseEntity.ok(new MessageResponse("Profile Picture Update Successfully."));
     }
 
-
-//    @Override
-//    public List<InsuredListResponse> getInsuredPersonEligiblity(String insuredUuid) {
-//        return insuredRepository.findInsuredPersonEligibility(insuredUuid);
-//    }
-
     @Override
     public List<InsuredResponse> getInsuredPersons(String payerInstitutionContractId, String search, int page,
                                                    int limit) {
@@ -1228,7 +1221,7 @@ public class InsuredServiceImpl implements InsuredService {
                     try {
                         numberOfColumns = row.getLastCellNum();
                         String[] expectedHeaders = {"ID Number", "First Name", "Father Name", "Grand Father Name", "Gender",
-                                "Date of Birth", "Phone", "Email"};
+                                "Date of Birth", "Phone", "Email", "woreda", "subcity", "city", "state"};
                         String[] mandatoryHeaders = {"ID Number", "First Name", "Father Name"};
 
                         for (int i = 0; i < expectedHeaders.length; i++) {
@@ -1273,7 +1266,6 @@ public class InsuredServiceImpl implements InsuredService {
                         importedInsured.add(insuredResponse);
                         logger.info("Successfully imported insured person: {}", insuredResponse.getInsuredUuid());
 
-                        // Process dependants if any
                         List<Dependant> dependants = processDependants(row, insuredResponse, numbrOfDependants);
                         if (!dependants.isEmpty()) {
                             dependantRepository.saveAll(dependants);
@@ -1281,7 +1273,6 @@ public class InsuredServiceImpl implements InsuredService {
                         }
                     }
                     // If insuredResponse is null, it means it's a duplicate entry that we're skipping
-                    // We don't add an error in this case as it's an expected scenario
                 } catch (BadRequestException e) {
                     logger.error("Error processing row {}: {}", rowNum + 1, e.getMessage());
                     errors.add("Error in row " + (rowNum + 1) + ": " + e.getMessage());

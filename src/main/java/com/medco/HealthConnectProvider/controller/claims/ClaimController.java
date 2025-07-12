@@ -181,9 +181,6 @@ public class ClaimController {
 
 // Todo  NEW APIS FOR THE CLAIM
 
-
-
-
     @PostMapping("/createBatchClaim/{batchCode}")
     @Operation(summary = "Create claim from a batch",
             description = "Creates a new claim from authorized batch")

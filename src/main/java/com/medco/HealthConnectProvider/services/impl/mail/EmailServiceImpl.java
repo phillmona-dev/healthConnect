@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.services.impl.mail;
 
 import com.medco.HealthConnectProvider.services.mail.EmailService;
+import jakarta.mail.internet.InternetAddress;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -9,6 +10,8 @@ import org.springframework.stereotype.Service;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+
+import java.io.UnsupportedEncodingException;
 
 @Service
 public class EmailServiceImpl implements EmailService {
@@ -19,16 +22,23 @@ public class EmailServiceImpl implements EmailService {
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
+    @Value("${spring.mail.username}")
+    private String fromEmail;
+
+    @Value("${spring.mail.properties.mail.smtp.from.personal}")
+    private String personalName;
+
     @Override
     public void sendWelcomeEmail(String to, String firstName, String password, String payerName, String loginUrl) {
+
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
+            helper.setFrom(new InternetAddress(fromEmail, personalName));
             helper.setTo(to);
             helper.setSubject("Welcome to HealthConnect System");
 
-            // If loginUrl is not provided, use the default frontend URL
             if (loginUrl == null || loginUrl.isEmpty()) {
                 loginUrl = frontendUrl + "/login";
             }
@@ -62,6 +72,8 @@ public class EmailServiceImpl implements EmailService {
             mailSender.send(message);
         } catch (MessagingException e) {
             System.err.println("Failed to send welcome email: " + e.getMessage());
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
         }
     }
 }

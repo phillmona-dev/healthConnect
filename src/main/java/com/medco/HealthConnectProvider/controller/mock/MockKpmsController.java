@@ -48,10 +48,8 @@ public class MockKpmsController {
         return restTemplate.getForEntity(url, Map.class);
     }
 
-    // You might need this for more complex scenarios
     private HttpEntity<?> createHttpEntity(Object body) {
         HttpHeaders headers = new HttpHeaders();
-        // Add any necessary headers here
         return new HttpEntity<>(body, headers);
     }
 }

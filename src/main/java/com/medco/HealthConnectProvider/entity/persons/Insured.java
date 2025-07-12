@@ -86,11 +86,11 @@ public class Insured implements Serializable {
     private String insuranceId;
 
     private String address;
-
     private String state;
     private String woreda;
     private String kebelle;
-
+    private String subcity;
+    private String city;
     private String country;
 
     @Size(max = 255)
