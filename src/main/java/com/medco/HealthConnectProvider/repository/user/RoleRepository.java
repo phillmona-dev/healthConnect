@@ -14,4 +14,6 @@ public interface RoleRepository extends JpaRepository<Role, Long>, JpaSpecificat
     Role findByRoleUuid(String roleUuid);
 
     List<Role> findAllByRoleNameContaining(String search, Pageable pageable);
+
+    Role findByRoleName(String roleName);
 }

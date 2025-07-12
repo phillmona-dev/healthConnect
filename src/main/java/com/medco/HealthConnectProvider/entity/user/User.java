@@ -38,7 +38,6 @@ public class User extends UserDateAudit {
     @NotBlank
     private String password;
 
-    @NotBlank
     @Size(min = 2, max = 25)
     private String title;
 
@@ -65,6 +64,8 @@ public class User extends UserDateAudit {
     private Status userStatus;
 
     private String userType;
+
+    private Status status;
 
     @Size( max = 40)
     private String providerUuid;

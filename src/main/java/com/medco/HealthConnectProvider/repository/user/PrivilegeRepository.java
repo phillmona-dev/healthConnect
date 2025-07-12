@@ -15,4 +15,9 @@ public interface PrivilegeRepository extends JpaRepository<Privilege,Long> {
     Optional<Privilege> findByPrivilegeUuid(String privilegeUuid);
 
     Page<Privilege> findAllByPrivilegeNameContainingIgnoreCaseOrPrivilegeCategoryContainingIgnoreCase(String search, String search1,Pageable pageable);
+
+    boolean existsByPrivilegeName(String privilegeName);
+
+    List<Privilege> findByPrivilegeNameIn(List<String> names);
+
 }

@@ -68,6 +68,7 @@ public class SecurityConfig {
                                 "/api/v1/healthConnect/integration/pharmacy/check",
                                 "/api/v1/healthConnect/integration/pharmacy/dispensing",
                                 "/api/v1/healthConnect/users/role/*",
+                                "/api/v1/healthConnect/users/privilege/*",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
