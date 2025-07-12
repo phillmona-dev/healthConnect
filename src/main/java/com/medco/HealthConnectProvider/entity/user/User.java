@@ -49,7 +49,6 @@ public class User extends UserDateAudit {
     @Size(min = 2, max = 25)
     private String fatherName;
 
-    @NotBlank
     private String grandFatherName;
 
     @NotBlank

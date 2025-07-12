@@ -35,7 +35,7 @@ public class Role {
 
     @ManyToMany(mappedBy = "roles",cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JsonManagedReference
-    private List<Privilege> privileges;
+    private List<Privilege> privileges = new ArrayList<>();
 
     @Column(name = "payer_uuid")
     private String payerUuid;

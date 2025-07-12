@@ -4,13 +4,16 @@ import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.U
 import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
+import com.medco.HealthConnectProvider.entity.user.Privilege;
 import com.medco.HealthConnectProvider.entity.user.Role;
+import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.claims.ClaimRepository;
 import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
+import com.medco.HealthConnectProvider.repository.user.PrivilegeRepository;
 import com.medco.HealthConnectProvider.repository.user.RoleRepository;
 import com.medco.HealthConnectProvider.repository.user.UserRepository;
 import com.medco.HealthConnectProvider.services.mail.EmailService;
@@ -80,6 +83,7 @@ public class PayerServiceImpl implements PayerService {
     private final RoleRepository roleRepository;
     private final UserService userService;
     private final ContractRepository contractRepository;
+    private final PrivilegeRepository privilegeRepository;
 
     @Autowired
     private ClaimRepository claimRepository;
@@ -102,11 +106,12 @@ public class PayerServiceImpl implements PayerService {
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
-    public PayerServiceImpl(PayerRepository payerRepository, RoleRepository roleRepository, UserService userService, ContractRepository contractRepository) {
+    public PayerServiceImpl(PayerRepository payerRepository, RoleRepository roleRepository, UserService userService, ContractRepository contractRepository, PrivilegeRepository privilegeRepository) {
         this.payerRepository = payerRepository;
         this.roleRepository = roleRepository;
         this.userService = userService;
         this.contractRepository = contractRepository;
+        this.privilegeRepository = privilegeRepository;
     }
 
 
@@ -756,24 +761,116 @@ public class PayerServiceImpl implements PayerService {
                             skippedPayers.add("Row " + rowNumber + ": " + payer.getPayerName() + " (duplicate name or phone)");
                         } else {
                             Payer savedPayer = payerRepository.save(payer);
+
+                            Role defaultRole = createDefaultRoleForPayer(savedPayer);
+                            User defaultUser = createDefaultUserForPayer(savedPayer, defaultRole);
+
                             importedPayers.add(mapToPayerResponse(savedPayer));
+                            logger.info("Payer imported with UUID: {}, status: {}", savedPayer.getPayerUuid(), savedPayer.getStatus());
+                            logger.info("Default user created for payer: {}, User UUID: {}", savedPayer.getPayerName(), defaultUser.getUserUuid());
                         }
                     } else {
                         skippedPayers.add("Row " + rowNumber + ": Invalid or missing required data");
                     }
                 } catch (Exception e) {
+                    logger.error("Error processing row {}: ", rowNumber, e);
                     errors.add("Error in row " + rowNumber + ": " + e.getMessage());
                 }
             }
 
         } catch (Exception e) {
+            logger.error("Error processing Excel file: ", e);
             errors.add("Error processing Excel file: " + e.getMessage());
         }
 
-        log.info("Import process completed. Imported: {}, Skipped: {}, Errors: {}",
+        logger.info("Import process completed. Imported: {}, Skipped: {}, Errors: {}",
                 importedPayers.size(), skippedPayers.size(), errors.size());
 
         return new PayerImportResponse(importedPayers, skippedPayers, errors);
+    }
+
+    private User createDefaultUserForPayer(Payer payer, Role role) {
+        logger.info("Creating default user for payer: {}", payer.getPayerName());
+
+        User user = new User();
+        user.setUserUuid(UUID.randomUUID().toString());
+        user.setEmail(generateDefaultEmail(payer));
+
+        String payerName = payer.getPayerName();
+
+        user.setPassword(passwordEncoder.encode(payerName));
+        user.setTitle("Mr");
+        user.setFirstName(payer.getPayerName());
+        user.setFatherName("User");
+        user.setGrandFatherName("Manager");
+        user.setGender("male");
+        user.setMobilePhone(payer.getTelephone());
+        user.setUserStatus(Status.ACTIVE);
+        user.setUserType("PAYER_ADMIN");
+        user.setStatus(Status.ACTIVE);
+        user.setPayerUuid(payer.getPayerUuid());
+        user.setPayer(payer);
+        user.setRole(role);
+        user.setFirstTimeLogin(true);
+        user.setCreatedDate(new Date());
+        user.setLastModifiedDate(new Date());
+        user.setCreatedBy("SYSTEM");
+        user.setLastModifiedBy("SYSTEM");
+
+        logger.debug("Default user details: UUID={}, Email={}, UserType={}, Role={}",
+                user.getUserUuid(), user.getEmail(), user.getUserType(), role.getRoleName());
+
+        User savedUser = userRepository.save(user);
+        logger.info("Default user created successfully for payer: {}. User UUID: {}",
+                payer.getPayerName(), savedUser.getUserUuid());
+
+        // TODO: Send email to the user with login credentials
+        logger.info("TODO: Send welcome email to user: {}", savedUser.getEmail());
+
+        return savedUser;
+    }
+
+    private String generateDefaultEmail(Payer payer) {
+        String baseEmail = payer.getPayerName().toLowerCase().replaceAll("\\s+", "") + "@gmail.com";
+        String email = baseEmail;
+        int counter = 1;
+        while (userRepository.existsByEmail(email)) {
+            email = baseEmail.replace("@", counter + "@");
+            counter++;
+        }
+        return email;
+    }
+
+//    private String generateRandomPassword() {
+//        return UUID.randomUUID().toString().substring(0, 8);
+//    }
+
+    private Role createDefaultRoleForPayer(Payer payer) {
+
+        Role role = new Role();
+        String payerNameForRole = payer.getPayerName();
+        if (payerNameForRole.length() > 35) {
+            payerNameForRole = payerNameForRole.substring(0, 35);
+        }
+
+        role.setRoleName("PA_" + payerNameForRole + "_Manager");
+        role.setPayerUuid(payer.getPayerUuid());
+        role.setRoleDescription("Manages the system for " + payer.getPayerName());
+        role.setRoleUuid(UUID.randomUUID().toString());
+
+        Privilege createEmployeesPrivilege = privilegeRepository.findByPrivilegeName("Create Employees")
+                .orElseThrow(() -> new RuntimeException("Create Employees privilege not found"));
+
+        List<Privilege> privileges = new ArrayList<>();
+        privileges.add(createEmployeesPrivilege);
+        // Add more privileges as needed
+        role.setPrivileges(privileges);
+
+        Role savedRole = roleRepository.save(role);
+        log.info("Default role created for payer: {}, Role UUID: {}, with Create Employees privilege",
+                payer.getPayerName(), savedRole.getRoleUuid());
+
+        return savedRole;
 
     }
 
