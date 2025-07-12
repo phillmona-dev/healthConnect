@@ -15,7 +15,6 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -37,13 +36,6 @@ public class PrivilegeServiceImpl implements PrivilegeService {
         BeanUtils.copyProperties(privilegeRequest, privileges);
         privileges.setPrivilegeType(privilegeRequest.getPrivilegeType());
 
-//        if (userDetails.getPayerUuid()!=null){
-//            privileges.setPrivilegeType(PrivilegeType.FOR_PAYER);
-//
-//        } else if (userDetails.getProviderUuid()!=null) {
-//            privileges.setPrivilegeType(PrivilegeType.FOR_PROVIDER);
-//
-//        }else privileges.setPrivilegeType(PrivilegeType.FOR_ALL);
 
         Privilege savedPrivilege = privilegeRepository.save(privileges);
 
@@ -85,12 +77,8 @@ public class PrivilegeServiceImpl implements PrivilegeService {
         }
         System.out.println("privilege type "+privilegeType);
         Page<Privilege> privilegePage = search != null ?
-                 privilegeRepository.findAllByPrivilegeNameContaining(search, pageable) :
+                 privilegeRepository.findAllByPrivilegeNameContainingIgnoreCaseOrPrivilegeCategoryContainingIgnoreCase(search,search,pageable) :
                 privilegeRepository.findAll(pageable);
-//        for (Privilege privilege:privilegePage){
-//            privilege.setPrivilegeType(PrivilegeType.FOR_ALL);
-//            privilegeRepository.save(privilege);
-//        }
 
 
 
@@ -141,30 +129,5 @@ public class PrivilegeServiceImpl implements PrivilegeService {
         return ResponseEntity.ok("Privilege Deleted Successfully");
     }
 
-    private List<PrivilegeResponse> getAllWithOutSearch(Pageable pageable) {
 
-        return privilegeRepository.findAll(pageable)
-                .stream()
-                .map(privilege -> {
-                    var response = new PrivilegeResponse();
-                    BeanUtils.copyProperties(privilege,response);
-
-                    return response;
-                })
-                .collect(Collectors.toList());
-
-    }
-
-    private List<PrivilegeResponse> findAllPrivilegesBySearch(String search, Pageable pageable) {
-
-        return privilegeRepository.findAllByPrivilegeNameContaining(search, pageable)
-                .stream()
-                .map(privilege -> {
-                    var response = new PrivilegeResponse();
-                    BeanUtils.copyProperties(privilege,response);
-
-                    return response;
-                }).collect(Collectors.toList());
-
-    }
 }

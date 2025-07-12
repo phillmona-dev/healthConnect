@@ -12,7 +12,7 @@ import java.util.Optional;
 @Repository
 public interface PrivilegeRepository extends JpaRepository<Privilege,Long> {
 
-    Page<Privilege> findAllByPrivilegeNameContaining(String search, Pageable pageable);
-
     Optional<Privilege> findByPrivilegeUuid(String privilegeUuid);
+
+    Page<Privilege> findAllByPrivilegeNameContainingIgnoreCaseOrPrivilegeCategoryContainingIgnoreCase(String search, String search1,Pageable pageable);
 }
