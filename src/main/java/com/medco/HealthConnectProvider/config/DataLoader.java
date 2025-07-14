@@ -43,7 +43,9 @@ public class DataLoader implements CommandLineRunner {
         List<String> privilegeNames = Arrays.asList(
                 "CREATE_USER", "READ_USER", "UPDATE_USER", "DELETE_USER",
                 "CREATE_ROLE", "READ_ROLE", "UPDATE_ROLE", "DELETE_ROLE",
-                "CREATE_PRIVILEGE", "READ_PRIVILEGE", "UPDATE_PRIVILEGE", "DELETE_PRIVILEGE"
+                "CREATE_PRIVILEGE", "READ_PRIVILEGE", "UPDATE_PRIVILEGE", "DELETE_PRIVILEGE","VIEW_USER",
+                "Delete Groups","Update Groups","Create Groups","Delete Employees","Update Employees","Create Employees","Delete Drugs",
+                "Update Drugs","Create Drugs","Delete Services","Update Services","Create Services","CREATE_SERVICE"
 
         );
 
@@ -72,16 +74,16 @@ public class DataLoader implements CommandLineRunner {
             superAdminRole.setRoleUuid(UUID.randomUUID().toString());
             superAdminRole.setRoleDescription("Super Administrator Role");
 
-            List<String> createdPrivilegeNames = Arrays.asList(
+            List<String> superAdminPrivilegeNames = Arrays.asList(
                     "CREATE_USER", "READ_USER", "UPDATE_USER", "DELETE_USER",
                     "CREATE_ROLE", "READ_ROLE", "UPDATE_ROLE", "DELETE_ROLE",
-                    "CREATE_PRIVILEGE", "READ_PRIVILEGE", "UPDATE_PRIVILEGE", "DELETE_PRIVILEGE"
+                    "CREATE_PRIVILEGE", "READ_PRIVILEGE", "UPDATE_PRIVILEGE", "DELETE_PRIVILEGE", "VIEW_USER"
             );
-            List<Privilege> createdPrivileges = privilegeRepository.findByPrivilegeNameIn(createdPrivilegeNames);
+            List<Privilege> superAdminPrivileges = privilegeRepository.findByPrivilegeNameIn(superAdminPrivilegeNames);
 
             superAdminRole.setPrivileges(new ArrayList<>());
 
-            for (Privilege privilege : createdPrivileges) {
+            for (Privilege privilege : superAdminPrivileges) {
                 superAdminRole.getPrivileges().add(privilege);
                 if (privilege.getRoles() == null) {
                     privilege.setRoles(new HashSet<>());
@@ -92,21 +94,21 @@ public class DataLoader implements CommandLineRunner {
             roleRepository.save(superAdminRole);
             System.out.println("Created ROLE_SUPER_ADMIN with specified privileges");
         } else {
-            List<String> createdPrivilegeNames = Arrays.asList(
+            List<String> superAdminPrivilegeNames = Arrays.asList(
                     "CREATE_USER", "READ_USER", "UPDATE_USER", "DELETE_USER",
                     "CREATE_ROLE", "READ_ROLE", "UPDATE_ROLE", "DELETE_ROLE",
-                    "CREATE_PRIVILEGE", "READ_PRIVILEGE", "UPDATE_PRIVILEGE", "DELETE_PRIVILEGE"
+                    "CREATE_PRIVILEGE", "READ_PRIVILEGE", "UPDATE_PRIVILEGE", "DELETE_PRIVILEGE", "VIEW_USER"
             );
-            List<Privilege> createdPrivileges = privilegeRepository.findByPrivilegeNameIn(createdPrivilegeNames);
+            List<Privilege> superAdminPrivileges = privilegeRepository.findByPrivilegeNameIn(superAdminPrivilegeNames);
 
-            for (Privilege privilege : createdPrivileges) {
-                if (!superAdminRole.getPrivileges().contains(privilege)) {
-                    superAdminRole.getPrivileges().add(privilege);
-                    if (privilege.getRoles() == null) {
-                        privilege.setRoles(new HashSet<>());
-                    }
-                    privilege.getRoles().add(superAdminRole);
+            superAdminRole.getPrivileges().clear();
+
+            for (Privilege privilege : superAdminPrivileges) {
+                superAdminRole.getPrivileges().add(privilege);
+                if (privilege.getRoles() == null) {
+                    privilege.setRoles(new HashSet<>());
                 }
+                privilege.getRoles().add(superAdminRole);
             }
             roleRepository.save(superAdminRole);
             System.out.println("Updated ROLE_SUPER_ADMIN with specified privileges");

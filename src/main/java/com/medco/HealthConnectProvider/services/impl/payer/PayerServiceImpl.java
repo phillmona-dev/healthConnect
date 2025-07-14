@@ -956,19 +956,17 @@ public class PayerServiceImpl implements PayerService {
 
     private String getCellValueAsString(Cell cell) {
         if (cell == null) return "";
-        switch (cell.getCellType()) {
-            case STRING:
-                return cell.getStringCellValue();
-            case NUMERIC:
+        return switch (cell.getCellType()) {
+            case STRING -> cell.getStringCellValue();
+            case NUMERIC -> {
                 if (DateUtil.isCellDateFormatted(cell)) {
-                    return cell.getLocalDateTimeCellValue().toString();
+                    yield cell.getLocalDateTimeCellValue().toString();
                 }
-                return String.valueOf(cell.getNumericCellValue());
-            case BOOLEAN:
-                return String.valueOf(cell.getBooleanCellValue());
-            default:
-                return "";
-        }
+                yield String.valueOf(cell.getNumericCellValue());
+            }
+            case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
+            default -> "";
+        };
     }
 
     private Long getCellValueAsLong(Cell cell) {
