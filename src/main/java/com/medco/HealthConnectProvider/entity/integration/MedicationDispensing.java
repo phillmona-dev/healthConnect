@@ -6,16 +6,15 @@ import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.utils.enums.MedicationStatus;
 import com.medco.HealthConnectProvider.utils.enums.SourceType;
-import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -72,8 +71,8 @@ public class MedicationDispensing {
     @Enumerated(EnumType.STRING)
     private SourceType source;
 
-    @OneToMany(mappedBy = "dispensing", cascade = CascadeType.ALL)
-    private List<MedicationDispensingItem> items;
+    @OneToMany(mappedBy = "dispensing", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<MedicationDispensingItem> items = new ArrayList<>();
 
     @ManyToOne
     @JoinColumn(name = "batch_id")

@@ -685,7 +685,6 @@ public class InsuredServiceImpl implements InsuredService {
         return isActive && isPolicyStarted && isPolicyNotEnded;
     }
 
-
     @Transactional
     @Override
     public ResponseEntity<?> updateInsuredPerson(String insuredUuid, InsuredUpdateRequest insuredRequest, MultipartFile photo) throws IOException {
@@ -722,7 +721,6 @@ public class InsuredServiceImpl implements InsuredService {
 
         return response;
     }
-
 
     private String getBase64FromPath(String photoFileName) {
         try {

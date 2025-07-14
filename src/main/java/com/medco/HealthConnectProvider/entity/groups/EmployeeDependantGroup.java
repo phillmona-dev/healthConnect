@@ -80,9 +80,6 @@ public class EmployeeDependantGroup extends Audit implements Serializable {
     @Builder.Default
     private List<ContractDetailEmployeeGroup> contractDetailEmployeeGroups = new ArrayList<>();
 
-
-
-
     @OneToMany(mappedBy = "employeeDependantGroup", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonManagedReference(value = "employee-insured-groups")
     @Builder.Default
