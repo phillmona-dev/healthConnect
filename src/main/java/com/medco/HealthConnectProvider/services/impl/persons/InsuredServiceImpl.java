@@ -624,12 +624,12 @@ public class InsuredServiceImpl implements InsuredService {
 
             response.setInsured(isPersonCurrentlyInsured(insured));
 
-            String profilePicturePath = insured.getProfilePicturePath();
-            log.info("Profile picture path for insured {}: {}", insured.getInsuredUuid(), profilePicturePath);
-            String profilePictureBase64 = getProfilePictureBase64(profilePicturePath);
-            response.setProfilePictureBase64(profilePictureBase64);
-            log.info("Profile picture base64 for insured {}: {}", insured.getInsuredUuid(),
-                    profilePictureBase64 != null ? "Set" : "Null");
+//            String profilePicturePath = insured.getProfilePicturePath();
+//            log.info("Profile picture path for insured {}: {}", insured.getInsuredUuid(), profilePicturePath);
+//            String profilePictureBase64 = getProfilePictureBase64(profilePicturePath);
+//            response.setProfilePictureBase64(profilePictureBase64);
+//            log.info("Profile picture base64 for insured {}: {}", insured.getInsuredUuid(),
+//                    profilePictureBase64 != null ? "Set" : "Null");
 
             if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
                 List<DependantResponse> dependantResponses = insured.getDependants().stream()

@@ -28,8 +28,6 @@ public class InsuredSearchResponse {
     private Status status;
     private Date birthDate;
     private String profilePictureBase64;
-
-
     private boolean isInsured;
     private List<DependantResponse> dependants;
 }

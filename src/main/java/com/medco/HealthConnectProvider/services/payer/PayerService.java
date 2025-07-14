@@ -31,6 +31,7 @@ public interface PayerService {
      * @param logo Optional logo file to update
      * @return The updated payer response
      */
+
     PayerResponse updatePayer(String payerUuid, @Valid PayerRequest payerRequest, MultipartFile logo);
 
 

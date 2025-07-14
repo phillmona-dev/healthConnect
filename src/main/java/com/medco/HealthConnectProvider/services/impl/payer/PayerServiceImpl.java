@@ -894,7 +894,6 @@ public class PayerServiceImpl implements PayerService {
     }
 
     private Payer createPayerFromRow(Row row, Map<String, Integer> headerMap) {
-
         String payerName = getStringCellValue(row, headerMap, "payer name");
         String phone = getStringCellValue(row, headerMap, "phone");
         String address1 = getStringCellValue(row, headerMap, "woreda");
@@ -916,18 +915,21 @@ public class PayerServiceImpl implements PayerService {
         payer.setPayerName(payerName);
         payer.setTelephone(phone);
         payer.setAddress1(address1);
-        payer.setEmail(email);
-        payer.setTinNumber(tinNumber);
         payer.setAddress2(address2);
         payer.setAddress3(address3);
         payer.setState(state);
+        payer.setTinNumber(tinNumber);
+
+        if (email == null || email.trim().isEmpty()) {
+            email = payerName.replaceAll("\\s+", "").toLowerCase() + "@gmail.com";
+        }
+        payer.setEmail(email);
 
         payer.setPayerUuid(UUID.randomUUID().toString());
         payer.setRegistrationDate(new Date());
         payer.setStatus(Status.ACTIVE);
 
         return payer;
-
     }
 
     private boolean isDuplicatePayer(Payer payer) {
