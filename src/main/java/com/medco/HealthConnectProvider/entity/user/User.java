@@ -38,21 +38,17 @@ public class User extends UserDateAudit {
     @NotBlank
     private String password;
 
-    @Size(min = 2, max = 25)
     private String title;
 
     @NotBlank
-    @Size(min = 2, max = 25)
     private String firstName;
 
     @NotBlank
-    @Size(min = 2, max = 25)
     private String fatherName;
 
     private String grandFatherName;
 
     @NotBlank
-    @Size(min = 1, max = 10)
     private String gender;
 
     @NotBlank
@@ -86,8 +82,6 @@ public class User extends UserDateAudit {
 //    @Column(name = "profile")
     private byte[] imageData;
 
-
-
     @Column(columnDefinition = "boolean default false")
     private boolean isDeleted;
 
@@ -96,14 +90,17 @@ public class User extends UserDateAudit {
     private Role role;
 
     private Date createdDate;
+
     private Date lastModifiedDate;
+
     private String createdBy;
+
     private String lastModifiedBy;
 
     @Column(columnDefinition = "boolean default false")
     private boolean firstTimeLogin;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinColumn(name = "payer_id")
     private Payer payer;
 
@@ -111,16 +108,16 @@ public class User extends UserDateAudit {
     @JoinColumn(name = "provider_id")
     private Provider provider;
 
-
-
     public void setPayer(Payer payer) {
         this.payer = payer;
         this.payerUuid = payer != null ? payer.getPayerUuid() : null;
+        if (payer != null && !payer.getUsers().contains(this)) {
+            payer.getUsers().add(this);
+        }
     }
 
     public void setProvider(Provider provider) {
         this.provider = provider;
         this.providerUuid = provider != null ? provider.getProviderUuid() : null;
     }
-
 }

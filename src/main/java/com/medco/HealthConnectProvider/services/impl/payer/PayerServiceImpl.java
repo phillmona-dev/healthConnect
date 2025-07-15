@@ -737,7 +737,7 @@ public class PayerServiceImpl implements PayerService {
 
             if (!rows.hasNext()) {
                 errors.add("Excel file is empty");
-                return new PayerImportResponse(importedPayers, skippedPayers, errors);
+                return new PayerImportResponse(importedPayers, skippedPayers, errors, 0, 0);
             }
 
             Row headerRow = rows.next();
@@ -745,7 +745,7 @@ public class PayerServiceImpl implements PayerService {
 
             if (!validateHeaders(headerMap)) {
                 errors.add("Missing required headers in the Excel file");
-                return new PayerImportResponse(importedPayers, skippedPayers, errors);
+                return new PayerImportResponse(importedPayers, skippedPayers, errors, 0, 0);
             }
 
             int rowNumber = 1;
@@ -783,16 +783,21 @@ public class PayerServiceImpl implements PayerService {
             errors.add("Error processing Excel file: " + e.getMessage());
         }
 
+        int successFullImports = importedPayers.size();
+        int skippedImports = skippedPayers.size();
+
         logger.info("Import process completed. Imported: {}, Skipped: {}, Errors: {}",
                 importedPayers.size(), skippedPayers.size(), errors.size());
 
-        return new PayerImportResponse(importedPayers, skippedPayers, errors);
+        return new PayerImportResponse(importedPayers, skippedPayers, errors, successFullImports, skippedImports);
+
     }
 
     private User createDefaultUserForPayer(Payer payer, Role role) {
         logger.info("Creating default user for payer: {}", payer.getPayerName());
 
         User user = new User();
+
         user.setUserUuid(UUID.randomUUID().toString());
         user.setEmail(generateDefaultEmail(payer));
 
@@ -831,11 +836,19 @@ public class PayerServiceImpl implements PayerService {
     }
 
     private String generateDefaultEmail(Payer payer) {
-        String baseEmail = payer.getPayerName().toLowerCase().replaceAll("\\s+", "") + "@gmail.com";
+        String sanitizedName = payer.getPayerName().toLowerCase()
+                .replaceAll("[^a-z0-9]", "")
+                .replaceAll("^[^a-z]", "a");
+
+        if (sanitizedName.isEmpty()) {
+            sanitizedName = "user";
+        }
+
+        String baseEmail = sanitizedName + "@gmail.com";
         String email = baseEmail;
         int counter = 1;
         while (userRepository.existsByEmail(email)) {
-            email = baseEmail.replace("@", counter + "@");
+            email = sanitizedName + counter + "@gmail.com";
             counter++;
         }
         return email;
@@ -863,7 +876,6 @@ public class PayerServiceImpl implements PayerService {
 
         List<Privilege> privileges = new ArrayList<>();
         privileges.add(createEmployeesPrivilege);
-        // Add more privileges as needed
         role.setPrivileges(privileges);
 
         Role savedRole = roleRepository.save(role);
@@ -910,6 +922,9 @@ public class PayerServiceImpl implements PayerService {
             return null;
         }
 
+        // Process phone number
+        phone = processPhoneNumber(phone);
+
         Payer payer = new Payer();
 
         payer.setPayerName(payerName);
@@ -930,6 +945,21 @@ public class PayerServiceImpl implements PayerService {
         payer.setStatus(Status.ACTIVE);
 
         return payer;
+    }
+
+    private String processPhoneNumber(String phone) {
+        if (phone == null) return null;
+        phone = phone.replaceAll("\\D", "");
+
+        if (!phone.startsWith("+251")) {
+            phone = "+251" + phone;
+        }
+
+        if (phone.length() > 13) {
+            phone = phone.substring(0, 13);
+        }
+
+        return phone;
     }
 
     private boolean isDuplicatePayer(Payer payer) {
@@ -964,7 +994,7 @@ public class PayerServiceImpl implements PayerService {
                 if (DateUtil.isCellDateFormatted(cell)) {
                     yield cell.getLocalDateTimeCellValue().toString();
                 }
-                yield String.valueOf(cell.getNumericCellValue());
+                yield String.format("%.0f", cell.getNumericCellValue());
             }
             case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
             default -> "";

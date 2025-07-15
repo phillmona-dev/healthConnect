@@ -16,4 +16,6 @@ public class PayerImportResponse {
     private List<PayerResponse> importedPayers;
     private List<String> skippedPayers;
     private List<String> errors;
+    private int successfulImports;
+    private int skippedImports;
 }

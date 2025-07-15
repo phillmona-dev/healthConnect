@@ -1203,6 +1203,7 @@ public class InsuredServiceImpl implements InsuredService {
         Workbook workbook = null;
         Logger logger = LoggerFactory.getLogger(this.getClass());
         List<String> errors = new ArrayList<>();
+        List<String> skippedInsured = new ArrayList<>();
         List<InsuredResponse> importedInsured = new ArrayList<>();
         int successfulImports = 0;
 
@@ -1268,7 +1269,8 @@ public class InsuredServiceImpl implements InsuredService {
                 try {
                     if (isEmptyOrNull(row.getCell(0)) || isEmptyOrNull(row.getCell(1)) || isEmptyOrNull(row.getCell(2))) {
                         logger.warn("Mandatory fields missing in row: {}", rowNum + 1);
-                        throw new IllegalArgumentException("Mandatory fields (ID Number, First Name, Father Name) cannot be empty.");
+                        skippedInsured.add("Row " + (rowNum + 1) + ": Mandatory fields (ID Number, First Name, Father Name) are empty");
+                        continue;
                     }
 
                     InsuredResponse insuredResponse = createInsuredPerson(row, payerUuid);
@@ -1283,8 +1285,9 @@ public class InsuredServiceImpl implements InsuredService {
                             dependantRepository.saveAll(dependants);
                             logger.info("Saved {} dependants for insured person: {}", dependants.size(), insuredResponse.getInsuredUuid());
                         }
+                    } else {
+                        skippedInsured.add("Row " + (rowNum + 1) + ": Duplicate entry or invalid data");
                     }
-                    // If insuredResponse is null, it means it's a duplicate entry that we're skipping
                 } catch (BadRequestException e) {
                     logger.error("Error processing row {}: {}", rowNum + 1, e.getMessage());
                     errors.add("Error in row " + (rowNum + 1) + ": " + e.getMessage());
@@ -1294,9 +1297,16 @@ public class InsuredServiceImpl implements InsuredService {
                 }
             }
 
-            logger.info("Import process completed. Successful imports: {}, Errors: {}", successfulImports, errors.size());
+            logger.info("Import process completed. Successful imports: {}, Skipped: {}, Errors: {}",
+                    successfulImports, skippedInsured.size(), errors.size());
 
-            InsuredImportResponse response = new InsuredImportResponse(importedInsured, errors, successfulImports);
+            InsuredImportResponse response = new InsuredImportResponse(
+                    importedInsured,
+                    skippedInsured,
+                    errors,
+                    successfulImports,
+                    skippedInsured.size()
+            );
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {

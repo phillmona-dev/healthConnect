@@ -134,6 +134,7 @@ public class Payer extends Audit {
     public void addUser(User user) {
         users.add(user);
         user.setPayer(this);
+        user.setPayerUuid(this.payerUuid);
     }
 
     public void removeUser(User user) {

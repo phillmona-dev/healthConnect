@@ -13,7 +13,8 @@ import java.util.List;
 @Getter
 public class InsuredImportResponse {
     private List<InsuredResponse> importedInsured;
+    private List<String> skippedInsured;
     private List<String> errors;
     private int successfulImports;
-
+    private int skippedImports;
 }
