@@ -16,7 +16,7 @@ public class PolicyHolderListResponse {
     private String payerName;
     private String description;
     private String telephone;
-    private Long tinNumber;
+    private String tinNumber;
     private String category;
     private String payerInsuranceNumber;
     private String address1;
@@ -27,4 +27,5 @@ public class PolicyHolderListResponse {
     private Status status;
     private String referralType;
     private String referredBy;
+
 }

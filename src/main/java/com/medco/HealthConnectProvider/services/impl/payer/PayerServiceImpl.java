@@ -930,7 +930,7 @@ public class PayerServiceImpl implements PayerService {
         payer.setAddress2(address2);
         payer.setAddress3(address3);
         payer.setState(state);
-        payer.setTinNumber(tinNumber);
+        payer.setTinNumber(String.valueOf(tinNumber));
 
         if (email == null || email.trim().isEmpty()) {
             email = payerName.replaceAll("\\s+", "").toLowerCase() + "@gmail.com";
