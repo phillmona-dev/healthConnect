@@ -859,7 +859,6 @@ public class PayerServiceImpl implements PayerService {
 //    }
 
     private Role createDefaultRoleForPayer(Payer payer) {
-
         Role role = new Role();
         String payerNameForRole = payer.getPayerName();
         if (payerNameForRole.length() > 35) {
@@ -874,16 +873,14 @@ public class PayerServiceImpl implements PayerService {
         Privilege createEmployeesPrivilege = privilegeRepository.findByPrivilegeName("Create Employees")
                 .orElseThrow(() -> new RuntimeException("Create Employees privilege not found"));
 
-        List<Privilege> privileges = new ArrayList<>();
-        privileges.add(createEmployeesPrivilege);
-        role.setPrivileges(privileges);
+        role.getPrivileges().add(createEmployeesPrivilege);
+        createEmployeesPrivilege.getRoles().add(role);
 
         Role savedRole = roleRepository.save(role);
         log.info("Default role created for payer: {}, Role UUID: {}, with Create Employees privilege",
                 payer.getPayerName(), savedRole.getRoleUuid());
 
         return savedRole;
-
     }
 
     private Map<String, Integer> createHeaderMap(Row headerRow) {

@@ -55,8 +55,8 @@ public class RoleController {
             @Parameter(description = "Page number (1-based)", example = "1")
             @RequestParam(value = "page", defaultValue = "1") int page,
 
-            @Parameter(description = "Number of items per page", example = "25")
-            @RequestParam(value = "limit", defaultValue = "25") int limit
+            @Parameter(description = "Number of items per page", example = "250")
+            @RequestParam(value = "limit", defaultValue = "2500") int limit
     ) {
         PagedResponse<RoleResponse> pagedResponse = roleService.getAllRoles(search, page - 1, limit);
         return ResponseEntity.ok(pagedResponse);
