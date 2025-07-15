@@ -79,18 +79,6 @@ public class GlobalExceptionHandler {
 
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorMessage> globalExceptionHandler(Exception ex, WebRequest request) {
-        ErrorMessage message = new ErrorMessage(
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                new Date(),
-                ex.getMessage());
-
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(message);
-    }
-
     @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
     public ResponseEntity<ErrorMessage> handleHttpMediaTypeNotAcceptableException(HttpMediaTypeNotAcceptableException ex) {
         ErrorMessage message = new ErrorMessage(
@@ -99,6 +87,25 @@ public class GlobalExceptionHandler {
                 "Acceptable MIME type: " + MediaType.APPLICATION_JSON_VALUE);
 
         return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(message);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorMessage> globalExceptionHandler(Exception ex, WebRequest request) {
+        String errorMessage = ex.getMessage();
+        Throwable cause = ex.getCause();
+        while (cause != null) {
+            errorMessage += " Caused by: " + cause.getMessage();
+            cause = cause.getCause();
+        }
+
+        ErrorMessage message = new ErrorMessage(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                new Date(),
+                errorMessage);
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(message);
     }

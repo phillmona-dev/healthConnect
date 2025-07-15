@@ -35,6 +35,7 @@ import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.*;
 import com.medco.HealthConnectProvider.utils.enums.Relationship;
 import com.medco.HealthConnectProvider.utils.enums.Status;
+import jakarta.validation.constraints.Size;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.poi.ss.usermodel.*;
@@ -87,7 +88,11 @@ public class InsuredServiceImpl implements InsuredService {
     @Override
     public ResponseEntity<?> createInsuredPerson(InsuredRequest insuredRequest, MultipartFile photo) {
 
+
+
         try {
+
+            String formatedPhone = formatPhoneNumber(insuredRequest.getPhone());
 
             if (insuredRepository.existsByEmailAndPayerPayerUuid(insuredRequest.getEmail(),
                     insuredRequest.getPayerUuid())) {
@@ -102,6 +107,7 @@ public class InsuredServiceImpl implements InsuredService {
 
             Insured insured = new Insured();
             BeanUtils.copyProperties(insuredRequest, insured);
+            insured.setPhone(formatedPhone);
 
             insured.setStatus(insuredRequest.getStatus() != null ?
                     insuredRequest.getStatus() : Status.PENDING);
@@ -171,6 +177,14 @@ public class InsuredServiceImpl implements InsuredService {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new MessageResponse("Error creating insured person: " + e.getMessage()));
         }
+    }
+
+    private String formatPhoneNumber(@Size(min = 9, max = 13) String phone) {
+        if (phone != null && phone.startsWith("+251")){
+            return "0" + phone.substring(4);
+        }
+
+        return phone;
     }
 
     private void addInsuredToGroup(Insured savedInsured, String groupUuid) {

@@ -1519,6 +1519,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         claimItem.setPatientResponsibility(itemPatientPortion);
 
         return claimItem;
+
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -1610,6 +1611,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensingRepository.save(record);
 
         return ResponseEntity.ok(savedClaim);
+
     }
 
     @Override
@@ -1679,9 +1681,11 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         response.setMessage("Claim reconciled successfully");
 
         return ResponseEntity.ok(response);
+
     }
 
     private void createClaimLog(Claim claim, UserPrincipal user, ClaimStatus previousStatus, ClaimStatus newStatus, String comment) {
+
         ClaimLogs log = new ClaimLogs();
         log.setLogUuid(UUID.randomUUID().toString());
         log.setClaim(claim);
@@ -1693,5 +1697,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         log.setActionStatus(newStatus.toString());
         log.setPreviousStatus(previousStatus.toString());
         claimLogsRepository.save(log);
+
     }
+
 }
