@@ -42,7 +42,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -410,24 +412,24 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public PagedResponse<UserResponse> getAllSystemUsers(String search, int page, int limit) {
-
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         log.debug("Searching users with search={}, page={}, limit={}", search, page, limit);
 
-        Pageable pageable = Pagination.paginateResource(page-1, limit, "id", "desc");
+        Pageable pageable = PageRequest.of(page - 1, limit, Sort.by("id").descending());
         Page<User> userPage = userRepository.findAll(UserSpecification.searchUsers(search), pageable);
 
         log.info("Found {} users", userPage.getTotalElements());
 
         List<UserResponse> content = userPage.getContent().stream()
                 .map(this::mapToUserResponse)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
         log.info("Mapped {} users to response", content.size());
 
         return new PagedResponse<>(
                 content,
-                userPage.getNumber(),
+                userPage.getNumber() + 1,
                 userPage.getSize(),
                 userPage.getTotalElements(),
                 userPage.getTotalPages(),

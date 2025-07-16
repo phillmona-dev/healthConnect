@@ -107,14 +107,9 @@ public class UserController {
             }
     )
     public ResponseEntity<PagedResponse<UserResponse>> getAllUsers(
-            @Parameter(description = "Search term to filter users. Can match first name, father name, mobile phone, email, role UUID, provider UUID, or payer UUID.")
             @RequestParam(required = false) String search,
-
-            @Parameter(description = "Page number (1-based)", example = "1")
             @RequestParam(defaultValue = "1") int page,
-
-            @Parameter(description = "Number of items per page", example = "10")
-            @RequestParam(defaultValue = "10") int limit) {
+            @RequestParam(defaultValue = "25") int limit) {
 
         log.info("Fetching users with search={}, page={}, limit={}", search, page, limit);
 
