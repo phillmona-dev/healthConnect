@@ -118,7 +118,7 @@ public class UserController {
 
         log.info("Fetching users with search={}, page={}, limit={}", search, page, limit);
 
-        PagedResponse<UserResponse> response = userService.getAllSystemUsers(search, page - 1, limit);
+        PagedResponse<UserResponse> response = userService.getAllSystemUsers(search, page, limit);
 
         log.info("Returned {} users", response.getContent().size());
 

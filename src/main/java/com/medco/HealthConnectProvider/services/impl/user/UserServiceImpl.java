@@ -410,10 +410,11 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public PagedResponse<UserResponse> getAllSystemUsers(String search, int page, int limit) {
+
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         log.debug("Searching users with search={}, page={}, limit={}", search, page, limit);
 
-        Pageable pageable = Pagination.paginateResource(page, limit, "id", "desc");
+        Pageable pageable = Pagination.paginateResource(page-1, limit, "id", "desc");
         Page<User> userPage = userRepository.findAll(UserSpecification.searchUsers(search), pageable);
 
         log.info("Found {} users", userPage.getTotalElements());
@@ -426,7 +427,7 @@ public class UserServiceImpl implements UserService {
 
         return new PagedResponse<>(
                 content,
-                userPage.getNumber() + 1,
+                userPage.getNumber(),
                 userPage.getSize(),
                 userPage.getTotalElements(),
                 userPage.getTotalPages(),
