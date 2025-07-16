@@ -19,6 +19,7 @@ import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PayersNameForProviderResponse;
 import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
+import com.medco.HealthConnectProvider.ui.response.user.UserSummary;
 import com.medco.HealthConnectProvider.utils.SortUtils;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import lombok.extern.slf4j.Slf4j;
@@ -489,6 +490,23 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
                 setDefaultLogoBase64(response);
             }
 
+            List<UserSummary> userSummaries = provider.getUsers().stream()
+                            .map(user -> {
+                                UserSummary summary = new UserSummary();
+                                summary.setUserUuid(user.getUserUuid());
+                                summary.setEmail(user.getEmail());
+                                summary.setTitle(user.getTitle());
+                                summary.setFirstName(user.getFirstName());
+                                summary.setFatherName(user.getFatherName());
+                                summary.setGrandFatherName(user.getGrandFatherName());
+                                summary.setGender(user.getGender());
+                                summary.setMobilePhone(user.getMobilePhone());
+                                summary.setRoleName(user.getRole() != null ? user.getRole().getRoleName() : null);
+                                return summary;
+                            })
+                                    .collect(Collectors.toList());
+            response.setUsers(userSummaries);
+
             providerResponses.add(response);
         }
 
@@ -502,6 +520,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         pagedResponse.setHasPrevious(providerPage.hasPrevious());
 
         return pagedResponse;
+
     }
 
     private void setDefaultLogoBase64(ProviderResponse response) {

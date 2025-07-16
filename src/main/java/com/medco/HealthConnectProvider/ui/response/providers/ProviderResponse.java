@@ -1,10 +1,12 @@
 package com.medco.HealthConnectProvider.ui.response.providers;
 
 
+import com.medco.HealthConnectProvider.ui.response.user.UserSummary;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
+import java.util.List;
 
 @Getter
 @Setter
@@ -31,6 +33,8 @@ public class ProviderResponse  implements Serializable {
     private String branch;
 
     private String roleUuid;
+
+    private List<UserSummary> users;
 
     private String logoPath;
 

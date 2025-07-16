@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.ui.response.payer;
 
+import com.medco.HealthConnectProvider.ui.response.user.UserSummary;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import lombok.Getter;
 import lombok.Setter;
@@ -36,6 +37,8 @@ public class PayerResponse {
     private long totalPages;
 
     private List<ContractSummary> contracts;
+
+    private List<UserSummary> users;
 
 
     @Getter

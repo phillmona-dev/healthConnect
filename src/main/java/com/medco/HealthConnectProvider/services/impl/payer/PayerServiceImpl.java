@@ -29,6 +29,7 @@ import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PolicyHolderListResponse;
 import com.medco.HealthConnectProvider.ui.response.provider.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.providers.ProviderResponse;
+import com.medco.HealthConnectProvider.ui.response.user.UserSummary;
 import com.medco.HealthConnectProvider.utils.SortUtils;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import com.medco.HealthConnectProvider.utils.enums.Status;
@@ -417,7 +418,9 @@ public class PayerServiceImpl implements PayerService {
     }
 
     @Override
-    public PagedResponse<PayerResponse> getPayersWithFilters(String searchKey, int page, int limit, Status status, String category, String payerName, Long tinNumber, String level, String sortBy, String sortDir) {
+    public PagedResponse<PayerResponse> getPayersWithFilters(String searchKey, int page, int limit, Status status,
+                                                             String category, String payerName, Long tinNumber,
+                                                             String level, String sortBy, String sortDir) {
 
         if (page > 0) {
             page = page - 1;
@@ -492,8 +495,24 @@ public class PayerServiceImpl implements PayerService {
                 setDefaultLogoBase64(response);
             }
 
-            payerResponses.add(response);
+            List<UserSummary> userSummaries = payer.getUsers().stream()
+                    .map(user -> {
+                        UserSummary summary = new UserSummary();
+                        summary.setUserUuid(user.getUserUuid());
+                        summary.setEmail(user.getEmail());
+                        summary.setTitle(user.getTitle());
+                        summary.setFirstName(user.getFirstName());
+                        summary.setFatherName(user.getFatherName());
+                        summary.setGrandFatherName(user.getGrandFatherName());
+                        summary.setGender(user.getGender());
+                        summary.setMobilePhone(user.getMobilePhone());
+                        summary.setRoleName(user.getRole() != null ? user.getRole().getRoleName() : null);
+                        return summary;
+                    })
+                    .collect(Collectors.toList());
+            response.setUsers(userSummaries);
 
+            payerResponses.add(response);
         }
 
         PagedResponse<PayerResponse> pagedResponse = new PagedResponse<>();
@@ -506,7 +525,6 @@ public class PayerServiceImpl implements PayerService {
         pagedResponse.setHasPrevious(payerPage.hasPrevious());
 
         return pagedResponse;
-
     }
 
     private void setDefaultLogoBase64(PayerResponse response) {
