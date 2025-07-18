@@ -2,14 +2,12 @@ package com.medco.HealthConnectProvider.entity.persons;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -63,11 +61,9 @@ public class Insured implements Serializable {
     private String title;
 
     @NotBlank(message = "firstName cant be empty")
-    @Size(min = 2, max = 25)
     private String firstName;
 
     @NotBlank(message = "fatherName cant be empty")
-    @Size(min = 2, max = 25)
     private String fatherName;
 
     private String grandFatherName;

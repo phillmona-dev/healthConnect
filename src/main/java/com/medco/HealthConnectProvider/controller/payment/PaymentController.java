@@ -1,13 +1,9 @@
 package com.medco.HealthConnectProvider.controller.payment;
 
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.services.payment.PaymentService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -69,6 +65,7 @@ public class PaymentController {
             } else {
 
                 return ResponseEntity.status(401).body("Invalid signature");
+
             }
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Error processing webhook");

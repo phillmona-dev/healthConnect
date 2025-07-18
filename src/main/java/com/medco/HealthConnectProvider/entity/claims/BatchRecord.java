@@ -32,7 +32,7 @@ public class BatchRecord {
 
     private String payerName;
 
-    private LocalDateTime requestedOn;
+    private LocalDate requestedOn;
 
     private LocalDate claimDatingFrom;
 

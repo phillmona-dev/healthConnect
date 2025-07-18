@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 public class ReconciliationResponse {
     private String batchCode;
     private String payerName;
-    private LocalDateTime requestedOn;
+    private LocalDate requestedOn;
     private LocalDate claimDatingFrom;
     private LocalDate claimDatingTo;
     private BigDecimal totalAmount;

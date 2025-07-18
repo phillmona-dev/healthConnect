@@ -121,6 +121,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
 
         Provider provider = new Provider();
         BeanUtils.copyProperties(providerRequest, provider);
+        provider.setTinNumber(providerRequest.getTinNumber());
         provider.setStatus(Status.valueOf(providerRequest.getStatus()));
         provider.setProviderUuid(UUID.randomUUID().toString());
 
@@ -306,6 +307,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
             response.setTotalContracts(contractCount);
 
             providerResponses.add(response);
+
         }
 
         PagedResponse<ProviderResponse> pagedResponse = new PagedResponse<>();
@@ -376,6 +378,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         response.setTotalContracts((long) contractSummaries.size());
 
         return response;
+
     }
 
     private ResponseEntity<ByteArrayResource> serveDefaultLogo() {

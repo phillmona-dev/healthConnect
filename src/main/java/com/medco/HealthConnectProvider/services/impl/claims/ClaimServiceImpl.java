@@ -894,7 +894,6 @@ public class ClaimServiceImpl implements ClaimService {
 
         claimPaymentRepository.save(payment);
 
-        // Update claim status
         ClaimStatus previousStatus = claim.getStatus();
         claim.setStatus(ClaimStatus.PAYMENT_INITIATED);
         claim.setPaidStatus("Payment Initiated");

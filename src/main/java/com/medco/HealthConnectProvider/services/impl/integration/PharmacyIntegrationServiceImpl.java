@@ -766,7 +766,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         batchRecord.setBatchNumber(batchCodeInfo.getBatchNumber());
 
         batchRecord.setPayerName(payer.getPayerName());
-        batchRecord.setRequestedOn(LocalDateTime.now());
+        batchRecord.setRequestedOn(LocalDate.now());
         batchRecord.setClaimDatingFrom(dispensingRecords.stream()
                 .map(MedicationDispensing::getDispensingDate)
                 .min(LocalDate::compareTo)

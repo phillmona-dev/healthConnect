@@ -33,15 +33,12 @@ public class InsuredRequest {
     private String title;
 
     @NotBlank(message = " firstName must be null ")
-    @Size(min = 2, max = 25)
     private String firstName;
 
 
     @NotBlank(message = " fatherName must not be null ")
-    @Size(min = 2, max = 25)
     private String fatherName;
 
-    @Size(min = 2, max = 25)
     private String grandFatherName;
 
     @Size(min = 1, max = 10)

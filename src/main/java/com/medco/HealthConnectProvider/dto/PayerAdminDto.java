@@ -28,15 +28,12 @@ public class PayerAdminDto {
     private String title;
 
     @NotBlank(message = "can't be empty")
-    @Size(min = 2, max = 25)
     private String firstName;
 
     @NotBlank(message = "can't be empty")
-    @Size(min = 2, max = 25)
     private String fatherName;
 
     //  @NotBlank(message = "can't be empty")
-    @Size(min = 2, max = 25)
     private String grandFatherName;
 
     @NotBlank(message = "can't be empty")

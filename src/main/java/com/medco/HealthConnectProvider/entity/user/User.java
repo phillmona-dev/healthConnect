@@ -109,6 +109,9 @@ public class User extends UserDateAudit {
     private Provider provider;
 
     public void setPayer(Payer payer) {
+        if (this.payer != null) {
+            this.payer.getUsers().remove(this);
+        }
         this.payer = payer;
         this.payerUuid = payer != null ? payer.getPayerUuid() : null;
         if (payer != null && !payer.getUsers().contains(this)) {
@@ -117,7 +120,13 @@ public class User extends UserDateAudit {
     }
 
     public void setProvider(Provider provider) {
+        if (this.provider != null) {
+            this.provider.getUsers().remove(this);
+        }
         this.provider = provider;
         this.providerUuid = provider != null ? provider.getProviderUuid() : null;
+        if (provider != null && !provider.getUsers().contains(this)) {
+            provider.getUsers().add(this);
+        }
     }
 }

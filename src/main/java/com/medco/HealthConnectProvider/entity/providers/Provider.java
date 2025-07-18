@@ -49,7 +49,7 @@ public class Provider extends Audit implements Serializable {
     @Email
     private String email;
 
-    @Size(min = 3, max = 100)
+    @Size(max = 100)
     private String description;
 
     @NotBlank
@@ -92,10 +92,8 @@ public class Provider extends Audit implements Serializable {
     private double latitude;
     private double longitude;
 
-    @Digits(integer = 13, fraction = 0, message = "TIN number must be between 10 and 13 digits")
-    @Min(value = 1000000000L, message = "TIN number must be at least 10 digits")
-    @Max(value = 9999999999999L, message = "TIN number must be at most 13 digits")
-    private Long tinNumber;
+    @Pattern(regexp = "^\\d{10,13}$", message = "TIN number must be between 10 and 13 digits")
+    private String tinNumber;
 
     @Enumerated(EnumType.STRING)
     private Status status;

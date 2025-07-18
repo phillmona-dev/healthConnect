@@ -40,20 +40,17 @@ public class Dependant implements Serializable {
     private String title;
 
     @NotBlank
-    @Size(min = 2, max = 25)
     private String firstName;
 
     @NotBlank
-    @Size(min = 2, max = 25)
     private String fatherName;
 
-    @NotBlank
-    @Size(min = 2, max = 25)
     private String grandFatherName;
 
     @NotBlank
     @Size(min = 1, max = 10)
     private String gender;
+
     @NotNull
     private Date birthDate;
 

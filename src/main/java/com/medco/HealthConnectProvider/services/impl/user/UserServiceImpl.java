@@ -17,7 +17,6 @@ import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
 import com.medco.HealthConnectProvider.repository.user.RoleRepository;
 import com.medco.HealthConnectProvider.repository.user.UserRepository;
 import com.medco.HealthConnectProvider.services.mail.EmailService;
-import com.medco.HealthConnectProvider.services.payer.PayerService;
 import com.medco.HealthConnectProvider.services.providers.ProviderService;
 import com.medco.HealthConnectProvider.services.token.TokenService;
 import com.medco.HealthConnectProvider.services.user.UserService;
@@ -32,9 +31,7 @@ import com.medco.HealthConnectProvider.ui.response.user.UserResponse;
 import com.medco.HealthConnectProvider.utils.Image.ImageUtils;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.mapper.MapperClass;
-import com.medco.HealthConnectProvider.utils.paginationUtils.Pagination;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
@@ -234,18 +231,19 @@ public class UserServiceImpl implements UserService {
         return base64Logo;
     }
 
-
     @Override
     @Transactional
     public UserResponse createUser(SignUpRequest signUpRequest) {
 
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+
         log.info("Starting user creation process for email: {}", signUpRequest.getEmail());
 
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
             log.warn("Email already in use: {}", signUpRequest.getEmail());
             throw new BadRequestException("Email is already in use!");
         }
+
         if (userRepository.existsByMobilePhone(signUpRequest.getMobilePhone())) {
             log.warn("Mobile phone already in use: {}", signUpRequest.getMobilePhone());
             throw new BadRequestException("Mobile Phone is already in use!");
@@ -256,6 +254,7 @@ public class UserServiceImpl implements UserService {
             log.error("Role not found for UUID: {}", signUpRequest.getRoleUuid());
             throw new BadRequestException("Can't Assign Role To User");
         }
+
         log.info("Role found: {}", role.getRoleName());
 
         User user = new User();
@@ -280,7 +279,8 @@ public class UserServiceImpl implements UserService {
                 log.error("No payer found for UUID: {}", role.getPayerUuid());
                 throw new BadRequestException("No payer found for the given role");
             }
-            user.setPayerUuid(payer.getPayerUuid());
+            user.setPayer(payer);
+            payer.addUser(user);
             institutionName = payer.getPayerName();
             log.info("User associated with payer: {}", payer.getPayerName());
         } else if (role.getRoleName().startsWith("PR_")) {
@@ -290,30 +290,29 @@ public class UserServiceImpl implements UserService {
                 log.error("No provider found for UUID: {}", role.getProviderUuid());
                 throw new BadRequestException("No provider found for the given role");
             }
-            user.setProviderUuid(provider.getProviderUuid());
+            user.setProvider(provider);
+            provider.addUser(user);
             institutionName = provider.getProviderName();
             log.info("User associated with provider: {}", provider.getProviderName());
         } else {
             log.warn("Role is neither payer nor provider: {}", role.getRoleName());
-
         }
 
-        if (userDetails.getProviderUuid()!=null){
-            Provider provider=providerRepository.findByProviderUuid(userDetails.getProviderUuid());
-            if (provider==null)throw new BadRequestException("provider not found");
+        if (userDetails.getProviderUuid() != null) {
+            Provider provider = providerRepository.findByProviderUuid(userDetails.getProviderUuid());
+            if (provider == null) throw new BadRequestException("provider not found");
             user.setProvider(provider);
-            user.setProviderUuid(userDetails.getProviderUuid());
-        } else if (userDetails.getPayerUuid()!=null) {
-            Payer payer=payerRepository.findByPayerUuid(userDetails.getPayerUuid());
-            if (payer==null)throw new BadRequestException("payer not found");
+            provider.addUser(user);
+        } else if (userDetails.getPayerUuid() != null) {
+            Payer payer = payerRepository.findByPayerUuid(userDetails.getPayerUuid());
+            if (payer == null) throw new BadRequestException("payer not found");
             user.setPayer(payer);
-            user.setPayerUuid(userDetails.getPayerUuid());
+            payer.addUser(user);
         }
 
+        log.info("Before save - PayerUuid: {}, ProviderUuid: {}", user.getPayerUuid(), user.getProviderUuid());
         User savedUser = userRepository.save(user);
-        log.info("User saved to database with ID: {}", savedUser.getId());
-
-        log.info("Saved user details - PayerUuid: {}, ProviderUuid: {}", savedUser.getPayerUuid(), savedUser.getProviderUuid());
+        log.info("After save - PayerUuid: {}, ProviderUuid: {}", savedUser.getPayerUuid(), savedUser.getProviderUuid());
 
         String loginUrl = frontendUrl + "/login?newUser=true&email=" + savedUser.getEmail();
         try {
@@ -486,7 +485,6 @@ public class UserServiceImpl implements UserService {
                 }).orElseThrow(() -> new BadRequestException("Couldn't generate new Token. try to login again...!"));
     }
 
-
     private PagedResponse<UserResponse> getAllUsers(String roleUuid, String providerUuid, Pageable pageable) {
         log.debug("Fetching all users with roleUuid={}, providerUuid={}, pageable={}", roleUuid, providerUuid, pageable);
 
@@ -514,8 +512,6 @@ public class UserServiceImpl implements UserService {
                 userPage.isLast()
         );
     }
-
-
 
     private boolean filterByRole(User user, String roleUuid) {
         if (roleUuid == null) return true;
@@ -552,7 +548,6 @@ public class UserServiceImpl implements UserService {
             return null;
         }
     }
-
 
     @Override
     public UserResponse createUser(PayerAdminDto payerAdminDto) {
