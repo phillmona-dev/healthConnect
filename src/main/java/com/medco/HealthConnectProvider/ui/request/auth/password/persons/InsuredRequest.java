@@ -32,7 +32,7 @@ public class InsuredRequest {
 
     private String title;
 
-    @NotBlank(message = " firstName must be null ")
+    @NotBlank(message = " firstName must not be null ")
     private String firstName;
 
 
@@ -44,10 +44,10 @@ public class InsuredRequest {
     @Size(min = 1, max = 10)
     private String Gender;
 
-    @NotNull
+    @NotNull(message = "Birth date must not be null")
     private Date birthDate;
 
-    @Size(min = 9, max = 13)
+    @Size(min = 9, max = 13, message = "Phone number must be between 9 and 13 characters")
     private String phone;
 
     @Size( max = 50)
@@ -83,5 +83,7 @@ public class InsuredRequest {
     private Status status;
 
     private String groupUuid;
+
+    private Date inactiveDate;
 
 }

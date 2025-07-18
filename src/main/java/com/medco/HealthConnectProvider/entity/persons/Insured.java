@@ -80,7 +80,7 @@ public class Insured implements Serializable {
 
     private String idNumber;
     private String insuranceId;
-
+    private Date inactiveDate;
     private String address;
     private String state;
     private String woreda;

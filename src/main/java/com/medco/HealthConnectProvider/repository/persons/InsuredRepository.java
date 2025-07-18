@@ -3,6 +3,7 @@ package com.medco.HealthConnectProvider.repository.persons;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredDependantListResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredListResponse;
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;
@@ -13,6 +14,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -185,5 +187,7 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
     boolean existsByEmailAndPayerUuid(String email, String payerUuid);
 
     Insured findByIdNumberAndFirstNameAndFatherNameAndPayerUuid(String idNumber, String firstName, String fatherName, String payerUuid);
+
+    List<Insured> findByStatusNotAndInactiveDateBefore(Status status, Date date);
 
 }

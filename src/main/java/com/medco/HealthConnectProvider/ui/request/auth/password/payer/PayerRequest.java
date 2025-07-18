@@ -1,8 +1,8 @@
 package com.medco.HealthConnectProvider.ui.request.auth.password.payer;
 
 import com.medco.HealthConnectProvider.utils.enums.Status;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -15,7 +15,8 @@ public class PayerRequest {
     @Size(min = 3, max = 50)
     private String payerName;
 
-    private Long tinNumber;
+    @Pattern(regexp = "^\\d{10,13}$", message = "TIN number must be between 10 and 13 digits")
+    private String tinNumber;
 
     private String email;
 
@@ -25,7 +26,6 @@ public class PayerRequest {
     @Size(min = 9, max = 13)
     private String telephone;
 
-
     @Size( max = 50)
     private String category;
 
@@ -33,6 +33,7 @@ public class PayerRequest {
     private String address1;
 
     private String address2;
+
     private String address3;
 
     @Size(max = 50)

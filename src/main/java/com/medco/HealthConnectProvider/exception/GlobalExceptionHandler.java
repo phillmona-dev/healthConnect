@@ -1,114 +1,73 @@
 package com.medco.HealthConnectProvider.exception;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import com.medco.HealthConnectProvider.ui.response.ApiErrorResponse;
+import org.springframework.http.*;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.security.SignatureException;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(UnauthorizedException.class)
-    public ResponseEntity<ErrorMessage> resourceNotFoundException(UnauthorizedException ex, WebRequest request) {
-        ErrorMessage message = new ErrorMessage(
-                HttpStatus.UNAUTHORIZED.value(),
-                new Date(),
-                ex.getMessage());
+    @ExceptionHandler({UnauthorizedException.class, BadRequestException.class, ExpiredJwtException.class,
+            AccessDeniedException.class, SignatureException.class, HttpMediaTypeNotAcceptableException.class})
+    public ResponseEntity<ApiErrorResponse> handleCommonExceptions(Exception ex) {
+        HttpStatus status;
+        String message;
 
-        return new ResponseEntity<ErrorMessage>(message, HttpStatus.UNAUTHORIZED);
-    }
+        if (ex instanceof UnauthorizedException) {
+            status = HttpStatus.UNAUTHORIZED;
+            message = ex.getMessage();
+        } else if (ex instanceof BadRequestException || ex instanceof ExpiredJwtException) {
+            status = HttpStatus.BAD_REQUEST;
+            message = ex.getMessage();
+        } else if (ex instanceof AccessDeniedException) {
+            status = HttpStatus.FORBIDDEN;
+            message = "You are not authorized to view these resources";
+        } else if (ex instanceof SignatureException) {
+            status = HttpStatus.FORBIDDEN;
+            message = "JWT Signature is not valid";
+        } else if (ex instanceof HttpMediaTypeNotAcceptableException) {
+            status = HttpStatus.NOT_ACCEPTABLE;
+            message = "Acceptable MIME type: " + MediaType.APPLICATION_JSON_VALUE;
+        } else {
+            status = HttpStatus.INTERNAL_SERVER_ERROR;
+            message = "An unexpected error occurred";
+        }
 
-    @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<ErrorMessage> badRequestException(BadRequestException ex, WebRequest request) {
-        ErrorMessage message = new ErrorMessage(
-                HttpStatus.BAD_REQUEST.value(),
-                new Date(),
-                ex.getMessage());
-
-        return new ResponseEntity<ErrorMessage>(message, HttpStatus.BAD_REQUEST);
-    }
-
-    @ExceptionHandler(ExpiredJwtException.class)
-    public ResponseEntity<ErrorMessage> expiredJwtException(ExpiredJwtException ex, WebRequest request) {
-        ErrorMessage message = new ErrorMessage(
-                HttpStatus.BAD_REQUEST.value(),
-                new Date(),
-                ex.getMessage());
-
-        return new ResponseEntity<ErrorMessage>(message, HttpStatus.BAD_REQUEST);
-    }
-
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ErrorMessage> accessDeniedException(org.springframework.security.access.AccessDeniedException exception, WebRequest request){
-        ErrorMessage message = new ErrorMessage(
-                HttpStatus.FORBIDDEN.value(),
-                new Date(System.currentTimeMillis()),
-                "you are not authorized to view these resources");
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(message);
-    }
-
-    @ExceptionHandler(SignatureException.class)
-    public ResponseEntity<ErrorMessage> signatureException(SignatureException ex, WebRequest request){
-        ErrorMessage message = new ErrorMessage(
-                HttpStatus.FORBIDDEN.value(),
-                new Date(System.currentTimeMillis()),
-                "Jwt Signature is not Valid");
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(message);
+        ApiErrorResponse errorResponse = new ApiErrorResponse(message);
+        return new ResponseEntity<>(errorResponse, status);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
-
-        for (FieldError error : ex.getBindingResult().getFieldErrors()) {
-            errors.put(error.getField(), error.getDefaultMessage());
-        }
-
-        return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
-
+    public ResponseEntity<ApiErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        FieldError fieldError = ex.getBindingResult().getFieldError();
+        String errorMessage = fieldError != null ? fieldError.getDefaultMessage() : "Validation failed";
+        ApiErrorResponse errorResponse = new ApiErrorResponse(errorMessage);
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
-    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
-    public ResponseEntity<ErrorMessage> handleHttpMediaTypeNotAcceptableException(HttpMediaTypeNotAcceptableException ex) {
-        ErrorMessage message = new ErrorMessage(
-                HttpStatus.NOT_ACCEPTABLE.value(),
-                new Date(),
-                "Acceptable MIME type: " + MediaType.APPLICATION_JSON_VALUE);
-
-        return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(message);
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
+        ApiErrorResponse errorResponse = new ApiErrorResponse(ex.getReason());
+        return new ResponseEntity<>(errorResponse, ex.getStatusCode());
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorMessage> globalExceptionHandler(Exception ex, WebRequest request) {
-        String errorMessage = ex.getMessage();
+    public ResponseEntity<ApiErrorResponse> handleAllExceptions(Exception ex) {
+        String errorMessage = "An unexpected error occurred: " + ex.getMessage();
         Throwable cause = ex.getCause();
         while (cause != null) {
             errorMessage += " Caused by: " + cause.getMessage();
             cause = cause.getCause();
         }
-
-        ErrorMessage message = new ErrorMessage(
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                new Date(),
-                errorMessage);
-
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(message);
+        ApiErrorResponse errorResponse = new ApiErrorResponse(errorMessage);
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
 }
-

@@ -52,7 +52,7 @@ public class InsuredController {
     })
     public ResponseEntity<?> createInsuredPerson(
             @RequestPart("insured") @Valid InsuredRequest insuredRequest,
-            @RequestPart(value = "photo", required = false) MultipartFile photo) {
+            @RequestPart(value = "photo", required = false) MultipartFile photo) throws IOException {
         return insuredService.createInsuredPerson(insuredRequest, photo);
     }
 
@@ -61,8 +61,7 @@ public class InsuredController {
     public ResponseEntity<ByteArrayResource> getInsuredPhoto(@PathVariable String insuredUuid) {
         return insuredService.getInsuredPhoto(insuredUuid);
     }
-
-
+    
     /**
      * Validates the insured request fields
      *
@@ -202,7 +201,7 @@ public class InsuredController {
     }
 
 
-//new
+   //new
 
     @GetMapping("/{insuredUuid}")
     @Operation(summary = "Get insured person by UUID", description = "Retrieves an insured person's details by their UUID")

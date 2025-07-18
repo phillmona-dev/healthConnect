@@ -55,11 +55,13 @@ public class InsuredResponse {
     private String country;
 
     private Status status;
-
+    private Date inactiveDate;
     private long totalPages;
 
     private String photoBase64;
 
     private String profilePicturePath;
+
+
 
 }

@@ -10,12 +10,13 @@ import java.util.List;
 @Getter
 @Setter
 public class PayerResponse {
+
     private String payerUuid;
     private String email;
     private String payerName;
     private String description;
     private String telephone;
-    private Long tinNumber;
+    private String tinNumber;
     private String category;
     private String payerInsuranceNumber;
     private String address1;

@@ -144,7 +144,20 @@ public class PayerServiceImpl implements PayerService {
 
         Payer payer = new Payer();
         BeanUtils.copyProperties(payerRequest, payer);
+
+        if (payerRequest.getTinNumber() != null && !payerRequest.getTinNumber().isEmpty()) {
+            String tinNumber = payerRequest.getTinNumber().trim();
+            if (!tinNumber.matches("^\\d{10,13}$")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "TIN number must be between 10 and 13 digits");
+            }
+            payer.setTinNumber(tinNumber);
+        } else {
+            payer.setTinNumber(null);
+        }
+
         payer.setPayerUuid(UUID.randomUUID().toString());
+        //payer.setTinNumber(payerRequest.getTinNumber());
         payer.setRegistrationDate(new Date());
         payer.setStatus(payerRequest.getStatus() != null ? payerRequest.getStatus() : Status.PENDING);
 
@@ -702,6 +715,7 @@ public class PayerServiceImpl implements PayerService {
         pagedResponse.setHasPrevious(payerPage.hasPrevious());
 
         return pagedResponse;
+
     }
 
     @Override
@@ -928,7 +942,7 @@ public class PayerServiceImpl implements PayerService {
         String address3 = getStringCellValue(row, headerMap, "city");
         String state = getStringCellValue(row, headerMap, "state");
         String email = getStringCellValue(row, headerMap, "email");
-        Long tinNumber = getLongCellValue(row, headerMap, "tin number");
+        String tinNumber = getStringCellValue(row, headerMap, "tin number");
 
         if (payerName == null || payerName.trim().isEmpty() ||
                 phone == null || phone.trim().isEmpty() ||
@@ -937,7 +951,6 @@ public class PayerServiceImpl implements PayerService {
             return null;
         }
 
-        // Process phone number
         phone = processPhoneNumber(phone);
 
         Payer payer = new Payer();
@@ -948,7 +961,15 @@ public class PayerServiceImpl implements PayerService {
         payer.setAddress2(address2);
         payer.setAddress3(address3);
         payer.setState(state);
-        payer.setTinNumber(String.valueOf(tinNumber));
+
+        if (tinNumber != null && !tinNumber.trim().isEmpty()) {
+            tinNumber = tinNumber.trim().replaceAll("[^0-9]", "");
+            if (tinNumber.length() >= 10 && tinNumber.length() <= 13) {
+                payer.setTinNumber(tinNumber);
+            } else {
+                payer.setTinNumber(null);
+            }
+        }
 
         if (email == null || email.trim().isEmpty()) {
             email = payerName.replaceAll("\\s+", "").toLowerCase() + "@gmail.com";

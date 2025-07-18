@@ -3,6 +3,7 @@ package com.medco.HealthConnectProvider.ui.request.auth.password.providers;
 import jakarta.persistence.Column;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -49,7 +50,7 @@ public class ProviderRequest {
 
     private double longitude;
 
-    @Size(min = 10, max = 13)
+    @Pattern(regexp = "^\\d{10,13}$", message = "TIN number must be between 10 and 13 digits")
     private String tinNumber;
 
     @Size(min = 3, max = 15)

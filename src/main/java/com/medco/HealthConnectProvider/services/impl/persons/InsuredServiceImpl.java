@@ -42,6 +42,7 @@ import org.apache.poi.ss.usermodel.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
@@ -52,6 +53,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
@@ -75,6 +77,9 @@ public class InsuredServiceImpl implements InsuredService {
 
     private final EmployeeDependantGroupRepository groupRepository;
 
+    @Autowired
+    private TaskScheduler taskScheduler;
+
     @Value("${file.upload-dir-payer-logos:C:/Users/Administrator/OneDrive/Desktop/MedcoProjects/logos/payers}")
     private String payerLogosDirectory;
 
@@ -86,34 +91,33 @@ public class InsuredServiceImpl implements InsuredService {
     }
 
     @Override
-    public ResponseEntity<?> createInsuredPerson(InsuredRequest insuredRequest, MultipartFile photo) {
-
-
-
+    public ResponseEntity<?> createInsuredPerson(InsuredRequest insuredRequest, MultipartFile photo) throws IOException {
         try {
-
             String formatedPhone = formatPhoneNumber(insuredRequest.getPhone());
 
             if (insuredRepository.existsByEmailAndPayerPayerUuid(insuredRequest.getEmail(),
                     insuredRequest.getPayerUuid())) {
-                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Error: Email is already in use!");
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Email is already in use");
             }
 
-            if (insuredRepository.existsByPhoneAndPayerPayerUuid(insuredRequest.getPhone(),
+            if (insuredRepository.existsByPhoneAndPayerPayerUuid(formatedPhone,
                     insuredRequest.getPayerUuid())) {
                 throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                        "Error: Mobile Phone is already in use!");
+                        "Mobile Phone is already in use");
             }
 
             Insured insured = new Insured();
             BeanUtils.copyProperties(insuredRequest, insured);
             insured.setPhone(formatedPhone);
 
-            insured.setStatus(insuredRequest.getStatus() != null ?
-                    insuredRequest.getStatus() : Status.PENDING);
+            if (insuredRequest.getInactiveDate() != null && insuredRequest.getInactiveDate().before(new Date())) {
+                insured.setStatus(Status.INACTIVE);
+            } else {
+                insured.setStatus(insuredRequest.getStatus() != null ? insuredRequest.getStatus() : Status.ACTIVE);
+            }
 
             Payer payer = payerRepository.findByPayerUuid(insuredRequest.getPayerUuid());
-            if (payer == null) throw new BadRequestException("Institution not found");
+            if (payer == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Institution not found");
             insured.setPayer(payer);
 
             if (insured.getInsuredUuid() == null || insured.getInsuredUuid().isEmpty()) {
@@ -121,62 +125,75 @@ public class InsuredServiceImpl implements InsuredService {
             }
 
             if (photo != null && !photo.isEmpty()) {
-                try {
-
-                    File directory = new File(payerLogosDirectory);
-                    if (!directory.exists()) {
-                        directory.mkdirs();
-                        logger.info("Created directory: {}", payerLogosDirectory);
-                    }
-
-                    String fileName = photo.getOriginalFilename();
-                    String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
-                    String newFileName = "photo_" + insured.getInsuredUuid() + "." + extension;
-
-                    Path path = Paths.get(payerLogosDirectory + "/" + newFileName);
-                    Files.write(path, photo.getBytes());
-                    logger.info("Saved photo to: {}", path);
-
-                    insured.setProfilePicturePath(newFileName);
-                } catch (IOException e) {
-                    throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                            "Error uploading photo: " + e.getMessage());
-                }
+                saveProfilePicture(insured, photo);
             }
 
             Insured savedInsured = insuredRepository.save(insured);
 
-            if(insuredRequest.getGroupUuid() !=null && !insuredRequest.getGroupUuid().isEmpty()){
+            if (insuredRequest.getGroupUuid() != null && !insuredRequest.getGroupUuid().isEmpty()) {
                 addInsuredToGroup(savedInsured, insuredRequest.getGroupUuid());
             }
 
-            InsuredResponse response = new InsuredResponse();
-            BeanUtils.copyProperties(savedInsured, response);
-            //response.setInsuranceId(savedInsured.getInsuranceId());
-            response.setEmployeeId(savedInsured.getEmployeeId());
-            response.setNationalId(savedInsured.getNationalId());
-            response.setProfilePicturePath(savedInsured.getProfilePicturePath());
-
-            if (savedInsured.getProfilePicturePath() != null) {
-
-                try {
-                    Path path = Paths.get(payerLogosDirectory + "/" + savedInsured.getProfilePicturePath());
-                    byte[] fileContent = Files.readAllBytes(path);
-                    String base64Photo = Base64.getEncoder().encodeToString(fileContent);
-                    response.setPhotoBase64(base64Photo);
-                } catch (IOException e) {
-                    logger.warn("Could not read photo for insured {}: {}", savedInsured.getInsuredUuid(), e.getMessage());
-                }
-
+            // Schedule status change if inactiveDate is in the future
+            if (insuredRequest.getInactiveDate() != null && insuredRequest.getInactiveDate().after(new Date())) {
+                scheduleStatusChange(savedInsured, insuredRequest.getInactiveDate());
             }
 
+            InsuredResponse response = createInsuredResponse(savedInsured);
+
             return ResponseEntity.ok(response);
-        } catch (ResponseStatusException e) {
-            throw e;
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new MessageResponse("Error creating insured person: " + e.getMessage()));
+            // Let the global exception handler deal with the exception
+            throw e;
         }
+    }
+
+    private void saveProfilePicture(Insured insured, MultipartFile photo) throws IOException {
+        File directory = new File(payerLogosDirectory);
+        if (!directory.exists()) {
+            directory.mkdirs();
+            log.info("Created directory: {}", payerLogosDirectory);
+        }
+
+        String fileName = photo.getOriginalFilename();
+        String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+        String newFileName = "photo_" + insured.getInsuredUuid() + "." + extension;
+
+        Path path = Paths.get(payerLogosDirectory + "/" + newFileName);
+        Files.write(path, photo.getBytes());
+        log.info("Saved photo to: {}", path);
+
+        insured.setProfilePicturePath(newFileName);
+    }
+
+    private InsuredResponse createInsuredResponse(Insured savedInsured) throws IOException {
+        InsuredResponse response = new InsuredResponse();
+        BeanUtils.copyProperties(savedInsured, response);
+        response.setEmployeeId(savedInsured.getEmployeeId());
+        response.setNationalId(savedInsured.getNationalId());
+        response.setProfilePicturePath(savedInsured.getProfilePicturePath());
+
+        if (savedInsured.getProfilePicturePath() != null) {
+            try {
+                Path path = Paths.get(payerLogosDirectory + "/" + savedInsured.getProfilePicturePath());
+                byte[] fileContent = Files.readAllBytes(path);
+                String base64Photo = Base64.getEncoder().encodeToString(fileContent);
+                response.setPhotoBase64(base64Photo);
+            } catch (IOException e) {
+                log.warn("Could not read photo for insured {}: {}", savedInsured.getInsuredUuid(), e.getMessage());
+            }
+        }
+
+        return response;
+
+    }
+
+    private void scheduleStatusChange(Insured insured, Date inactiveDate) {
+        taskScheduler.schedule(() -> {
+            insured.setStatus(Status.INACTIVE);
+            insuredRepository.save(insured);
+            log.info("Insured person {} status changed to INACTIVE", insured.getInsuredUuid());
+        }, inactiveDate);
     }
 
     private String formatPhoneNumber(@Size(min = 9, max = 13) String phone) {
