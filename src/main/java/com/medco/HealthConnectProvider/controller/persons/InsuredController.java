@@ -61,7 +61,7 @@ public class InsuredController {
     public ResponseEntity<ByteArrayResource> getInsuredPhoto(@PathVariable String insuredUuid) {
         return insuredService.getInsuredPhoto(insuredUuid);
     }
-    
+
     /**
      * Validates the insured request fields
      *
@@ -199,7 +199,6 @@ public class InsuredController {
     public ResponseEntity<?> getInsuredPersonWithPhoto(@PathVariable String insuredUuid) {
         return insuredService.getInsuredPersonWithPhotoBase64(insuredUuid);
     }
-
 
    //new
 

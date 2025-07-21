@@ -91,4 +91,6 @@ public interface EmployeeDependantGroupRepository extends JpaRepository<Employee
     List<EmployeeDependantGroup> findByInsuredsAndIsDeleted(Insured insured, boolean b);
 
     Page<EmployeeDependantGroup> findByPayerPayerUuid(String payerUUid, Pageable pageable);
+
+    long countByPayerPayerUuid(String payerUuid);
 }

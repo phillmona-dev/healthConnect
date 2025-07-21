@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.util.List;
 
 public interface UserService {
+
     ResponseEntity<?> authenticateUser(LoginRequest loginRequest);
 
     UserResponse createUser(SignUpRequest signUpRequest);
@@ -35,4 +36,5 @@ public interface UserService {
     PagedResponse<UserResponse> getAllSystemUsers(String search, int page, int limit);
 
     ResponseEntity<?> changeProfile(@Valid MultipartFile profilePicture) throws IOException;
+
 }

@@ -144,7 +144,7 @@ public class Claim extends Audit {
 //    @OneToOne(mappedBy = "claim")
 //    private BatchRecord batchRecord;
     @OneToOne
-    @JoinColumn(name = "batch_record_id")  // Add this column to your claims table
+    @JoinColumn(name = "batch_record_id")
     private BatchRecord batchRecord;
 
 //
@@ -183,17 +183,13 @@ public class Claim extends Audit {
 //    @OneToMany(mappedBy = "claim", cascade = CascadeType.ALL, orphanRemoval = true)
 //    private List<ProvidedService> providedServices = new ArrayList<>();
 
-
-
 //    @OneToOne(cascade = CascadeType.ALL)
 //    @JoinColumn(name = "provided_service_id")
 //    private ProvidedService providedService;
 
-
 //    @Column(nullable = false)
     @UpdateTimestamp
     private LocalDateTime lastUpdated;
-
 
 //
 //    @PrePersist

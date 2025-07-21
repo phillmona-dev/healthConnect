@@ -190,4 +190,8 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
 
     List<Insured> findByStatusNotAndInactiveDateBefore(Status status, Date date);
 
+    long countByPayerUuid(String payerUuid);
+
+    @Query("SELECT COUNT(i) FROM Insured i JOIN i.employeeDependantGroups g WHERE g.groupUuid = :groupUuid")
+    long countByEmployeeDependantGroupUuid(String groupUuid);
 }

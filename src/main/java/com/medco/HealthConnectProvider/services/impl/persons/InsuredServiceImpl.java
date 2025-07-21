@@ -256,6 +256,7 @@ public class InsuredServiceImpl implements InsuredService {
 
     @Override
     public ResponseEntity<ByteArrayResource> getInsuredPhoto(String insuredUuid) {
+
         try {
             Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
             if (insured == null || insured.getProfilePicturePath() == null) {
@@ -545,7 +546,6 @@ public class InsuredServiceImpl implements InsuredService {
         }
     }
 
-
     @Override
     @Transactional
     public ResponseEntity<?> softDeleteInsuredPerson(String insuredUuid) {
@@ -566,6 +566,7 @@ public class InsuredServiceImpl implements InsuredService {
             dependant.setDeleted(true);
             dependant.setDeletedAt(LocalDateTime.now());
         }
+
         dependantRepository.saveAll(dependants);
 
         log.info("Successfully soft deleted insured person with UUID: {} and their dependants", insuredUuid);
@@ -751,6 +752,7 @@ public class InsuredServiceImpl implements InsuredService {
         }
 
         return response;
+
     }
 
     private String getBase64FromPath(String photoFileName) {

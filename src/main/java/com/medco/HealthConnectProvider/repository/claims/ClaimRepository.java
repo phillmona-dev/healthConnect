@@ -3,12 +3,16 @@ package com.medco.HealthConnectProvider.repository.claims;
 import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimCustomResponse;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Repository
@@ -336,5 +340,14 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
             "WHERE c.payerUuid = :payerUuid",
             countQuery = "SELECT COUNT(c) FROM Claim c WHERE c.payerUuid = :payerUuid")
     Page<ClaimCustomResponse> findAllPayerClaims(@Param("payerUuid") String payerUuid, Pageable pageable);
+
+    long countByPayerUuid(String payerUuid);
+
+    long countByProviderUuid(@Size(min = 36, max = 40, message = "Provided Uuid Must be between 36 and 40") String providerUuid);
+
+    long countByStatus(ClaimStatus claimStatus);
+
+    int countByCreatedAtBetween(Instant startInstant, Instant endInstant);
+
 }
 

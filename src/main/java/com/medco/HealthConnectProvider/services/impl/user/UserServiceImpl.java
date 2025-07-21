@@ -154,7 +154,6 @@ public class UserServiceImpl implements UserService {
                     companyName=provider.getProviderName();
                     logo=convertTo64Bit(providerLogoResponse);
 
-
                 } else if (user.getPayerUuid()!=null) {
                     ResponseEntity<ByteArrayResource>  payerLogoResponse= logoGetter.PayerLogo(user.getPayerUuid());
                     Payer payer=payerRepository.findByPayerUuid(user.getPayerUuid());
@@ -180,7 +179,6 @@ public class UserServiceImpl implements UserService {
                 if (user.getImageData()!=null)
                     imageData=ImageUtils.decompressImage(user.getImageData());
 
-
                 JwtResponse response = new JwtResponse(
                         jwt,
                         refreshToken,
@@ -200,13 +198,13 @@ public class UserServiceImpl implements UserService {
                         companyName,
                         firstTime,
                         imageData
-               
 
                 );
 
                 logger.info("JwtResponse created: payerUuid={}, providerUuid={}", response.getPayerUuid(), response.getProviderUuid());
 
                 return ResponseEntity.ok(response);
+
             } else {
                 throw new BadRequestException("Your Token is Expired try to login Again");
             }
