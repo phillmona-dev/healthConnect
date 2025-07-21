@@ -7,6 +7,7 @@ import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
 import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
 import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordEditRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordEditRequest;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingDetailResponse;
 import com.medco.HealthConnectProvider.utils.enums.*;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -301,18 +302,30 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     @Override
-    public ResponseEntity<List<MedicationDispensingDTO>> getMedicationsByBatchCode(String batchCode) {
-        List<MedicationDispensing> dispensings = dispensingRepository.findByBatchCode(batchCode);
+    public ResponseEntity<PagedResponse<MedicationDispensingDTO>> getMedicationsByBatchCode(String batchCode, int page, int size) {
 
-        if (dispensings.isEmpty()) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<MedicationDispensing> dispensingsPage = dispensingRepository.findByBatchCode(batchCode, pageable);
+
+        if (dispensingsPage.isEmpty()) {
             throw new ResourceNotFoundException("Medications", "batchCode", batchCode);
         }
 
-        List<MedicationDispensingDTO> medicationDTOs = dispensings.stream()
+        List<MedicationDispensingDTO> medicationDTOs = dispensingsPage.getContent().stream()
                 .map(this::convertToMedicationDispensingDTO)
                 .collect(Collectors.toList());
 
-        return ResponseEntity.ok(medicationDTOs);
+        PagedResponse<MedicationDispensingDTO> pagedResponse = new PagedResponse<>(
+                medicationDTOs,
+                dispensingsPage.getNumber(),
+                dispensingsPage.getSize(),
+                dispensingsPage.getTotalElements(),
+                dispensingsPage.getTotalPages(),
+                dispensingsPage.isLast()
+        );
+
+        return ResponseEntity.ok(pagedResponse);
+
     }
 
     @Override
@@ -573,6 +586,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
        // itemDTO.setItemType(item.getItemType().toString());
 
         return itemDTO;
+
     }
 
     private ImmutablePair<Insured, Dependant> findInsuredPersonFor(DrugDispensingRecordRequest request) {

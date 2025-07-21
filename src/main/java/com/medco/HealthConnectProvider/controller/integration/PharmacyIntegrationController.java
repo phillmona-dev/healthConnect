@@ -12,6 +12,7 @@ import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordReque
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordEditRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
@@ -227,9 +228,12 @@ public class PharmacyIntegrationController {
 
     @GetMapping("/medications/{batchCode}")
     @Operation(summary = "Get medications by batch code",
-            description = "Retrieves a list of medications associated with a specific batch code")
-    public ResponseEntity<List<MedicationDispensingDTO>> getMedicationsByBatchCode(@PathVariable String batchCode) {
-        return pharmacyIntegrationService.getMedicationsByBatchCode(batchCode);
+            description = "Retrieves a paginated list of medications associated with a specific batch code")
+    public ResponseEntity<PagedResponse<MedicationDispensingDTO>> getMedicationsByBatchCode(
+            @PathVariable String batchCode,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return pharmacyIntegrationService.getMedicationsByBatchCode(batchCode, page, size);
     }
 
     @GetMapping("/getDispensingDetail/{dispensingUuid}")

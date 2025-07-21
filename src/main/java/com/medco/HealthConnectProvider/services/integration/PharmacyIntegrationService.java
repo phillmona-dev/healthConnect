@@ -8,6 +8,7 @@ import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordEd
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.MedicationDispensingRequest;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
@@ -55,7 +56,6 @@ public interface PharmacyIntegrationService {
 
     ResponseEntity<?> addDrugDispensingRecord(DrugDispensingRecordRequest request);
 
-    ResponseEntity<List<MedicationDispensingDTO>> getMedicationsByBatchCode(String batchCode);
 
     ResponseEntity<DispensingDetailResponse> getDispensingDetail(String dispensingUuid);
 
@@ -64,6 +64,8 @@ public interface PharmacyIntegrationService {
     ResponseEntity<?> editDrugDispensingRecord(String dispensingUuid, @Valid DrugDispensingRecordEditRequest editRequest);
 
     ResponseEntity<?> updateServiceClaimStatus(String medicationDispensingUuid, String newStatus ,String remark);
+
+    ResponseEntity<PagedResponse<MedicationDispensingDTO>> getMedicationsByBatchCode(String batchCode, int page, int size);
 
 
 //    ResponseEntity<?> createBatchClaim(String batchCode);
