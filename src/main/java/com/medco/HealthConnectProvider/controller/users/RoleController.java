@@ -11,7 +11,6 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 //@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -71,4 +70,5 @@ public class RoleController {
     public ResponseEntity<?> deleteRole(@PathVariable String roleUuid){
         return roleService.deleteRole(roleUuid);
     }
+
 }

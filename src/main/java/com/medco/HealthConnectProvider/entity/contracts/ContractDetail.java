@@ -94,7 +94,7 @@ public class ContractDetail extends Audit implements Serializable {
     )
     @Builder.Default
     private Set<EmployeeDependantGroup> employeeDependantGroups = new HashSet<>();
-//
+
     @OneToMany(mappedBy = "contractDetail", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
     @JsonManagedReference(value = "contract-detail-medication-dispensing-item ")
     @Builder.Default
@@ -107,7 +107,6 @@ public class ContractDetail extends Audit implements Serializable {
         }
     }
 
-    // Helper methods for EmployeeDependantGroup
     public void addEmployeeDependantGroup(EmployeeDependantGroup group) {
         employeeDependantGroups.add(group);
         group.getContractDetails().add(this);
@@ -117,13 +116,13 @@ public class ContractDetail extends Audit implements Serializable {
         employeeDependantGroups.remove(group);
         group.getContractDetails().remove(this);
     }
-//
+
 //    // Helper methods for ProvidedService
 //    public void addProvidedService(ProvidedService providedService) {
 //        providedServices.add(providedService);
 //        providedService.setContractDetail(this);
 //    }
-//
+
 //    public void removeProvidedService(ProvidedService providedService) {
 //        providedServices.remove(providedService);
 //        providedService.setContractDetail(null);
@@ -134,15 +133,17 @@ public class ContractDetail extends Audit implements Serializable {
     @Builder.Default
     private List<ContractDetailEmployeeGroup> contractDetailEmployeeGroups = new ArrayList<>();
 
-    // Helper methods
     public void addContractDetailEmployeeGroup(ContractDetailEmployeeGroup group) {
+
         contractDetailEmployeeGroups.add(group);
         group.setContractDetail(this);
         group.setContractDetailUuid(this.getContractDetailUuid());
+
     }
 
     public void removeContractDetailEmployeeGroup(ContractDetailEmployeeGroup group) {
         contractDetailEmployeeGroups.remove(group);
         group.setContractDetail(null);
     }
+
 }

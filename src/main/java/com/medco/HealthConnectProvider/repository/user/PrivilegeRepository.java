@@ -20,4 +20,5 @@ public interface PrivilegeRepository extends JpaRepository<Privilege,Long> {
 
     List<Privilege> findByPrivilegeNameIn(List<String> names);
 
-    Optional<Privilege> findByPrivilegeName(String privilegeName);}
+    Optional<Privilege> findByPrivilegeName(String privilegeName);
+}

@@ -106,4 +106,10 @@ public class ServiceListController {
         fos.close();
         return convFile;
     }
+
+
+    @GetMapping("/{providerUuid}/services/export")
+    public ResponseEntity<?> exportServicesToExcel(@PathVariable String providerUuid) throws IOException {
+        return serviceService.exportServicesToExcel(providerUuid);
+    }
 }

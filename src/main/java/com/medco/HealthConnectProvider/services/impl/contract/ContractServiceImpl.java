@@ -32,6 +32,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGr
 import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractStatusUpdateRequest;
+import com.medco.HealthConnectProvider.ui.request.contract.CreateActiveContractRequest;
 import com.medco.HealthConnectProvider.ui.response.ApiErrorResponse;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
@@ -123,6 +124,7 @@ public class ContractServiceImpl implements ContractService {
     @Transactional
     @Override
     public ResponseEntity<ContractResponse> createContract(ContractRequest contractRequest) {
+
         Payer payer = payerRepository.findByPayerUuid(contractRequest.getPayerUuid());
         if (payer == null){
             throw new ResourceNotFoundException("Payer", "payerUuid", contractRequest.getPayerUuid());
@@ -458,12 +460,63 @@ public class ContractServiceImpl implements ContractService {
         return ResponseEntity.ok(contractResponses);
     }
 
+    @Override
+    public ContractNewResponse createActiveContract(CreateActiveContractRequest request) {
+
+        Payer payer = payerRepository.findByPayerUuid(request.getPayerUuid());
+        if (payer == null) {
+            payer = createNewPayer(request);
+        }
+
+        Provider provider = providerRepository.findByProviderUuid(request.getProviderUuid());
+        if (provider == null){
+            throw new ResourceNotFoundException("Provider", "providerUuid", request.getProviderUuid());
+        }
+
+        ContractHeader contract = new ContractHeader();
+        modelMapper.map(request, contract);
+
+        contract.setPayer(payer);
+        contract.setProvider(provider);
+        contract.setStatus(Status.ACTIVE);
+        contract.setContractName(generateUniqueContractName(request.getContractName()));
+        contract.setContractCode(request.getContractCode());
+        contract.setStartDate(request.getBeginDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
+        contract.setEndDate(request.getEndDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate());
+
+        ContractHeader savedContract = contractRepository.save(contract);
+
+        ContractNewResponse response = new ContractNewResponse();
+        modelMapper.map(savedContract, response);
+
+        return response;
+    }
+
+    private Payer createNewPayer(CreateActiveContractRequest request) {
+
+        Payer newPayer = new Payer();
+
+        newPayer.setPayerUuid(request.getPayerUuid());
+        newPayer.setPayerName(request.getPayerName());
+        newPayer.setTelephone(request.getPayerPhone());
+        newPayer.setEmail(request.getPayerEmail());
+        newPayer.setCategory(request.getPayerCategory());
+        newPayer.setAddress2(request.getPayerSubCity());
+        newPayer.setStatus(Status.ACTIVE);
+        newPayer.setRegistrationDate(new Date());
+
+        return payerRepository.save(newPayer);
+
+    }
+
+
     private String generateUniqueContractName(String baseName) {
 
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
         String dateSuffix = now.format(formatter);
         return baseName + " " + dateSuffix;
+
     }
 
     private ContractResponse.InsuredSummary filterDependants(ContractResponse.InsuredSummary summary, String searchKey) {
@@ -1114,6 +1167,7 @@ public class ContractServiceImpl implements ContractService {
         // TODO: Send notification to provider about termination
 
         return ResponseEntity.ok(new MessageResponse("Contract termination request submitted successfully"));
+
     }
 
     @Override
@@ -1236,6 +1290,7 @@ public class ContractServiceImpl implements ContractService {
 
     @Override
     public DetailedContractResponse getDetailedContract(String contractHeaderUuid, String userType) {
+
         ContractHeader contractHeader = contractRepository.findByContractHeaderUuid(contractHeaderUuid);
         if (contractHeader == null) {
             throw new ResourceNotFoundException("Contract", "contractHeaderUuid", contractHeaderUuid);
@@ -1380,6 +1435,7 @@ public class ContractServiceImpl implements ContractService {
             }
 
             groupUuid = insured.getEmployeeDependantGroup().getGroupUuid();
+
         }
 
         log.info("Group UUID found: {}", groupUuid);
@@ -1401,7 +1457,9 @@ public class ContractServiceImpl implements ContractService {
     }
 
     private EligibleServiceResponse mapToEligibleServiceResponse(ContractDetailEmployeeGroup cdeg, ContractHeader contract) {
+
         ContractDetail detail = cdeg.getContractDetail();
+
         EligibleServiceResponse response = new EligibleServiceResponse();
         response.setContractHeaderUuid(contract.getContractHeaderUuid());
         response.setContractName(contract.getContractName());

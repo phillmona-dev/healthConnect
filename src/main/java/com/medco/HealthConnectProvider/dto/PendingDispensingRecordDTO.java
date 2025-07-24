@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.dto;
 
+import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import com.medco.HealthConnectProvider.utils.enums.MedicationStatus;
 import com.medco.HealthConnectProvider.utils.enums.SourceType;
 import com.medco.HealthConnectProvider.utils.enums.Status;
@@ -29,7 +30,9 @@ public class PendingDispensingRecordDTO {
     private Double totalAmount;
     private Double patientResponsibility;
     private Double insuranceCoverage;
+
     private MedicationStatus status;
+    private ClaimStatus claimStatus;
     private String branchName;
     private SourceType source;
     private LocalDate createdAt;

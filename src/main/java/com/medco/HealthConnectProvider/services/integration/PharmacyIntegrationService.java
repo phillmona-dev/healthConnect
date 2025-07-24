@@ -51,8 +51,6 @@ public interface PharmacyIntegrationService {
 
     ResponseEntity<DispensingResponse> recordMedicationDispensing(@Valid KenemaPharmacyDispensingRequest request);
 
-    ResponseEntity<Page<PendingDispensingRecordDTO>> getDispensingRecords(String providerUuid, String search, String status,
-                                                                          LocalDate startDate, LocalDate endDate, String payerUuid, int page, int size, String sortBy, String sortDirection);
 
     ResponseEntity<?> addDrugDispensingRecord(DrugDispensingRecordRequest request);
 
@@ -67,6 +65,8 @@ public interface PharmacyIntegrationService {
 
     ResponseEntity<PagedResponse<MedicationDispensingDTO>> getMedicationsByBatchCode(String batchCode, int page, int size);
 
+    ResponseEntity<PagedResponse<PendingDispensingRecordDTO>> getDispensingRecords(String providerUuid, String search, String status, LocalDate startDate,
+                                                                                   LocalDate endDate, String payerUuid, int page, int size, String sortBy, String sortDirection);
 
 //    ResponseEntity<?> createBatchClaim(String batchCode);
 }

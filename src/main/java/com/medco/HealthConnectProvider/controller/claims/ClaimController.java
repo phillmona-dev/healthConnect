@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.controller.claims;
 
 import com.medco.HealthConnectProvider.services.claims.ClaimService;
 import com.medco.HealthConnectProvider.services.integration.PharmacyIntegrationService;
+import com.medco.HealthConnectProvider.ui.request.claims.BatchRejectRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimCommentRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimPaymentRequest;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
@@ -177,7 +178,7 @@ public class ClaimController {
         return pharmacyIntegrationService.reconcilePayment(claimUuid);
     }
 
-// Todo  NEW APIS FOR THE CLAIM
+    // Todo  NEW APIS FOR THE CLAIM
 
     @PostMapping("/createBatchClaim/{batchCode}")
     @Operation(summary = "Create claim from a batch",
@@ -185,6 +186,15 @@ public class ClaimController {
     public ResponseEntity<?> createBatchClaim(
             @PathVariable String batchCode) {
         return claimService.createBatchClaim(batchCode);
+    }
+
+    @PostMapping("/reject/{batchCode}")
+    @Operation(summary = "Reject or Resubmit a batch",
+            description = "Rejects a batch by changing its status to REJECTED if it's currently SUBMITTED, or changes it to RESUBMITTED if it was previously REJECTED")
+    public ResponseEntity<?> rejectOrResubmitBatch(
+            @PathVariable String batchCode,
+            @RequestBody @Valid BatchRejectRequest rejectRequest) {
+        return claimService.rejectOrResubmitBatch(batchCode, rejectRequest.getRemark());
     }
 
 

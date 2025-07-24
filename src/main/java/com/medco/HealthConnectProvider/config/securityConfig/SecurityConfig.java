@@ -67,6 +67,8 @@ public class SecurityConfig {
                                 "/api/v1/healthConnect/users/signup",
                                 "/api/v1/healthConnect/integration/pharmacy/check",
                                 "/api/v1/healthConnect/integration/pharmacy/dispensing",
+                                "/api/v1/healthConnect/provider/list/forHcPayer",
+                                "/api/v1/healthConnect/payer-provider-contract/hcPayer/create-active-contract",
                                 "/api/v1/healthConnect/users/role/*",
                                 "/api/v1/healthConnect/users/privilege/*",
                                 "/v3/api-docs/**",

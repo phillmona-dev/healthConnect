@@ -86,6 +86,8 @@ public class ClaimServiceImpl implements ClaimService {
     
 
     private final DependantRepository dependantRepository;
+
+    private final BatchLogRepository batchLogRepository;
     
 
     private final ProviderRepository providerRepository;
@@ -101,7 +103,7 @@ public class ClaimServiceImpl implements ClaimService {
     private final MedicationDispensingRepository medicationDispensingRepository;
     private final ClaimStatusUpdater claimStatusUpdater;
 
-    public ClaimServiceImpl(ClaimRepository claimRepository, ClaimAttachmentRepository claimAttachmentRepository, ClaimCommentRepository claimCommentRepository, ClaimLogsRepository claimLogsRepository, ClaimPaymentRepository claimPaymentRepository, ContractRepository contractRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, ProviderRepository providerRepository, PayerRepository payerRepository, ProviderService providerService, PaymentService paymentService, UserRepository userRepository, NotificationService notificationService, BatchRecordRepository batchRecordRepository, MedicationDispensingRepository medicationDispensingRepository, ClaimStatusUpdater claimStatusUpdater) {
+    public ClaimServiceImpl(ClaimRepository claimRepository, ClaimAttachmentRepository claimAttachmentRepository, ClaimCommentRepository claimCommentRepository, ClaimLogsRepository claimLogsRepository, ClaimPaymentRepository claimPaymentRepository, ContractRepository contractRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, BatchLogRepository batchLogRepository, ProviderRepository providerRepository, PayerRepository payerRepository, ProviderService providerService, PaymentService paymentService, UserRepository userRepository, NotificationService notificationService, BatchRecordRepository batchRecordRepository, MedicationDispensingRepository medicationDispensingRepository, ClaimStatusUpdater claimStatusUpdater) {
         this.claimRepository = claimRepository;
         this.claimAttachmentRepository = claimAttachmentRepository;
         this.claimCommentRepository = claimCommentRepository;
@@ -110,6 +112,7 @@ public class ClaimServiceImpl implements ClaimService {
         this.contractRepository = contractRepository;
         this.insuredRepository = insuredRepository;
         this.dependantRepository = dependantRepository;
+        this.batchLogRepository = batchLogRepository;
         this.providerRepository = providerRepository;
         this.payerRepository = payerRepository;
         this.providerService = providerService;
@@ -1033,5 +1036,68 @@ public class ClaimServiceImpl implements ClaimService {
                 claims.getTotalPages(),
                 claims.isLast()
         );
+    }
+
+    @Override
+    public ResponseEntity<?> rejectOrResubmitBatch(String batchCode, String remark) {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+
+        BatchRecord batch = batchRecordRepository.findByBatchCode(batchCode)
+                .orElseThrow(() -> new RuntimeException("Batch not found with code: " + batchCode));
+
+        Status previousStatus = Status.valueOf(batch.getStatus());
+        Status newStatus;
+
+        if (previousStatus == Status.SUBMITTED) {
+            newStatus = Status.REJECTED;
+            batch.setRejectionRemark(remark);
+            batch.setRejectedBy(userDetails.getUserUuid());
+            batch.setRejectedAt(LocalDateTime.now());
+        } else if (previousStatus == Status.REJECTED) {
+            newStatus = Status.RESUBMITTED;
+            batch.setResubmissionRemark(remark);
+            batch.setResubmittedBy(userDetails.getUserUuid());
+            batch.setResubmittedAt(LocalDateTime.now());
+        } else {
+            throw new BadRequestException("Batch is not in SUBMITTED or REJECTED status");
+        }
+
+        batch.setStatus(newStatus.toString());
+        batchRecordRepository.save(batch);
+
+        Claim associatedClaim = claimRepository.findByBatchRecord(batch);
+        if (associatedClaim != null) {
+            associatedClaim.setStatus(newStatus == Status.REJECTED ? ClaimStatus.REJECTED : ClaimStatus.RESUBMITTED);
+            associatedClaim.setReviewComment(remark);
+            associatedClaim.setReviewedByUuid(userDetails.getUserUuid());
+            associatedClaim.setReviewedAt(Instant.now());
+            claimRepository.save(associatedClaim);
+        }
+
+        List<MedicationDispensing> medicationDispensings = batch.getMedicationDispensing();
+        for (MedicationDispensing medicationDispensing : medicationDispensings) {
+            medicationDispensing.setStatus(newStatus == Status.REJECTED ? MedicationStatus.REJECTED : MedicationStatus.RESUBMITTED);
+            medicationDispensing.setClaimStatus(newStatus == Status.REJECTED ? ClaimStatus.REJECTED.toString() : ClaimStatus.RESUBMITTED.toString());
+            medicationDispensing.setRemark(remark);
+        }
+        medicationDispensingRepository.saveAll(medicationDispensings);
+
+        createBatchLog(batch, userDetails, previousStatus, newStatus, remark);
+
+        return ResponseEntity.ok(newStatus == Status.REJECTED ? "Batch rejected successfully" : "Batch resubmitted successfully");
+    }
+
+    private void createBatchLog(BatchRecord batch, UserPrincipal userDetails, Status oldStatus, Status newStatus, String remark) {
+        BatchLog log = new BatchLog();
+        log.setBatchRecord(batch);
+        log.setBatchCode(batch.getBatchCode());
+        log.setOldStatus(oldStatus.toString());
+        log.setNewStatus(newStatus.toString());
+        log.setChangedByUuid(userDetails.getUserUuid());
+        log.setChangedByName(userDetails.getFirstName() + " " + userDetails.getFatherName());
+        log.setMessage("Batch rejected: " + remark);
+        log.setChangedAt(LocalDateTime.now());
+
+        batchLogRepository.save(log);
     }
 }

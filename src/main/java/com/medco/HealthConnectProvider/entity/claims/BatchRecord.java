@@ -38,7 +38,7 @@ public class BatchRecord {
 
     private LocalDate claimDatingTo;
 
-    private BigDecimal totalAmount;
+    private Double totalAmount;
 
     private String status;
 
@@ -47,6 +47,18 @@ public class BatchRecord {
     @OneToOne(mappedBy = "batchRecord")
     private Claim claim;
 
+    @Column(length = 1000)
+    private String rejectionRemark;
+
+    @Column(length = 1000)
+    private String resubmissionRemark;
+
+    private String rejectedBy;
+    private String resubmittedBy;
+    private LocalDateTime resubmittedAt;
+    private LocalDateTime rejectedAt;
+
+    private double numberOfClaims;
 
     @OneToMany(mappedBy = "batchRecord", cascade = CascadeType.ALL,fetch = FetchType.EAGER)
     private List<MedicationDispensing> medicationDispensing;

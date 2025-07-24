@@ -74,7 +74,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -164,7 +167,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     @Override
-    public ResponseEntity<Page<PendingDispensingRecordDTO>> getDispensingRecords(
+    public ResponseEntity<PagedResponse<PendingDispensingRecordDTO>> getDispensingRecords(
             String providerUuid, String search, String status, LocalDate startDate, LocalDate endDate,
             String payerUuid, int page, int size, String sortBy, String sortDirection) {
 
@@ -184,7 +187,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 predicates.add(cb.equal(root.get("providerUuid"), providerUuid));
                 //TODO CHANGING THE CLAIM STATUS TO STATUS
                 if (status != null && !status.isEmpty()) {
-                    predicates.add(cb.equal(root.get("claimStatus"), status));
+                    predicates.add(cb.equal(root.get("status"), status));
                 }
 
                 if (startDate != null) {
@@ -213,22 +216,25 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 }
 
                 return cb.and(predicates.toArray(new Predicate[0]));
+
             };
 
             Page<MedicationDispensing> dispensingRecords = dispensingRepository.findAll(spec, pageable);
 
-            log.info("Executed query: {}", dispensingRecords);
-            log.info("Found {} dispensing records", dispensingRecords.getTotalElements());
+            List<PendingDispensingRecordDTO> dtoList = dispensingRecords.getContent().stream()
+                    .map(this::convertToDTO)
+                    .collect(Collectors.toList());
 
-            Page<PendingDispensingRecordDTO> dtoPage = dispensingRecords.map(this::convertToDTO);
-
-            Page<PendingDispensingRecordDTO> adjustedPage = new PageImpl<>(
-                    dtoPage.getContent(),
-                    PageRequest.of(dtoPage.getNumber() + 1, dtoPage.getSize(), dtoPage.getSort()),
-                    dtoPage.getTotalElements()
+            PagedResponse<PendingDispensingRecordDTO> pagedResponse = new PagedResponse<>(
+                    dtoList,
+                    dispensingRecords.getNumber() + 1,
+                    dispensingRecords.getSize(),
+                    dispensingRecords.getTotalElements(),
+                    dispensingRecords.getTotalPages(),
+                    dispensingRecords.isLast()
             );
 
-            return ResponseEntity.ok(adjustedPage);
+            return ResponseEntity.ok(pagedResponse);
         } catch (ResourceNotFoundException e) {
             log.error("Provider not found: {}", e.getMessage());
             return ResponseEntity.notFound().build();
@@ -241,6 +247,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Override
     @Transactional
     public ResponseEntity<?> addDrugDispensingRecord(DrugDispensingRecordRequest request) {
+
         try {
 
             Provider provider = validateProvider(request.getProviderUuid());
@@ -292,6 +299,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                     errorMessage += "Please check for duplicate entries or missing required fields.";
                 }
             }
+
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new ApiErrorResponse(errorMessage));
         } catch (Exception e) {
@@ -343,6 +351,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         response.setItems(items.stream().map(this::convertToItemDetail).collect(Collectors.toList()));
 
         return ResponseEntity.ok(response);
+
     }
 
     @Override
@@ -552,22 +561,26 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     private MedicationDispensingDTO convertToMedicationDispensingDTO(MedicationDispensing dispensing) {
         MedicationDispensingDTO dto = new MedicationDispensingDTO();
-        BeanUtils.copyProperties(dispensing,dto);
+        BeanUtils.copyProperties(dispensing, dto);
 
-        Provider providerOptional = providerRepository.findByProviderUuid(dispensing.getProviderUuid());
-        if (providerOptional!=null){
-            dto.setProviderName(providerOptional.getProviderName());
+        Provider provider = providerRepository.findByProviderUuid(dispensing.getProviderUuid());
+        if (provider != null) {
+            dto.setProviderName(provider.getProviderName());
+            dto.setProviderPhoneNumber(provider.getTelephone());
+            dto.setProviderLogoBase64(getBase64Logo(provider.getLogoPath()));
         }
 
         Payer payer = payerRepository.findByPayerUuid(dispensing.getPayerUuid());
         if (payer != null) {
             dto.setPayerName(payer.getPayerName());
+            dto.setPayerPhoneNumber(payer.getTelephone());
+            dto.setPayerLogoBase64(getBase64Logo(payer.getLogoPath()));
         }
 
         Insured insured = insuredRepository.findByInsuredUuid(dispensing.getInsuredUuid());
         if (insured != null) {
             dto.setInsuredName(insured.getFirstName() + " " + insured.getFatherName() + " " + insured.getGrandFatherName());
-           // dto.setInsuranceId(insured.getInsuranceId());
+            dto.setInsuranceId(insured.getInsuranceId());
         }
 
         List<MedicationDispensingDTO.MedicationItemDTO> itemDTOs = dispensing.getItems().stream()
@@ -576,7 +589,20 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dto.setMedicationItems(itemDTOs);
 
         return dto;
+    }
 
+    private String getBase64Logo(String logoPath) {
+        if (logoPath == null || logoPath.isEmpty()) {
+            return null;
+        }
+
+        try {
+            byte[] fileContent = Files.readAllBytes(Paths.get(logoPath));
+            return Base64.getEncoder().encodeToString(fileContent);
+        } catch (IOException e) {
+            log.error("Error reading logo file: " + logoPath, e);
+            return null;
+        }
     }
 
     private MedicationDispensingDTO.MedicationItemDTO convertToMedicationItemDTO(MedicationDispensingItem item) {
@@ -770,6 +796,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     private BatchRecord createBatchRecord(Payer payer, List<MedicationDispensing> dispensingRecords, Claim claim) {
+
         BatchRecord batchRecord = new BatchRecord();
 
         String providerUuid = dispensingRecords.get(0).getProviderUuid();
@@ -793,9 +820,22 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         double totalAmount = dispensingRecords.stream()
                 .mapToDouble(MedicationDispensing::getTotalAmount)
                 .sum();
-        batchRecord.setTotalAmount(BigDecimal.valueOf(totalAmount));
+        batchRecord.setTotalAmount(totalAmount);
+
+        long uniqueDispensingCount = dispensingRecords.stream()
+                .map(MedicationDispensing::getDispensingUuid)
+                .distinct()
+                .count();
+        batchRecord.setNumberOfClaims((double) uniqueDispensingCount);
 
         batchRecord.setStatus("SUBMITTED");
+        batchRecord.setMedicationDispensing(dispensingRecords);
+
+        if (claim != null) {
+            batchRecord.setClaim(claim);
+            batchRecord.setClaimUuid(claim.getClaimUuid());
+        }
+
         return batchRecord;
     }
 
@@ -1350,6 +1390,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     private PendingDispensingRecordDTO convertToDTO(MedicationDispensing dispensing) {
+
         PendingDispensingRecordDTO dto = new PendingDispensingRecordDTO();
 
         dto.setDispensingUuid(dispensing.getDispensingUuid());
@@ -1364,7 +1405,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dto.setPatientResponsibility(dispensing.getPatientResponsibility());
         dto.setInsuranceCoverage(dispensing.getInsuranceCoverage());
         dto.setPayerUuid(dispensing.getPayerUuid());
-        dto.setStatus(MedicationStatus.valueOf(dispensing.getClaimStatus()));
+        dto.setStatus(dispensing.getStatus());
+        dto.setClaimStatus(ClaimStatus.valueOf(dispensing.getClaimStatus()));
         dto.setSource(dispensing.getSource());
 
         Insured insured = null;

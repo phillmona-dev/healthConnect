@@ -10,5 +10,6 @@ public enum ClaimStatus {
     PAID,                // Payment has been processed
     CANCELLED,            // Claim has been cancelled
     PAYMENT_INITIATED,
-    RECONCILED
+    RECONCILED,
+    RESUBMITTED
 }

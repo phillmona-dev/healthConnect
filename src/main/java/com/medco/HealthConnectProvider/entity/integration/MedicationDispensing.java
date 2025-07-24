@@ -55,9 +55,12 @@ public class MedicationDispensing {
     private String branchName;
 
     private String claimStatus;
+
     private String remark;
 
+    @Enumerated(EnumType.STRING)
     private MedicationStatus status;
+
     private String claimUuid;
 
     private Double totalAmount;

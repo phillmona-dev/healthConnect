@@ -76,7 +76,7 @@ public class PharmacyIntegrationController {
     @GetMapping("/dispensing/{providerUuid}")
     @Operation(summary = "Get dispensing records with advanced search",
             description = "Retrieves dispensing records with various filter options")
-    public ResponseEntity<Page<PendingDispensingRecordDTO>> getDispensingRecords(
+    public ResponseEntity<PagedResponse<PendingDispensingRecordDTO>> getDispensingRecords(
             @PathVariable String providerUuid,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
@@ -183,6 +183,7 @@ public class PharmacyIntegrationController {
             description = "Retrieves a paginated list of batch records based on the provided search criteria, with options for sorting and pagination."
     )
     public ResponseEntity<Page<BatchRecordDTO>> searchBatchRecords(
+
             @Parameter(description = "Search term for batch code, payer name, total amount, status, or claim UUID")
             @RequestParam(required = false) String search,
 

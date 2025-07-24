@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.controller.drug;
 
 import com.medco.HealthConnectProvider.services.drug.DrugService;
+import com.medco.HealthConnectProvider.services.service.ServicelistService;
 import com.medco.HealthConnectProvider.ui.request.drug.DrugRequest;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.drug.DrugResponse;
@@ -20,10 +21,12 @@ import java.util.List;
 public class DrugController {
 
     private final DrugService drugService;
+    private final ServicelistService servicelistService;
 
     @Autowired
-    public DrugController(DrugService drugService) {
+    public DrugController(DrugService drugService, ServicelistService servicelistService) {
         this.drugService = drugService;
+        this.servicelistService = servicelistService;
     }
 
     @PostMapping("/{providerUuid}")
@@ -72,5 +75,10 @@ public class DrugController {
         File convertedFile = File.createTempFile("temp", null);
         file.transferTo(convertedFile);
         return drugService.importDrugListData(convertedFile, providerUuid);
+    }
+
+    @GetMapping("/{providerUuid}/drugs/export")
+    public ResponseEntity<?> exportDrugsToExcel(@PathVariable String providerUuid) throws IOException {
+        return servicelistService.exportDrugsToExcel(providerUuid);
     }
 }

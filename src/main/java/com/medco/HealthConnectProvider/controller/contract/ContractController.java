@@ -1,12 +1,13 @@
 package com.medco.HealthConnectProvider.controller.contract;
 
+import com.medco.HealthConnectProvider.annotation.RequiresApiKey;
 import com.medco.HealthConnectProvider.services.contract.ContractService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractRequest;
-import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractServiceGroupAssignmentRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractStatusUpdateRequest;
+import com.medco.HealthConnectProvider.ui.request.contract.CreateActiveContractRequest;
 import com.medco.HealthConnectProvider.ui.response.contracts.*;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.utils.paginationUtils.PaginationUtils;
@@ -22,7 +23,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -43,6 +43,14 @@ public class ContractController {
     //@PreAuthorize("hasRole('Create-Provider-Contract')")
     public ResponseEntity<ContractResponse> createContract(@Valid @RequestBody ContractRequest contractRequest) {
         return contractService.createContract(contractRequest);
+    }
+
+    //create contract for hcPayer
+    @RequiresApiKey
+    @PostMapping("/hcPayer/create-active-contract")
+    @Operation(summary = "Create an active contract for hc payer", description = "Creates a new active contract, creating a payer if it doesn't exist")
+    public ResponseEntity<ContractNewResponse> createActiveContract(@Valid @RequestBody CreateActiveContractRequest request) {
+        return ResponseEntity.ok(contractService.createActiveContract(request));
     }
 
     @PutMapping(path="/{contractUuid}")

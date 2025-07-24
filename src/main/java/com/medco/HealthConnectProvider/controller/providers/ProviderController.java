@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.controller.providers;
 
+import com.medco.HealthConnectProvider.annotation.RequiresApiKey;
 import com.medco.HealthConnectProvider.services.providers.ProviderService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.providers.ProviderRequest;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
@@ -88,6 +89,35 @@ public class ProviderController {
         return providerService.getProvidersWithFilters(searchKey, page, limit, status, category,
                 providerName, tinNumber, level, sortBy, sortDir);
     }
+
+    //list of providers for hcPayer
+    @RequiresApiKey
+    @GetMapping("/list/forHcPayer")
+    @Operation(
+            summary = "List providers for hcPayer",
+            description = "Retrieves a list of healthcare providers with pagination, search, and advanced filtering options"
+    )
+    public ResponseEntity<List<ProviderResponse>> getProvidersForHcPayer(
+            @RequestParam(value = "search", required = false) String searchKey,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "limit", defaultValue = "25") int limit,
+            @RequestParam(value = "status", required = false) Status status,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "providerName", required = false) String providerName,
+            @RequestParam(value = "tinNumber", required = false) String tinNumber,
+            @RequestParam(value = "level", required = false) String level,
+            @RequestParam(value = "sortBy", defaultValue = "id", required = false) String sortBy,
+            @RequestParam(value = "sortDir", defaultValue = "desc", required = false) String sortDir) {
+
+        PagedResponse<ProviderResponse> pagedResponse = providerService.getProvidersWithFilters(
+                searchKey, page, limit, status, category,
+                providerName, tinNumber, level, sortBy, sortDir);
+
+        List<ProviderResponse> providerList = pagedResponse.getContent();
+
+        return ResponseEntity.ok(providerList);
+    }
+
 
     @GetMapping("/list/withOutLogo")
     @Operation(

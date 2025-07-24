@@ -5,7 +5,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -22,7 +21,7 @@ public class BatchRecordDTO {
     private String status;
     private String claimUuid;
 
-    private int numberOfClaims;
+    private double numberOfClaims;
     private String requestedByUserName;
 
     public String getFormattedTotalAmount() {

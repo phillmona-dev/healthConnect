@@ -29,4 +29,9 @@ public interface ServicelistService {
     ResponseEntity<?> importServiceListData(File convert, String providerUuid) throws IOException;
 
     ResponseEntity<ServicelistResponse> createService(String providerUuid, @Valid ServicelistRequest serviceRequest);
+
+    ResponseEntity<?> exportServicesToExcel(String providerUuid) throws IOException;
+
+    ResponseEntity<?> exportDrugsToExcel(String providerUuid) throws IOException;
+
 }

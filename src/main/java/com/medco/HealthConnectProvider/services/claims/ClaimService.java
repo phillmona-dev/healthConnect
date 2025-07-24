@@ -8,6 +8,8 @@ import com.medco.HealthConnectProvider.ui.response.claims.ClaimListResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimDetailResponse;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
@@ -41,4 +43,6 @@ public interface ClaimService {
     ResponseEntity<?> createBatchClaim(String batchCode);
 
     PagedResponse<ClaimListResponse> getAll(String payer ,String provider,ClaimStatus status,Pageable pageable);
+
+    ResponseEntity<?> rejectOrResubmitBatch(String batchCode, @NotBlank(message = "Remark is required") @Size(max = 1000, message = "Remark must not exceed 1000 characters") String remark);
 }

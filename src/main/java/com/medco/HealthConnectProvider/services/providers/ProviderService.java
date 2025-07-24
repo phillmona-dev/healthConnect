@@ -44,7 +44,8 @@ public interface ProviderService {
      */
     ResponseEntity<?> updateProviderStatus(String providerUuid, Status status);
 
-    PagedResponse<ProviderResponse> getProvidersWithFiltersWithOutLogo(String searchKey, int page, int limit, Status status, String category, String providerName, String tinNumber, String level, String sortBy, String sortDir);
+    PagedResponse<ProviderResponse> getProvidersWithFiltersWithOutLogo(String searchKey, int page, int limit, Status status, String category,
+                                                                       String providerName, String tinNumber, String level, String sortBy, String sortDir);
 
     ResponseEntity<PagedResponse<PayerResponse>> getPayersWithContract(String providerUuid, int page, int size, String sortBy, String sortDir, String search);
 }

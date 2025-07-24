@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.repository.claims;
 
+import com.medco.HealthConnectProvider.entity.claims.BatchRecord;
 import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimCustomResponse;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
@@ -348,6 +349,8 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     long countByStatus(ClaimStatus claimStatus);
 
     int countByCreatedAtBetween(Instant startInstant, Instant endInstant);
+
+    Claim findByBatchRecord(BatchRecord batch);
 
 }
 

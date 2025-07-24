@@ -9,6 +9,7 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGr
 import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractStatusUpdateRequest;
+import com.medco.HealthConnectProvider.ui.request.contract.CreateActiveContractRequest;
 import com.medco.HealthConnectProvider.ui.response.contracts.*;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.Valid;
@@ -64,7 +65,6 @@ public interface ContractService {
 
     DetailedContractResponse getDetailedContract(String contractHeaderUuid, String userType);
 
-
     ResponseEntity<AssignServicesToGroupResponse> assignServicesToGroup(String groupUuid, @Valid List<String> contractDetailUuids);
 
     ResponseEntity<?> updateContractStatus(String contractUuid, @Valid ContractStatusUpdateRequest updateRequest);
@@ -75,6 +75,8 @@ public interface ContractService {
 
     ContractResponse getContract(String contractUuid, String userType, String searchKey);
 
-
     ResponseEntity<List<ContractResponse>> createKenemaContracts(List<String> payerUuids);
+
+    ContractNewResponse createActiveContract(@Valid CreateActiveContractRequest request);
+
 }

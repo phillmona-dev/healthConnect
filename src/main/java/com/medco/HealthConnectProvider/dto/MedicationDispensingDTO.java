@@ -5,7 +5,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -18,8 +17,10 @@ public class MedicationDispensingDTO {
     private String batchCode;
     private String providerUuid;
     private String providerName;
+    private String providerPhoneNumber;
     private String payerUuid;
     private String payerName;
+    private String payerPhoneNumber;
     private String insuredUuid;
     private String insuredName;
     private String insuranceId;
@@ -36,6 +37,10 @@ public class MedicationDispensingDTO {
     private Double patientResponsibility;
     private Double insuranceCoverage;
     private String pharmacistNotes;
+    private String remark;
+
+    private String providerLogoBase64;
+    private String payerLogoBase64;
     private List<MedicationItemDTO> medicationItems;
 
     @Data
