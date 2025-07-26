@@ -18,6 +18,7 @@ import java.util.Map;
 public class DashboardResponse {
 
     private long totalPayers;
+    private long numberOfPayersWithInsured;
     private long totalProviders;
     private long totalInsured;
     private long totalClaims;

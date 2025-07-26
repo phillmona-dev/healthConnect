@@ -64,6 +64,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.*;
@@ -73,7 +74,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
+import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -82,12 +86,19 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
 @Slf4j
 public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationService {
+
+    @Value("${file.upload-dir-payer-logos}")
+    private String payerLogosDirectory;
+
+    @Value("${file.upload-dir-provider-logos}")
+    private String providerLogosDirectory;
 
     private static final Logger logger = LoggerFactory.getLogger(PharmacyIntegrationServiceImpl.class);
 
@@ -144,6 +155,9 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     private ContractDetailRepository contractDetailRepository;
     @Autowired
     private ContractRepository contractHeaderRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
 
     private Payer validatePayer(String payerUuid) {
@@ -245,6 +259,37 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     @Override
+    public ResponseEntity<?> removeDispensingFromBatch(String dispensingUuid) {
+
+        MedicationDispensing dispensing = dispensingRepository.findByDispensingUuid(dispensingUuid);
+        if (dispensing == null){
+            throw new ResourceNotFoundException("Dispensing", "uuid", dispensingUuid);
+        }
+        if (dispensing.getBatchRecord() == null) {
+            throw new BadRequestException("This dispensing record is not associated with any batch.");
+        }
+
+        BatchRecord batchRecord = dispensing.getBatchRecord();
+
+        batchRecord.getMedicationDispensing().remove(dispensing);
+        dispensing.setBatchRecord(null);
+        dispensing.setBatchCode(null);
+
+        dispensing.setClaimStatus("DRAFT");
+        dispensing.setStatus(MedicationStatus.DRAFT);
+
+        dispensingRepository.save(dispensing);
+        batchRecordRepository.save(batchRecord);
+
+        if (batchRecord.getMedicationDispensing().isEmpty()) {
+            batchRecord.setStatus(String.valueOf(Status.INACTIVE));
+            batchRecordRepository.save(batchRecord);
+        }
+
+        return ResponseEntity.ok(new MessageResponse("Dispensing record removed from batch and status changed to DRAFT"));
+    }
+
+    @Override
     @Transactional
     public ResponseEntity<?> addDrugDispensingRecord(DrugDispensingRecordRequest request) {
 
@@ -338,7 +383,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     @Override
     public ResponseEntity<DispensingDetailResponse> getDispensingDetail(String dispensingUuid) {
-
         MedicationDispensing dispensing = dispensingRepository.findByDispensingUuid(dispensingUuid);
         if (dispensing == null) {
             throw new ResourceNotFoundException("Dispensing", "uuid", dispensingUuid);
@@ -348,16 +392,28 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         BeanUtils.copyProperties(dispensing, response);
 
         List<MedicationDispensingItem> items = dispensingItemRepository.findByDispensing(dispensing);
+
+        items.forEach(item -> {
+            if (item.getContractDetail() != null) {
+                item.getContractDetail().getContractDetailUuid();
+
+                if (item.getContractDetail().getContractHeader() != null) {
+                    item.getContractDetail().getContractHeader().getContractHeaderUuid();
+                }
+            }
+        });
+
         response.setItems(items.stream().map(this::convertToItemDetail).collect(Collectors.toList()));
 
         return ResponseEntity.ok(response);
 
     }
 
-    @Override
     @Transactional
+    @Override
     public ResponseEntity<?> editDispensingRecord(String dispensingUuid, DispensingRecordEditRequest editRequest) {
 
+        log.info("Editing dispensing record: {}", dispensingUuid);
         try {
             UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
@@ -366,8 +422,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 throw new ResourceNotFoundException("Dispensing Record", "uuid", dispensingUuid);
             }
 
-            if (!"DRAFT".equals(dispensing.getClaimStatus())) {
-                throw new BadRequestException("Only dispensing records in DRAFT status can be edited");
+            if (!Arrays.asList("DRAFT", "REJECTED", "RESUBMITTED").contains(dispensing.getClaimStatus())) {
+                throw new BadRequestException("Only dispensing records in DRAFT, REJECTED, or RESUBMITTED status can be edited");
             }
 
             Provider provider = providerRepository.findByProviderUuid(userDetails.getProviderUuid());
@@ -387,14 +443,15 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
             List<MedicationDispensingItem> updatedItems = updateDispensingItems(dispensing, editRequest.getMedicationItems(), provider, payer, activeContract);
 
+            updateDispensingRecordTotals(dispensing, updatedItems);
+
+            if (Arrays.asList("REJECTED", "RESUBMITTED").contains(dispensing.getClaimStatus())) {
+                dispensing.setClaimStatus("DRAFT");
+            }
+
             MedicationDispensing savedRecord = dispensingRepository.save(dispensing);
 
-            dispensingItemRepository.saveAll(updatedItems);
-
-            updateDispensingRecordTotals(savedRecord, updatedItems);
-
-            savedRecord = dispensingRepository.save(savedRecord);
-
+            log.info("Successfully edited dispensing record: {}", dispensingUuid);
             return ResponseEntity.ok(new DispensingRecordResponse(savedRecord));
 
         } catch (ResourceNotFoundException e) {
@@ -435,24 +492,54 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensing.setSecondaryDiagnosis(editRequest.getSecondaryDiagnosis());
     }
 
+    @Transactional
     private List<MedicationDispensingItem> updateDispensingItems(MedicationDispensing dispensing,
                                                                  List<DispensingRecordEditRequest.DispensingItemEditRequest> itemRequests,
                                                                  Provider provider, Payer payer, ContractHeader activeContract) {
-        List<MedicationDispensingItem> updatedItems = new ArrayList<>();
+        log.info("Updating dispensing items for dispensing record: {}", dispensing.getDispensingUuid());
+
+        entityManager.clear();
+
+        dispensing = dispensingRepository.findByDispensingUuid(dispensing.getDispensingUuid());
+
         Map<String, MedicationDispensingItem> existingItemsMap = dispensing.getItems().stream()
-                .collect(Collectors.toMap(MedicationDispensingItem::getItemUuid, item -> item));
+                .collect(Collectors.toMap(MedicationDispensingItem::getItemUuid, Function.identity(), (item1, item2) -> item1));
+
+        List<MedicationDispensingItem> updatedItems = new ArrayList<>();
 
         for (DispensingRecordEditRequest.DispensingItemEditRequest itemRequest : itemRequests) {
-            MedicationDispensingItem item = existingItemsMap.getOrDefault(itemRequest.getContractDetailUuid(), new MedicationDispensingItem());
+            log.debug("Processing item request with UUID: {}", itemRequest.getItemUuid());
+            MedicationDispensingItem item;
+            if (itemRequest.getItemUuid() != null && existingItemsMap.containsKey(itemRequest.getItemUuid())) {
+                item = existingItemsMap.get(itemRequest.getItemUuid());
+                log.debug("Updating existing item: {}", item.getItemUuid());
+            } else {
+                item = new MedicationDispensingItem();
+                item.setItemUuid(UUID.randomUUID().toString());
+                log.debug("Creating new item with UUID: {}", item.getItemUuid());
+            }
+
             updateDispensingItem(item, itemRequest, dispensing, provider, payer, activeContract);
             updatedItems.add(item);
+
         }
 
+        Set<String> requestedItemUuids = itemRequests.stream()
+                .map(DispensingRecordEditRequest.DispensingItemEditRequest::getItemUuid)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        dispensing.getItems().removeIf(item -> !requestedItemUuids.contains(item.getItemUuid()));
+        dispensing.getItems().clear();
+        dispensing.getItems().addAll(updatedItems);
+
+        log.info("Updated {} dispensing items for dispensing record: {}", updatedItems.size(), dispensing.getDispensingUuid());
         return updatedItems;
     }
 
     private void updateDispensingItem(MedicationDispensingItem item, DispensingRecordEditRequest.DispensingItemEditRequest itemRequest,
                                       MedicationDispensing dispensing, Provider provider, Payer payer, ContractHeader activeContract) {
+        log.debug("Updating dispensing item: {}", item.getItemUuid());
         item.setDispensing(dispensing);
         item.setQuantity((double) itemRequest.getQuantity());
         item.setRemark(itemRequest.getRemark());
@@ -473,7 +560,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             item.setMedicationCode(drug.getDrugCode());
             item.setMedicationName(drug.getDrugName());
         } else if (item.getItemType() == ItemType.SERVICE) {
-            Servicelist service = contractDetail.getServicelist(); // Changed from getService() to getServicelist()
+            Servicelist service = contractDetail.getServicelist();
             if (service == null) {
                 throw new ResourceNotFoundException("Service", "contractDetail", contractDetail.getContractDetailUuid());
             }
@@ -485,7 +572,9 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         item.setUnitPrice(itemRequest.getPrice());
         item.setTotalPrice(itemRequest.getPrice() * itemRequest.getQuantity());
+        log.debug("Dispensing item updated: {}", item.getItemUuid());
     }
+
 
     @Override
     @Transactional
@@ -553,10 +642,19 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     private DispensingDetailResponse.DispensingItemDetail convertToItemDetail(MedicationDispensingItem item) {
-        DispensingDetailResponse.DispensingItemDetail itemDetail = new DispensingDetailResponse.DispensingItemDetail();
-        BeanUtils.copyProperties(item, itemDetail);
-        itemDetail.setItemType(item.getItemType().name());
-        return itemDetail;
+        DispensingDetailResponse.DispensingItemDetail detail = new DispensingDetailResponse.DispensingItemDetail();
+        BeanUtils.copyProperties(item, detail);
+        detail.setItemType(String.valueOf(item.getItemType()));
+
+        if (item.getContractDetail() != null) {
+            detail.setContractDetailUuid(item.getContractDetail().getContractDetailUuid());
+
+            if (item.getContractDetail().getContractHeader() != null) {
+                detail.setContractHeaderUuid(item.getContractDetail().getContractHeader().getContractHeaderUuid());
+            }
+        }
+
+        return detail;
     }
 
     private MedicationDispensingDTO convertToMedicationDispensingDTO(MedicationDispensing dispensing) {
@@ -564,17 +662,29 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         BeanUtils.copyProperties(dispensing, dto);
 
         Provider provider = providerRepository.findByProviderUuid(dispensing.getProviderUuid());
+
         if (provider != null) {
+
             dto.setProviderName(provider.getProviderName());
             dto.setProviderPhoneNumber(provider.getTelephone());
-            dto.setProviderLogoBase64(getBase64Logo(provider.getLogoPath()));
+            String providerLogoPath = provider.getLogoPath();
+            if (providerLogoPath == null || providerLogoPath.isEmpty()) {
+                log.warn("Provider {} has no logo path set", provider.getProviderUuid());
+            }
+            String providerLogo = getLogoBase64(providerLogoPath, providerLogosDirectory);
+            dto.setProviderLogoBase64(providerLogo);
+            log.info("Provider logo: {}", providerLogo != null ? "Set" : "Null");
+
         }
 
         Payer payer = payerRepository.findByPayerUuid(dispensing.getPayerUuid());
+
         if (payer != null) {
             dto.setPayerName(payer.getPayerName());
             dto.setPayerPhoneNumber(payer.getTelephone());
-            dto.setPayerLogoBase64(getBase64Logo(payer.getLogoPath()));
+            String payerLogo = getLogoBase64(payer.getLogoPath(), payerLogosDirectory);
+            dto.setPayerLogoBase64(payerLogo);
+            log.info("Payer logo: {}", payerLogo != null ? "Set" : "Null");
         }
 
         Insured insured = insuredRepository.findByInsuredUuid(dispensing.getInsuredUuid());
@@ -591,18 +701,47 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return dto;
     }
 
-    private String getBase64Logo(String logoPath) {
+    private String getLogoBase64(String logoPath, String logoDirectory) {
         if (logoPath == null || logoPath.isEmpty()) {
-            return null;
+            log.info("Logo path is null or empty");
+            return getDefaultLogoBase64();
         }
 
         try {
-            byte[] fileContent = Files.readAllBytes(Paths.get(logoPath));
-            return Base64.getEncoder().encodeToString(fileContent);
+            String fullPath = logoDirectory + "/" + logoPath;
+            log.info("Attempting to read logo from: {}", fullPath);
+            File logoFile = new File(fullPath);
+
+            if (logoFile.exists() && logoFile.isFile()) {
+                byte[] fileContent = Files.readAllBytes(logoFile.toPath());
+                String base64Logo = Base64.getEncoder().encodeToString(fileContent);
+                String contentType = determineContentType(fullPath);
+                log.info("Logo found and encoded. Content type: {}", contentType);
+                return "data:" + contentType + ";base64," + base64Logo;
+            } else {
+                log.warn("Logo file does not exist or is not a file: {}", fullPath);
+                return getDefaultLogoBase64();
+            }
         } catch (IOException e) {
-            log.error("Error reading logo file: " + logoPath, e);
-            return null;
+            log.error("Error reading logo file: {}", logoPath, e);
+            return getDefaultLogoBase64();
         }
+    }
+
+    private String determineContentType(String filePath) {
+        try {
+            String contentType = Files.probeContentType(Paths.get(filePath));
+            return contentType != null ? contentType : "application/octet-stream";
+        } catch (IOException e) {
+            log.error("Error determining content type for file: " + filePath, e);
+            return "application/octet-stream";
+        }
+    }
+
+    private String getDefaultLogoBase64() {
+        // Implement this method to return a base64 encoded default logo
+        // You can either read from a default logo file or return a hardcoded base64 string
+        return null; // or your default logo base64 string
     }
 
     private MedicationDispensingDTO.MedicationItemDTO convertToMedicationItemDTO(MedicationDispensingItem item) {

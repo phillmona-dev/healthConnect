@@ -10,7 +10,6 @@ import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
 import com.medco.HealthConnectProvider.services.dashboard.DashboardService;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimStatistics;
-import com.medco.HealthConnectProvider.ui.response.dashboard.ComprehensiveDashboardResponse;
 import com.medco.HealthConnectProvider.ui.response.dashboard.DashboardResponse;
 import com.medco.HealthConnectProvider.ui.response.groups.GroupSummary;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerSummary;
@@ -68,6 +67,11 @@ public class DashboardServiceImpl implements DashboardService {
                 .collect(Collectors.toList());
         response.setPayerSummaries(payerSummaries);
 
+        long numberOfPayersWithInsured = payerSummaries.stream()
+                .filter(summary -> summary.getTotalInsured() > 0)
+                .count();
+        response.setNumberOfPayersWithInsured(numberOfPayersWithInsured);
+
         List<ProviderSummary> providerSummaries = providerRepository.findAll().stream()
                 .map(this::mapToProviderSummary)
                 .collect(Collectors.toList());
@@ -80,6 +84,7 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     private PayerSummary mapToPayerSummary(Payer payer) {
+
         PayerSummary summary = new PayerSummary();
         summary.setPayerUuid(payer.getPayerUuid());
         summary.setPayerName(payer.getPayerName());
@@ -107,11 +112,13 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     private ProviderSummary mapToProviderSummary(Provider provider) {
+
         ProviderSummary summary = new ProviderSummary();
         summary.setProviderUuid(provider.getProviderUuid());
         summary.setProviderName(provider.getProviderName());
         summary.setTotalClaims(claimRepository.countByProviderUuid(provider.getProviderUuid()));
         return summary;
+
     }
 
     private ClaimStatistics generateClaimStatistics() {

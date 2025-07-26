@@ -73,4 +73,7 @@ public interface PayerRepository extends JpaRepository<Payer, Long>, JpaSpecific
     Page<Payer> findPayersWithContractByProvider(@Param("providerUuid") String providerUuid, Pageable pageable);
 
     boolean existsByPayerNameOrTelephone(String payerName, String telephone);
-}
+
+    @Query("SELECT DISTINCT p FROM Payer p WHERE p.isDeleted = false AND p.status = 'ACTIVE' AND p.payerUuid NOT IN " +
+            "(SELECT ch.payer.payerUuid FROM ContractHeader ch WHERE ch.provider.providerUuid = :providerUuid AND ch.status = 'ACTIVE' AND ch.isDeleted = false)")
+    Page<Payer> findPayersWithoutActiveContractForProvider(@Param("providerUuid") String providerUuid, Pageable pageable);}

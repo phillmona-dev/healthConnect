@@ -12,6 +12,8 @@ import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.claims.ClaimRepository;
 import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
+import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
+import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
 import com.medco.HealthConnectProvider.repository.user.PrivilegeRepository;
 import com.medco.HealthConnectProvider.repository.user.RoleRepository;
@@ -100,6 +102,12 @@ public class PayerServiceImpl implements PayerService {
 
     @Autowired
     private ProviderRepository providerRepository;
+
+    @Autowired
+    private InsuredRepository insuredRepository;
+
+    @Autowired
+    private DependantRepository dependantRepository;
 
     @Value("${file.upload-dir-payer-logos:C:/Users/Administrator/OneDrive/Desktop/MedcoProjects/logos/payers}")
     private String payerLogosDirectory;
@@ -488,6 +496,12 @@ public class PayerServiceImpl implements PayerService {
                     payer.getPayerUuid(), false);
             response.setTotalContracts(contractCount);
 
+            Long insuredCount = insuredRepository.countByPayerPayerUuidAndIsDeleted(payer.getPayerUuid(), false);
+            response.setNumberOfInsured(insuredCount);
+
+            Long dependantCount = dependantRepository.countByInsuredPayerPayerUuidAndIsDeleted(payer.getPayerUuid(), false);
+            response.setNumberOfDependants(dependantCount);
+
             if (payer.getLogoPath() != null && !payer.getLogoPath().isEmpty()) {
                 try {
                     String logoPath = payerLogosDirectory + "/" + payer.getLogoPath();
@@ -823,6 +837,72 @@ public class PayerServiceImpl implements PayerService {
 
         return new PayerImportResponse(importedPayers, skippedPayers, errors, successFullImports, skippedImports);
 
+    }
+
+    @Override
+    public PagedResponse<PayerResponse> getPayersWithoutActiveContract(int page, int limit, String sortBy, String sortDir) {
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String providerUuid = userDetails.getProviderUuid();
+
+        if (providerUuid == null) {
+            throw new BadRequestException("User is not associated with any provider");
+        }
+
+        if (page > 0) {
+            page = page - 1;
+        }
+
+        String validatedSortBy = SortUtils.validatePayerSortField(sortBy);
+        String validatedSortDir = SortUtils.validateSortDirection(sortDir);
+
+        Sort sort = validatedSortDir.equalsIgnoreCase("asc") ?
+                Sort.by(validatedSortBy).ascending() :
+                Sort.by(validatedSortBy).descending();
+
+        Pageable pageable = PageRequest.of(page, limit, sort);
+
+        Page<Payer> payerPage = payerRepository.findPayersWithoutActiveContractForProvider(providerUuid, pageable);
+        List<Payer> payerList = payerPage.getContent();
+
+        List<PayerResponse> payerResponses = new ArrayList<>();
+        for (Payer payer : payerList) {
+            PayerResponse response = new PayerResponse();
+            BeanUtils.copyProperties(payer, response);
+            response.setStatus(payer.getStatus());
+
+            // Set logo
+            if (payer.getLogoPath() != null && !payer.getLogoPath().isEmpty()) {
+                try {
+                    String logoPath = payerLogosDirectory + "/" + payer.getLogoPath();
+                    File logoFile = new File(logoPath);
+
+                    if (logoFile.exists() && logoFile.isFile()) {
+                        byte[] fileContent = Files.readAllBytes(logoFile.toPath());
+                        String base64Logo = Base64.getEncoder().encodeToString(fileContent);
+                        response.setLogoBase64("data:" + determineContentType(logoPath) + ";base64," + base64Logo);
+                    } else {
+                        setDefaultLogoBase64(response);
+                    }
+                } catch (IOException e) {
+                    logger.warn("Could not read logo for payer {}: {}", payer.getPayerUuid(), e.getMessage());
+                    setDefaultLogoBase64(response);
+                }
+            } else {
+                setDefaultLogoBase64(response);
+            }
+
+            payerResponses.add(response);
+        }
+
+        return new PagedResponse<>(
+                payerResponses,
+                payerPage.getNumber() + 1,
+                payerPage.getSize(),
+                payerPage.getTotalElements(),
+                payerPage.getTotalPages(),
+                payerPage.hasNext(),
+                payerPage.hasPrevious()
+        );
     }
 
     private User createDefaultUserForPayer(Payer payer, Role role) {

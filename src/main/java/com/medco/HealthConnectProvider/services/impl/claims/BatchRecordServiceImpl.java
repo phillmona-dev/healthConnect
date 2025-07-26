@@ -28,14 +28,14 @@ public class BatchRecordServiceImpl implements BatchRecordService {
 
     @Override
     public Page<BatchRecordDTO> searchBatchRecords(String status,
-            String search, LocalDateTime requestedOnStart, LocalDateTime requestedOnEnd,
-            LocalDate claimDatingFrom, LocalDate claimDatingTo,
-            int page, int size, String sortBy, String sortDirection
+                                                   String search, LocalDateTime requestedOnStart, LocalDateTime requestedOnEnd,
+                                                   LocalDate claimDatingFrom, LocalDate claimDatingTo,
+                                                   int page, int size, String sortBy, String sortDirection
     ) {
         Sort sort = Sort.by(Sort.Direction.fromString(sortDirection), sortBy);
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        Specification<BatchRecord> spec = Specification.where(null);
+        Specification<BatchRecord> spec = (root, query, cb) -> cb.conjunction();
 
         if (search != null && !search.trim().isEmpty()) {
             spec = spec.and((root, query, cb) -> {
@@ -51,8 +51,18 @@ public class BatchRecordServiceImpl implements BatchRecordService {
         }
 
         if (status != null) {
-            spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), "SUBMITTED"));
+            spec = spec.and((root, query, cb) -> {
+                if ("SUBMITTED".equalsIgnoreCase(status)) {
+                    return cb.or(
+                            cb.equal(root.get("status"), "SUBMITTED"),
+                            cb.equal(root.get("status"), "RESUBMITTED")
+                    );
+                } else {
+                    return cb.equal(root.get("status"), status.toUpperCase());
+                }
+            });
         }
+
         if (requestedOnStart != null) {
             spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("requestedOn"), requestedOnStart));
         }

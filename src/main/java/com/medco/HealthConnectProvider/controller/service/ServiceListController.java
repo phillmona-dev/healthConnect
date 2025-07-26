@@ -98,6 +98,8 @@ public class ServiceListController {
         return serviceService.importServiceListData(convert(file), providerUuid);
     }
 
+
+
     private File convert(MultipartFile file) throws IOException {
         File convFile = new File(file.getOriginalFilename());
         convFile.createNewFile();
@@ -112,4 +114,6 @@ public class ServiceListController {
     public ResponseEntity<?> exportServicesToExcel(@PathVariable String providerUuid) throws IOException {
         return serviceService.exportServicesToExcel(providerUuid);
     }
+
+    
 }

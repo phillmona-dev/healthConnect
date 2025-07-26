@@ -63,4 +63,6 @@ public interface PayerService {
     ResponseEntity<PagedResponse<ProviderResponse>> getProvidersWithContract(String payerUuid, int page, int size, String sortBy, String sortDir, String search);
 
     PayerImportResponse importPayersFromExcel(MultipartFile file) throws IOException;
+
+    PagedResponse<PayerResponse> getPayersWithoutActiveContract(int page, int limit, String sortBy, String sortDir);
 }

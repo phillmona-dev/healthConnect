@@ -37,6 +37,9 @@ public class PayerResponse {
     private Status status;
     private long totalPages;
 
+    private Long numberOfInsured;
+    private Long numberOfDependants;
+
     private List<ContractSummary> contracts;
 
     private List<UserSummary> users;

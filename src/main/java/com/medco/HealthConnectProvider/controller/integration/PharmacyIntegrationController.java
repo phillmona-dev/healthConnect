@@ -264,4 +264,19 @@ public class PharmacyIntegrationController {
         return pharmacyIntegrationService.editDrugDispensingRecord(dispensingUuid, editRequest);
     }
 
+
+    @PutMapping("/dispensing/{dispensingUuid}/remove-from-batch")
+    @Operation(
+            summary = "Remove dispensing record from batch",
+            description = "Removes a medication dispensing record from its associated batch and changes its status to DRAFT. " +
+                    "This operation is typically used when a dispensing record needs to be edited or reviewed further " +
+                    "before being included in a batch for claim processing."
+    )
+    public ResponseEntity<?> removeDispensingFromBatch(
+            @Parameter(description = "UUID of the dispensing record to be removed from batch", required = true)
+            @PathVariable String dispensingUuid
+    ) {
+        return pharmacyIntegrationService.removeDispensingFromBatch(dispensingUuid);
+    }
+
 }

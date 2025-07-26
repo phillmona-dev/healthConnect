@@ -194,4 +194,7 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
 
     @Query("SELECT COUNT(i) FROM Insured i JOIN i.employeeDependantGroups g WHERE g.groupUuid = :groupUuid")
     long countByEmployeeDependantGroupUuid(String groupUuid);
+
+    Long countByPayerPayerUuidAndIsDeleted(String payerUuid, boolean b);
+
 }

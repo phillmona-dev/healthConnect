@@ -39,6 +39,8 @@ public class DispensingDetailResponse {
 
     @Data
     public static class DispensingItemDetail {
+        private String contractDetailUuid;
+        private String contractHeaderUuid;
         private String itemUuid;
         private String medicationCode;
         private String medicationName;

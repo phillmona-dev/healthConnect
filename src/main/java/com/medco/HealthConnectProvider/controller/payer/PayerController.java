@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -174,6 +175,19 @@ public class PayerController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse("Error importing payers: " + e.getMessage()));
         }
+    }
+
+    @GetMapping("/without-active-contract")
+    //@PreAuthorize("hasRole('ROLE_PROVIDER')")
+    @Operation(summary = "Get payers without active contract", description = "Retrieves a list of payers that do not have an active contract with the currently logged in provider")
+    public ResponseEntity<PagedResponse<PayerResponse>> getPayersWithoutActiveContract(
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "limit", defaultValue = "25") int limit,
+            @RequestParam(value = "sortBy", defaultValue = "payerName") String sortBy,
+            @RequestParam(value = "sortDir", defaultValue = "asc") String sortDir) {
+
+        PagedResponse<PayerResponse> response = payerService.getPayersWithoutActiveContract(page, limit, sortBy, sortDir);
+        return ResponseEntity.ok(response);
     }
 
 }

@@ -197,5 +197,4 @@ public class ClaimController {
         return claimService.rejectOrResubmitBatch(batchCode, rejectRequest.getRemark());
     }
 
-
 }

@@ -68,5 +68,7 @@ public interface PharmacyIntegrationService {
     ResponseEntity<PagedResponse<PendingDispensingRecordDTO>> getDispensingRecords(String providerUuid, String search, String status, LocalDate startDate,
                                                                                    LocalDate endDate, String payerUuid, int page, int size, String sortBy, String sortDirection);
 
+    ResponseEntity<?> removeDispensingFromBatch(String dispensingUuid);
+
 //    ResponseEntity<?> createBatchClaim(String batchCode);
 }

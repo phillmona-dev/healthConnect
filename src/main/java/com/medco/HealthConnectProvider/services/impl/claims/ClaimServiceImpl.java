@@ -953,42 +953,55 @@ public class ClaimServiceImpl implements ClaimService {
     public ResponseEntity<?> createBatchClaim(String batchCode) {
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
-        BatchRecord batch=batchRecordRepository.findByBatchCode(batchCode).orElseThrow(()->new BadRequestException("batch not found"));
-        if (userDetails.getProviderUuid()==null)throw new BadRequestException("allowed only for provider ");
-        if (!batch.getStatus().equals(Status.SUBMITTED.toString()))throw new BadRequestException("batch is not submitted");
-        List<MedicationDispensing> authorizedMedications=new ArrayList<>();
+        BatchRecord batch = batchRecordRepository.findByBatchCode(batchCode)
+                .orElseThrow(() -> new BadRequestException("Batch not found"));
 
-        for (MedicationDispensing medicationDispensing:batch.getMedicationDispensing()){
+        if (userDetails.getProviderUuid() == null) {
+            throw new BadRequestException("Allowed only for provider");
+        }
+
+        if (!batch.getStatus().equals(Status.SUBMITTED.toString()) && !batch.getStatus().equals(Status.RESUBMITTED.toString())) {
+            throw new BadRequestException("Batch is neither submitted nor resubmitted");
+        }
+
+        List<MedicationDispensing> authorizedMedications = new ArrayList<>();
+
+        for (MedicationDispensing medicationDispensing : batch.getMedicationDispensing()) {
             medicationDispensing.setStatus(MedicationStatus.AUTHORIZED);
             medicationDispensing.setClaimStatus(ClaimStatus.DRAFT.toString());
             authorizedMedications.add(medicationDispensing);
         }
 
-        double totalClaimAmount=authorizedMedications.stream().mapToDouble(MedicationDispensing::getTotalAmount).sum();
-        User user =userRepository.findByUserUuid(userDetails.getUserUuid()).orElseThrow(()->new BadRequestException("you are not identified please login again"));
-        medicationDispensingRepository.saveAll(authorizedMedications);
-        Claim claim=new Claim();
-        claim.setBatchRecord(batch);
-//        claim.setClaimNumber(6546588484L);
+        double totalClaimAmount = authorizedMedications.stream().mapToDouble(MedicationDispensing::getTotalAmount).sum();
+        User user = userRepository.findByUserUuid(userDetails.getUserUuid())
+                .orElseThrow(() -> new BadRequestException("You are not identified. Please login again"));
 
+        medicationDispensingRepository.saveAll(authorizedMedications);
+
+        Claim claim = new Claim();
+        claim.setBatchRecord(batch);
         claim.setClaimType("CLAIM");
         claim.setMrnNumber("2");
         claim.setServiceDate(LocalDate.now());
         claim.setStatus(ClaimStatus.DRAFT);
         claim.setSubmittedByUuid(userDetails.getUserUuid());
-        claim.setSubmittedByName(user.getFirstName()+ " "+userDetails.getFatherName());
+        claim.setSubmittedByName(user.getFirstName() + " " + userDetails.getFatherName());
         claim.setTotalAmount(BigDecimal.valueOf(totalClaimAmount));
         claim.setVisitDate(LocalDateTime.now());
         claim.setPayerUuid(batch.getMedicationDispensing().get(0).getPayerUuid());
-        if (userDetails.getProviderUuid()==null)throw new BadRequestException("providerUuid not found ");
+
+        if (userDetails.getProviderUuid() == null) {
+            throw new BadRequestException("ProviderUuid not found");
+        }
         claim.setProviderUuid(userDetails.getProviderUuid());
-//        claim.setCoinsuranceAmount(100);
-        Claim savedClaim =claimRepository.save(claim);
+
+        Claim savedClaim = claimRepository.save(claim);
         batch.setStatus(ClaimStatus.APPROVED.toString());
         batchRecordRepository.save(batch);
-        createClaimLog( savedClaim,  userDetails,  ClaimStatus.DRAFT, ClaimStatus.DRAFT, "creating new claim status");
-        return ResponseEntity.ok("claim created successfully");
 
+        createClaimLog(savedClaim, userDetails, ClaimStatus.DRAFT, ClaimStatus.DRAFT, "Creating new claim status");
+
+        return ResponseEntity.ok("Claim created successfully");
     }
 
     @Override
@@ -1048,7 +1061,7 @@ public class ClaimServiceImpl implements ClaimService {
         Status previousStatus = Status.valueOf(batch.getStatus());
         Status newStatus;
 
-        if (previousStatus == Status.SUBMITTED) {
+        if (previousStatus == Status.SUBMITTED || previousStatus == Status.RESUBMITTED) {
             newStatus = Status.REJECTED;
             batch.setRejectionRemark(remark);
             batch.setRejectedBy(userDetails.getUserUuid());
@@ -1059,7 +1072,7 @@ public class ClaimServiceImpl implements ClaimService {
             batch.setResubmittedBy(userDetails.getUserUuid());
             batch.setResubmittedAt(LocalDateTime.now());
         } else {
-            throw new BadRequestException("Batch is not in SUBMITTED or REJECTED status");
+            throw new BadRequestException("Batch is not in SUBMITTED, RESUBMITTED, or REJECTED status");
         }
 
         batch.setStatus(newStatus.toString());

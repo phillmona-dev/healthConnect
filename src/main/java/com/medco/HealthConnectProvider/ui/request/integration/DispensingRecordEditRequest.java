@@ -15,8 +15,9 @@ public class DispensingRecordEditRequest {
 
     @Data
     public static class DispensingItemEditRequest {
+        private String itemUuid;
         private String contractDetailUuid;
-        private String itemType; // "SERVICE" or "DRUG"
+        private String itemType;
         private String remark;
         private double price;
         private int quantity;
