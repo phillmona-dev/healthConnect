@@ -115,5 +115,5 @@ public class ServiceListController {
         return serviceService.exportServicesToExcel(providerUuid);
     }
 
-    
+
 }

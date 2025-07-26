@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -13,6 +14,7 @@ import java.util.stream.Collectors;
 import com.medco.HealthConnectProvider.entity.drug.Drug;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
+import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.drug.DrugRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
 import com.medco.HealthConnectProvider.repository.service.ServicelistRepository;
@@ -529,53 +531,83 @@ public class ServicelistServiceImpl implements ServicelistService {
     @Override
     @Transactional
     public ResponseEntity<?> importServiceListData(File file, String providerUuid) throws IOException {
+        try (Workbook workbook = WorkbookFactory.create(file)) {
+            Sheet sheet = workbook.getSheetAt(0);
 
-        Workbook workbook = WorkbookFactory.create(file);
-        Sheet sheet = workbook.getSheetAt(0);
-
-        Provider provider = providerRepository.findByProviderUuid(providerUuid);
-        if (provider == null){
-            throw new BadRequestException("Can't find Provider With the Provided Id");
-        }
-
-        int i = 0;
-        List<Servicelist> servicelistList= new ArrayList<>();
-        for (Row row : sheet) {
-
-            if (row.getCell(0) == null || row.getCell(0).getCellType() == CellType.BLANK) {
-                continue;
+            Provider provider = providerRepository.findByProviderUuid(providerUuid);
+            if (provider == null) {
+                throw new ResourceNotFoundException("Provider", "UUID", providerUuid);
             }
 
-            Servicelist servicelist = new Servicelist();
-            if (i == 0) {
+            List<Servicelist> servicelistList = new ArrayList<>();
+            Iterator<Row> rowIterator = sheet.iterator();
 
-                if (!row.getCell(0).getStringCellValue().equalsIgnoreCase("Item Code")
-                        || !row.getCell(1).getStringCellValue().equalsIgnoreCase("Item")
-                        || !row.getCell(2).getStringCellValue().equalsIgnoreCase("Category")
-                        || !row.getCell(3).getStringCellValue().equalsIgnoreCase("Sub Category")
-                        ||  !row.getCell(4).getStringCellValue().equalsIgnoreCase("Price")) {
-                    return ResponseEntity.ok(new MessageResponse(
-                            "The Excel sheet for uploading Service list should be used the format given."));
+            if (!rowIterator.hasNext()) {
+                throw new BadRequestException("The Excel sheet is empty.");
+            }
+
+            Row headerRow = rowIterator.next();
+            validateHeaderRow(headerRow);
+
+            while (rowIterator.hasNext()) {
+                Row row = rowIterator.next();
+                if (isRowEmpty(row)) {
+                    continue;
                 }
-            } else {
 
-                servicelist.setProvider(provider);
-                servicelist.setServiceCode(row.getCell(0).getStringCellValue());
-                servicelist.setServiceName(row.getCell(1).getStringCellValue());
-                servicelist.setServiceCategory(row.getCell(2).getStringCellValue());
-                servicelist.setServiceSubCategory(row.getCell(3).getStringCellValue());
-                servicelist.setPrice(row.getCell(3).getNumericCellValue());
-                servicelist.setStatus(Status.valueOf("Active"));
+                Servicelist servicelist = createServicelistFromRow(row, provider);
                 servicelistList.add(servicelist);
-
             }
-            i++;
-        }
 
-        servicelistRepository.saveAll(servicelistList);
-        workbook.close();
-        file.delete();
+            servicelistRepository.saveAll(servicelistList);
+        } finally {
+            if (file.exists()) {
+                file.delete();
+            }
+        }
 
         return ResponseEntity.ok(new MessageResponse("Service list imported successfully!"));
+    }
+
+    private void validateHeaderRow(Row headerRow) {
+        String[] expectedHeaders = {"Item Code", "Item", "Category", "Sub Category"};
+        for (int i = 0; i < expectedHeaders.length; i++) {
+            Cell cell = headerRow.getCell(i);
+            if (cell == null || !cell.getStringCellValue().equalsIgnoreCase(expectedHeaders[i])) {
+                throw new BadRequestException("Invalid header format. Expected: " + String.join(", ", expectedHeaders));
+            }
+        }
+    }
+
+    private boolean isRowEmpty(Row row) {
+        if (row == null) {
+            return true;
+        }
+        if (row.getCell(0) == null) {
+            return true;
+        }
+        return row.getCell(0).getCellType() == CellType.BLANK;
+    }
+
+    private Servicelist createServicelistFromRow(Row row, Provider provider) {
+        Servicelist servicelist = new Servicelist();
+        servicelist.setProvider(provider);
+        servicelist.setServiceCode(getCellValueAsString(row.getCell(0)));
+        servicelist.setServiceName(getCellValueAsString(row.getCell(1)));
+        servicelist.setServiceCategory(getCellValueAsString(row.getCell(2)));
+        servicelist.setServiceSubCategory(getCellValueAsString(row.getCell(3)));
+        servicelist.setStatus(Status.ACTIVE);
+        return servicelist;
+    }
+
+    private String getCellValueAsString(Cell cell) {
+        if (cell == null) {
+            return "";
+        }
+        return switch (cell.getCellType()) {
+            case STRING -> cell.getStringCellValue();
+            case NUMERIC -> String.valueOf(cell.getNumericCellValue());
+            default -> "";
+        };
     }
 }
