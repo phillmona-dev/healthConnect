@@ -4,7 +4,6 @@ import com.medco.HealthConnectProvider.ui.request.auth.password.contract.Contrac
 import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractRenewalRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.contract.ContractTerminationRequest;
-import com.medco.HealthConnectProvider.ui.request.auth.password.group.ContractServiceGroupAssignmentRequest;
 import com.medco.HealthConnectProvider.ui.request.auth.password.group.EmployeeGroupRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.AddInsuredToContractRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest;
@@ -23,7 +22,6 @@ public interface ContractService {
     ResponseEntity<ContractResponse> createContract(@Valid ContractRequest contractRequest);
 
     ResponseEntity<?> updateContract(String contractUuid, @Valid ContractRequest contractRequest);
-
 
     ResponseEntity<?> approveContract(String payerProviderContractUuid);
 

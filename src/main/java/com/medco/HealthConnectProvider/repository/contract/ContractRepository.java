@@ -166,7 +166,6 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
 
     default Page<ContractHeader> findFilteredContracts(ContractFilterRequest filter, Pageable pageable) {
         return findAll((root, query, cb) -> {
-
             if (query.getResultType() == ContractHeader.class) {
                 root.fetch("payer", JoinType.LEFT);
                 root.fetch("provider", JoinType.LEFT);
@@ -187,7 +186,12 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
             }
 
             if (filter.getStatus() != null) {
-                predicate = cb.and(predicate, cb.equal(root.get("status"), filter.getStatus()));
+                if (filter.getStatus() == Status.PENDING) {
+                    predicate = cb.and(predicate,
+                            root.get("status").in(Status.PENDING, Status.RESUBMITTED));
+                } else {
+                    predicate = cb.and(predicate, cb.equal(root.get("status"), filter.getStatus()));
+                }
             }
 
             if (filter.getPayerUuid() != null) {

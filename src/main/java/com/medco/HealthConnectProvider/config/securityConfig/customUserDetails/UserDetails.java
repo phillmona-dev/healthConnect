@@ -44,5 +44,7 @@ public class UserDetails implements UserDetailsService {
                 .collect(Collectors.toList());
 
         return UserPrincipal.build(user.get(),authorities);
+
     }
+
 }

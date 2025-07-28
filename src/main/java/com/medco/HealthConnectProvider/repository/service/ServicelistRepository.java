@@ -48,4 +48,14 @@ public interface ServicelistRepository extends JpaRepository<Servicelist, Long> 
     Servicelist findByServiceUuidAndProviderProviderUuid(String serviceUuid, String providerUuid);
 
     List<Service> findByServiceUuidIn(List<String> services);
+
+    Page<Servicelist> findByProviderAndServiceCategoryIn(Optional<Provider> provider, List<String> categories, Pageable pageable);
+
+    @Query("SELECT DISTINCT s.serviceCategory FROM Servicelist s WHERE s.provider = :provider AND s.isDeleted = false ORDER BY s.serviceCategory")
+    List<String> findDistinctCategoriesByProvider(@Param("provider") Provider provider);
+
+    Optional<Servicelist> findByServiceNameAndProvider(String serviceName, Provider provider);
+
+    Optional<Servicelist> findByServiceName(String serviceName);
+
 }

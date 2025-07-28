@@ -29,6 +29,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
@@ -152,7 +153,7 @@ public class ServicelistServiceImpl implements ServicelistService {
     }
 
     @Override
-    public ResponseEntity<InputStreamResource> exportServicesToExcel(String providerUuid) throws IOException {
+    public ResponseEntity<InputStreamResource> exportServicesToExcel(String providerUuid, List<String> categories) throws IOException {
 
         Provider provider = providerRepository.findByProviderUuid(providerUuid);
         if (provider == null) {
@@ -165,16 +166,28 @@ public class ServicelistServiceImpl implements ServicelistService {
         createHeaderRow(workbook, sheet);
 
         CellStyle dataStyle = createDataStyle(workbook);
+        CellStyle categoryStyle = createCategoryStyle(workbook);
 
         int pageNumber = 0;
         Page<Servicelist> servicePage;
         int rowNum = 1;
+        String currentCategory = null;
 
         do {
             Pageable pageable = PageRequest.of(pageNumber, BATCH_SIZE);
-            servicePage = servicelistRepository.findByProvider(Optional.of(provider), pageable);
+            servicePage = (categories == null || categories.isEmpty())
+                    ? servicelistRepository.findByProvider(Optional.of(provider), pageable)
+                    : servicelistRepository.findByProviderAndServiceCategoryIn(Optional.of(provider), categories, pageable);
 
             for (Servicelist service : servicePage.getContent()) {
+                if (!service.getServiceCategory().equals(currentCategory)) {
+                    currentCategory = service.getServiceCategory();
+                    Row categoryRow = sheet.createRow(rowNum++);
+                    Cell categoryCell = categoryRow.createCell(0);
+                    categoryCell.setCellValue(currentCategory);
+                    categoryCell.setCellStyle(categoryStyle);
+                    sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 7));
+                }
                 Row row = sheet.createRow(rowNum++);
                 populateServiceRow(service, row, dataStyle);
             }
@@ -189,12 +202,36 @@ public class ServicelistServiceImpl implements ServicelistService {
         workbook.close();
 
         ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
-        String fileName = "services_" + provider.getProviderName() + ".xlsx";
+        String fileName = "services_" + provider.getProviderName() +
+                (categories != null && !categories.isEmpty() ? "_" + String.join("_", categories) : "") + ".xlsx";
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + fileName)
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(new InputStreamResource(inputStream));
+    }
+
+    @Override
+    public List<String> getServiceCategories(String providerUuid) {
+
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider == null) {
+            throw new ResourceNotFoundException("Provider", "uuid", providerUuid);
+        }
+
+        return servicelistRepository.findDistinctCategoriesByProvider(provider);
+
+    }
+
+    private CellStyle createCategoryStyle(Workbook workbook) {
+        CellStyle categoryStyle = workbook.createCellStyle();
+        categoryStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        categoryStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        categoryStyle.setAlignment(HorizontalAlignment.CENTER);
+        Font categoryFont = workbook.createFont();
+        categoryFont.setBold(true);
+        categoryStyle.setFont(categoryFont);
+        return categoryStyle;
     }
 
     @Override
@@ -214,7 +251,9 @@ public class ServicelistServiceImpl implements ServicelistService {
         List<Drug> allDrugs = drugRepository.findByProvider(provider);
 
         final int BATCH_SIZE = 1000;
+
         int totalDrugs = allDrugs.size();
+
         int rowNum = 1;
 
         for (int batchStart = 0; batchStart < totalDrugs; batchStart += BATCH_SIZE) {
@@ -270,6 +309,7 @@ public class ServicelistServiceImpl implements ServicelistService {
     }
 
     private void populateDrugRow(Drug drug, Row row, CellStyle dataStyle) {
+
         int colNum = 0;
 
         row.createCell(colNum++).setCellValue(drug.getDrugUuid() != null ? drug.getDrugUuid() : "");
@@ -285,7 +325,9 @@ public class ServicelistServiceImpl implements ServicelistService {
         row.createCell(colNum++).setCellValue(drug.getRoute() != null ? drug.getRoute() : "");
 
         if (drug.getPrice() != null) {
+
             row.createCell(colNum++).setCellValue(drug.getPrice().doubleValue());
+
         } else {
             row.createCell(colNum++).setCellValue(0.0);
         }
@@ -309,22 +351,42 @@ public class ServicelistServiceImpl implements ServicelistService {
     private void createHeaderRow(Workbook workbook, Sheet sheet) {
         Row headerRow = sheet.createRow(0);
         String[] headers = {
-                "Service UUID","Service Code", "Service Name", "Category", "Sub Category",
-                "Description", "Price", "Status", "Unit of Measure"
+                "Service Code", "Service Name", "Category", "Sub Category",
+                "Description", "Negotiated Price", "Status", "Unit of Measure"
         };
 
-        CellStyle headerStyle = workbook.createCellStyle();
-        Font headerFont = workbook.createFont();
-        headerFont.setBold(true);
-        headerStyle.setFont(headerFont);
-        headerStyle.setFillForegroundColor(IndexedColors.LIGHT_BLUE.getIndex());
-        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        CellStyle headerStyle = createHeaderStyle(workbook);
 
         for (int i = 0; i < headers.length; i++) {
             Cell cell = headerRow.createCell(i);
             cell.setCellValue(headers[i]);
             cell.setCellStyle(headerStyle);
+            sheet.setColumnWidth(i, 256 * 20);
         }
+    }
+
+    private CellStyle createHeaderStyle(Workbook workbook) {
+
+        CellStyle headerStyle = workbook.createCellStyle();
+
+        headerStyle.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex());
+        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+        Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerFont.setColor(IndexedColors.DARK_GREEN.getIndex());
+        headerStyle.setFont(headerFont);
+
+        headerStyle.setAlignment(HorizontalAlignment.CENTER);
+        headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+        headerStyle.setBorderBottom(BorderStyle.THIN);
+        headerStyle.setBorderTop(BorderStyle.THIN);
+        headerStyle.setBorderLeft(BorderStyle.THIN);
+        headerStyle.setBorderRight(BorderStyle.THIN);
+
+        return headerStyle;
+
     }
 
     private CellStyle createDataStyle(Workbook workbook) {
@@ -336,20 +398,13 @@ public class ServicelistServiceImpl implements ServicelistService {
     private void populateServiceRow(Servicelist service, Row row, CellStyle dataStyle) {
         int colNum = 0;
 
-        row.createCell(colNum++).setCellValue(service.getServiceUuid() != null ? service.getServiceUuid() : "");
         row.createCell(colNum++).setCellValue(service.getServiceCode() != null ? service.getServiceCode() : "");
         row.createCell(colNum++).setCellValue(service.getServiceName() != null ? service.getServiceName() : "");
         row.createCell(colNum++).setCellValue(service.getServiceCategory() != null ? service.getServiceCategory() : "");
         row.createCell(colNum++).setCellValue(service.getServiceSubCategory() != null ? service.getServiceSubCategory() : "");
         row.createCell(colNum++).setCellValue(service.getServiceDescription() != null ? service.getServiceDescription() : "");
 
-        if (service.getPrice() != null) {
-            row.createCell(colNum++).setCellValue(service.getPrice());
-        } else if (service.getDefaultPrice() != null) {
-            row.createCell(colNum++).setCellValue(service.getDefaultPrice().doubleValue());
-        } else {
-            row.createCell(colNum++).setCellValue(0.0);
-        }
+        row.createCell(colNum++).setCellValue("");
 
         row.createCell(colNum++).setCellValue(service.getStatus() != null ? service.getStatus().toString() : "ACTIVE");
         row.createCell(colNum++).setCellValue(service.getUnitOfMeasure() != null ? service.getUnitOfMeasure() : "");
@@ -360,7 +415,7 @@ public class ServicelistServiceImpl implements ServicelistService {
     }
 
     private void autoSizeColumns(Sheet sheet) {
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < 8; i++) {
             sheet.autoSizeColumn(i);
         }
     }
@@ -397,7 +452,6 @@ public class ServicelistServiceImpl implements ServicelistService {
         BeanUtils.copyProperties(service, serviceResponse);
         return serviceResponse;
     }
-
 
     @Override
     public PagedResponse<ServicelistResponse> searchServices(String providerUuid, String searchKey, int page, int limit) {

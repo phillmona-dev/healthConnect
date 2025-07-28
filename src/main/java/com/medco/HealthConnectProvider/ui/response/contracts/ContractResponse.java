@@ -74,6 +74,7 @@ public class ContractResponse {
         private String itemType;
         private String serviceUuid;
         private String serviceName;
+        private String serviceCode;
         private String drugUuid;
         private String drugName;
         private BigDecimal price;

@@ -14,8 +14,6 @@ import java.util.List;
 
 public interface ServicelistService {
 
-   
-
     ResponseEntity<?> updateService(String serviceUuid, @Valid ServicelistRequest serviceRequest);
 
     ServicelistResponse getService(String serviceUuid);
@@ -29,9 +27,11 @@ public interface ServicelistService {
     ResponseEntity<?> importServiceListData(File convert, String providerUuid) throws IOException;
 
     ResponseEntity<ServicelistResponse> createService(String providerUuid, @Valid ServicelistRequest serviceRequest);
-
-    ResponseEntity<?> exportServicesToExcel(String providerUuid) throws IOException;
-
+    
     ResponseEntity<?> exportDrugsToExcel(String providerUuid) throws IOException;
+
+    ResponseEntity<?> exportServicesToExcel(String providerUuid, List<String> categories) throws IOException;
+
+    List<String> getServiceCategories(String providerUuid);
 
 }

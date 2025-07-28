@@ -167,8 +167,8 @@ public class ContractServiceImpl implements ContractService {
                     contractDetail.setDrugUuid(drug.getDrugUuid());
                     contractDetail.setServiceUuid(null);
                 } else if ("SERVICE".equalsIgnoreCase(itemRequest.getItemType())) {
-                    Servicelist service = servicelistRepository.findByServiceUuid(itemRequest.getItemUuid())
-                            .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceUuid", itemRequest.getItemUuid()));
+                    Servicelist service = servicelistRepository.findByServiceNameAndProvider(itemRequest.getServiceName(), provider)
+                            .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceName", itemRequest.getServiceName()));
                     contractDetail.setServicelist(service);
                     contractDetail.setServiceUuid(service.getServiceUuid());
                     contractDetail.setDrugUuid(null);
@@ -177,6 +177,7 @@ public class ContractServiceImpl implements ContractService {
                 }
 
                 contractDetailRepository.save(contractDetail);
+
             }
         }
 
@@ -226,37 +227,38 @@ public class ContractServiceImpl implements ContractService {
 
                 Map<String, ContractDetail> existingDetails = new HashMap<>();
                 for (ContractDetail detail : contract.getContractDetails()) {
-                    String key = (detail.getDrugUuid() != null) ? detail.getDrugUuid() : detail.getServiceUuid();
+                    String key = (detail.getDrugUuid() != null) ? detail.getDrugUuid() : detail.getServicelist().getServiceName();
                     existingDetails.put(key, detail);
                 }
 
-                Set<String> updatedItemUuids = new HashSet<>();
+                Set<String> updatedItems = new HashSet<>();
 
                 for (ContractRequest.ContractItemRequest itemRequest : contractRequest.getContractItems()) {
                     logger.debug("Processing item: {}", itemRequest);
 
-                    ContractDetail contractDetail = existingDetails.get(itemRequest.getItemUuid());
+                    String itemKey = ("DRUG".equalsIgnoreCase(itemRequest.getItemType())) ? itemRequest.getItemUuid() : itemRequest.getServiceName();
+                    ContractDetail contractDetail = existingDetails.get(itemKey);
                     if (contractDetail == null) {
-                        logger.info("Creating new contract detail for item UUID: {}", itemRequest.getItemUuid());
+                        logger.info("Creating new contract detail for item: {}", itemKey);
                         contractDetail = new ContractDetail();
                         contractDetail.setContractHeader(contract);
                         contractDetail.setContractHeaderUuid(contract.getContractHeaderUuid());
                         contract.getContractDetails().add(contractDetail);
                     } else {
-                        logger.info("Updating existing contract detail for item UUID: {}", itemRequest.getItemUuid());
+                        logger.info("Updating existing contract detail for item: {}", itemKey);
                     }
 
                     updateContractDetail(contractDetail, itemRequest, contractRequest.getStatus());
-                    updatedItemUuids.add(itemRequest.getItemUuid());
+                    updatedItems.add(itemKey);
                 }
 
                 int removedCount = 0;
                 Iterator<ContractDetail> iterator = contract.getContractDetails().iterator();
                 while (iterator.hasNext()) {
                     ContractDetail detail = iterator.next();
-                    String itemUuid = (detail.getDrugUuid() != null) ? detail.getDrugUuid() : detail.getServiceUuid();
-                    if (!updatedItemUuids.contains(itemUuid)) {
-                        logger.info("Removing contract detail with item UUID: {}", itemUuid);
+                    String itemKey = (detail.getDrugUuid() != null) ? detail.getDrugUuid() : detail.getServicelist().getServiceName();
+                    if (!updatedItems.contains(itemKey)) {
+                        logger.info("Removing contract detail with item: {}", itemKey);
                         iterator.remove();
                         removedCount++;
                     }
@@ -293,7 +295,6 @@ public class ContractServiceImpl implements ContractService {
         contractDetail.setStatus(status);
 
         try {
-
             if ("DRUG".equalsIgnoreCase(itemRequest.getItemType())) {
                 Drug drug = drugRepository.findByDrugUuid(itemRequest.getItemUuid())
                         .orElseThrow(() -> new ResourceNotFoundException("Drug", "drugUuid", itemRequest.getItemUuid()));
@@ -303,13 +304,13 @@ public class ContractServiceImpl implements ContractService {
                 contractDetail.setServicelist(null);
                 logger.info("Updated contract detail with drug. Drug UUID: {}", drug.getDrugUuid());
             } else if ("SERVICE".equalsIgnoreCase(itemRequest.getItemType())) {
-                Servicelist service = servicelistRepository.findByServiceUuid(itemRequest.getItemUuid())
-                        .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceUuid", itemRequest.getItemUuid()));
+                Servicelist service = servicelistRepository.findByServiceName(itemRequest.getServiceName())
+                        .orElseThrow(() -> new ResourceNotFoundException("Service", "serviceName", itemRequest.getServiceName()));
                 contractDetail.setServicelist(service);
                 contractDetail.setServiceUuid(service.getServiceUuid());
                 contractDetail.setDrugUuid(null);
                 contractDetail.setDrug(null);
-                logger.info("Updated contract detail with service. Service UUID: {}", service.getServiceUuid());
+                logger.info("Updated contract detail with service. Service Name: {}", service.getServiceName());
             } else {
                 logger.error("Invalid item type: {}", itemRequest.getItemType());
                 throw new BadRequestException("Invalid item type: " + itemRequest.getItemType());
@@ -321,9 +322,7 @@ public class ContractServiceImpl implements ContractService {
             logger.error("Unexpected error occurred while updating contract detail", e);
             throw new RuntimeException("An unexpected error occurred while updating the contract detail.", e);
         }
-
     }
-
 
     @Override
     public ContractResponse getContract(String contractUuid, String userType, String searchKey) {
@@ -344,11 +343,14 @@ public class ContractServiceImpl implements ContractService {
         contractResponse.setProviderCode(contract.getProvider().getProviderCode());
 
         if ("payer".equalsIgnoreCase(userType)) {
+
             contractResponse.setPayerLogoBase64(getBase64FromPath(contract.getPayer().getLogoPath(), "payer"));
             contractResponse.setProviderLogoBase64("");
         } else if ("provider".equalsIgnoreCase(userType)) {
+
             contractResponse.setProviderLogoBase64(getBase64FromPath(contract.getProvider().getLogoPath(), "provider"));
             contractResponse.setPayerLogoBase64("");
+
         } else {
             throw new BadRequestException("Invalid user type: " + userType);
         }
@@ -573,23 +575,6 @@ public class ContractServiceImpl implements ContractService {
                 .build();
     }
 
-//    private ContractResponse.ContractDetailSummary mapContractDetailSummary(ContractDetail detail) {
-//        return ContractResponse.ContractDetailSummary.builder()
-//                .contractDetailUuid(detail.getContractDetailUuid())
-//                .itemType(detail.getItemType())
-//                .serviceUuid(detail.getServiceUuid())
-//                .serviceName(detail.getServicelist() != null ? detail.getServicelist().getServiceName() : null)
-//                .drugUuid(detail.getDrugUuid())
-//                .drugName(detail.getDrug() != null ? detail.getDrug().getDrugName() : null)
-//                .price(detail.getPrice())
-//                .negotiatedPrice(detail.getNegotiatedPrice())
-//                .assignedGroups(detail.getContractDetailEmployeeGroups().stream()
-//                        .map(cdeg -> cdeg.getEmployeeGroup().getGroupName())
-//                        .collect(Collectors.toList()))
-//                .description(detail.getDescription())
-//                .build();
-//    }
-
     @Override
     public ResponseEntity<?> deleteContract(String contractUuid) {
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
@@ -638,6 +623,7 @@ public class ContractServiceImpl implements ContractService {
 
             return contractListPayerResponse;
         }).toList();
+
     }
 
     @Override
@@ -1210,7 +1196,21 @@ public class ContractServiceImpl implements ContractService {
             page = page - 1;
         }
 
-        Page<ContractHeader> contractPage = contractRepository.findFilteredContracts(filter, pageable);
+        ContractFilterRequest modifiedFilter = ContractFilterRequest.builder()
+                .contractNumber(filter.getContractNumber())
+                .contractName(filter.getContractName())
+                .status(filter.getStatus())
+                .payerUuid(filter.getPayerUuid())
+                .providerUuid(filter.getProviderUuid())
+                .startDateFrom(filter.getStartDateFrom())
+                .startDateTo(filter.getStartDateTo())
+                .endDateFrom(filter.getEndDateFrom())
+                .endDateTo(filter.getEndDateTo())
+                .preparedBy(filter.getPreparedBy())
+                .isDeleted(filter.getIsDeleted())
+                .build();
+
+        Page<ContractHeader> contractPage = contractRepository.findFilteredContracts(modifiedFilter, pageable);
 
         Page<ContractResponse> responsePage = contractPage.map(contract -> {
             ContractResponse response = new ContractResponse();
@@ -1272,6 +1272,7 @@ public class ContractServiceImpl implements ContractService {
             summary.setItemType("SERVICE");
             summary.setPrice(BigDecimal.valueOf(detail.getServicelist().getPrice()));
             summary.setDescription(detail.getServicelist().getServiceDescription());
+            summary.setServiceCode(detail.getServicelist().getServiceCode());
         } else if (detail.getDrug() != null) {
             summary.setDrugUuid(detail.getDrugUuid());
             summary.setDrugName(detail.getDrug().getDrugName());

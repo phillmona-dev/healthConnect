@@ -43,10 +43,13 @@ public class Servicelist extends Audit implements Serializable {
     private String serviceDescription;
 
     private String serviceCategory;
+
     private String serviceSubCategory;
 
     @Column(precision = 19, scale = 2)
     private BigDecimal defaultPrice;
+
+    private int negotiatedPrice;
 
     @Enumerated(EnumType.STRING)
     private Status status;

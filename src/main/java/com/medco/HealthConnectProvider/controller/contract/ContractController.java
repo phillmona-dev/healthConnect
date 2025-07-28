@@ -97,14 +97,14 @@ public class ContractController {
 
     @DeleteMapping(path="/{contractUuid}")
     @Operation(summary = "Delete contract", description = "Deletes a contract by UUID")
-//	  @PreAuthorize("hasRole('Delete-Provider-Contracts')")
+    //	  @PreAuthorize("hasRole('Delete-Provider-Contracts')")
     public ResponseEntity<?> deleteContract(@PathVariable String contractUuid) {
         return contractService.deleteContract(contractUuid);
     }
 
     @GetMapping("/provider/lists")
     @Operation(summary = "Get payer-provider contracts", description = "Retrieves a list of payer-provider contracts with pagination and filtering")
-//	@PreAuthorize("hasRole('Read-Provider-Contracts')")
+    //	@PreAuthorize("hasRole('Read-Provider-Contracts')")
     public List<ContractListPayerResponse> getPayerProvidersContractLists(@RequestParam(name = "search", required = false)  String searchKey,
                                                                           @RequestParam(value="page", defaultValue = "1") int page,
                                                                           @RequestParam(value="limit", defaultValue = "25") int limit,
@@ -115,7 +115,7 @@ public class ContractController {
 
     @GetMapping("/provider/contract/lists")
     @Operation(summary = "Get provider contracts", description = "Retrieves a list of contracts for a specific provider with pagination and filtering")
-//	@PreAuthorize("hasRole('Read-Provider-Contracts')")
+    //	@PreAuthorize("hasRole('Read-Provider-Contracts')")
     public List<ContractListPayerResponse> getProvidersContractLists(@RequestParam  String providerUuid, @RequestParam(name = "search", required = false)  String searchKey, @RequestParam(value="page", defaultValue = "1") int page,
                                                                      @RequestParam(value="limit", defaultValue = "25") int limit, @RequestParam Status status) {
         return contractService.getProvidersContractLists(providerUuid, searchKey, page, limit, status);
@@ -124,7 +124,7 @@ public class ContractController {
 
     @GetMapping("/available-providers")
     @Operation(summary = "Get available providers", description = "Retrieves a list of providers available for contracting")
-   // @PreAuthorize("hasRole('Read-Provider-Contract')")
+    // @PreAuthorize("hasRole('Read-Provider-Contract')")
     public ResponseEntity<?> getAvailableProviders(
             @RequestParam(name = "search", required = false) String searchKey,
             @RequestParam(value = "page", defaultValue = "1") int page,
@@ -136,7 +136,7 @@ public class ContractController {
 
     @GetMapping("/provider/{providerUuid}/services")
     @Operation(summary = "Get provider services", description = "Retrieves a list of services offered by a specific provider")
-   // @PreAuthorize("hasRole('Read-Provider-Contract')")
+    // @PreAuthorize("hasRole('Read-Provider-Contract')")
     public ResponseEntity<?> getProviderServices(
             @PathVariable String providerUuid,
             @RequestParam(name = "search", required = false) String searchKey,
@@ -203,6 +203,7 @@ public class ContractController {
         Pageable pageable = PageRequest.of(zeroBasedPage, size, Sort.by(sort));
 
         return contractService.getFilteredContracts(filter, pageable, page);
+
     }
 
     private Sort getSort(String[] sort) {

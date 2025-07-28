@@ -7,6 +7,7 @@ import java.util.List;
 
 import com.medco.HealthConnectProvider.services.service.ServicelistService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.service.ServicelistRequest;
+import com.medco.HealthConnectProvider.ui.request.service.ExportRequest;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.service.ServicelistResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -110,10 +111,18 @@ public class ServiceListController {
     }
 
 
-    @GetMapping("/{providerUuid}/services/export")
-    public ResponseEntity<?> exportServicesToExcel(@PathVariable String providerUuid) throws IOException {
-        return serviceService.exportServicesToExcel(providerUuid);
+    @PostMapping("/{providerUuid}/services/export")
+    public ResponseEntity<?> exportServicesToExcel(
+            @PathVariable String providerUuid,
+            @RequestBody(required = false) ExportRequest exportRequest) throws IOException {
+        List<String> categories = (exportRequest != null) ? exportRequest.getCategories() : null;
+        return serviceService.exportServicesToExcel(providerUuid, categories);
     }
 
+    @GetMapping("/{providerUuid}/service-categories")
+    public ResponseEntity<List<String>> getServiceCategories(@PathVariable String providerUuid) {
+        List<String> categories = serviceService.getServiceCategories(providerUuid);
+        return ResponseEntity.ok(categories);
+    }
 
 }

@@ -22,4 +22,5 @@ public class ProvidedServiceRequest {
     @NotNull(message = "Unit price is required")
     @Positive(message = "Unit price must be positive")
     private Double unitPrice;
+
 }

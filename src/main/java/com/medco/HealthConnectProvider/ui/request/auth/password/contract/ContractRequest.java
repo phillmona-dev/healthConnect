@@ -40,7 +40,8 @@ public class ContractRequest {
     @Setter
     public static class ContractItemRequest {
         private String itemUuid;
-        private String itemType; // "DRUG" or "SERVICE"
+        private String serviceName;
+        private String itemType;
         private BigDecimal negotiatedPrice;
     }
 }
