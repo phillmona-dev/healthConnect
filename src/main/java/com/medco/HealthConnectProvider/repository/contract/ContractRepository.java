@@ -94,8 +94,6 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
             @Param("isDeleted") boolean isDeleted,
             @Param("searchKey") String searchKey);
 
-//    List<ContractHeader> findAllByProviderProviderUuidAndIsDeleted(String providerUuid, boolean b);
-
     @Query("SELECT CASE WHEN COUNT(ch) > 0 THEN true ELSE false END FROM ContractHeader ch " +
             "WHERE ch.provider.providerUuid = :providerUuid " +
             "AND ch.payer.payerUuid = :payerUuid " +

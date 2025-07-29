@@ -1535,7 +1535,7 @@ public class ContractServiceImpl implements ContractService {
                 break;
             case "REJECT":
                 if ((isProvider && contract.getStatus() == Status.PENDING) ||
-                        (isPayer && contract.getStatus() == Status.APPROVED)) {
+                        (isPayer && contract.getStatus() == Status.APPROVED) || (isProvider && contract.getStatus() == Status.RESUBMITTED)) {
                     contract.setStatus(Status.REJECTED);
                     contract.setRejectionReason(updateRequest.getRejectionReason());
                     if (isProvider) {
