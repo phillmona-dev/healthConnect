@@ -1,7 +1,6 @@
 package com.medco.HealthConnectProvider.controller.dashboard;
 
 import com.medco.HealthConnectProvider.services.dashboard.DashboardService;
-import com.medco.HealthConnectProvider.ui.response.dashboard.ComprehensiveDashboardResponse;
 import com.medco.HealthConnectProvider.ui.response.dashboard.DashboardResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

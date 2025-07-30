@@ -33,7 +33,7 @@ public class EmployeeDependantGroupController {
     }
 
     @PostMapping("/createGroup/{payerUuid}")
-//    @PreAuthorize("hasRole('Manage-Groups')")
+    //    @PreAuthorize("hasRole('Manage-Groups')")
     @Operation(summary = "Create group", description = "Creates a new employee/dependant group")
     public ResponseEntity<EmployeeDependantGroupResponse> createGroup(@PathVariable(value = "payerUuid")String payerUuid,
                                                                       @Valid @RequestBody EmployeeDependantGroupRequest request) {
@@ -43,7 +43,7 @@ public class EmployeeDependantGroupController {
     }
 
     @GetMapping("membersAndServices/{groupUuid}")
-//    @PreAuthorize("hasRole('View-Groups')")
+     //    @PreAuthorize("hasRole('View-Groups')")
     @Operation(summary = "Get group by UUID", description = "Retrieves a specific group by its UUID")
     public GroupMembersAndServicesResponse getGroupByUuid(@PathVariable String groupUuid) {
         return groupService.getGroupByUuid(groupUuid);
@@ -53,6 +53,7 @@ public class EmployeeDependantGroupController {
 //    @PreAuthorize("hasRole('View-Groups')")
     @Operation(summary = "List groups", description = "Retrieves a list of groups with pagination and search")
     public Page<EmployeeDependantGroupResponse> listGroups(
+
             @RequestParam(required = false, defaultValue = "") String search,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "limit", defaultValue = "25") int limit) {
@@ -124,4 +125,5 @@ public class EmployeeDependantGroupController {
             @PathVariable String contractUuid) {
         return groupService.getContractDetailsByGroupAndContract(groupUuid, contractUuid);
     }
+
 }

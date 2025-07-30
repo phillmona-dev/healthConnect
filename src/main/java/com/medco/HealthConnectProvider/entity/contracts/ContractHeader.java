@@ -36,6 +36,7 @@ public class ContractHeader extends Audit implements Serializable {
     private String contractNumber;
 
     private String contractName;
+
     private String contractDescription;
 
     private String approvedBy;

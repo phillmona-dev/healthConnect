@@ -27,14 +27,6 @@ public class ContractDetailEmployeeGroupController {
     @Autowired
     private ContractDetailEmployeeGroupService contractDetailEmployeeGroupService;
 
-//    @PostMapping
-//    @PreAuthorize("hasRole('Create-Provider-Contract')")
-//    @Operation(summary = "Create association", description = "Creates an association between a contract detail and an employee group")
-//    public ResponseEntity<?> createContractDetailEmployeeGroup(
-//            @Valid @RequestBody ContractDetailEmployeeGroupRequest request) {
-//        return contractDetailEmployeeGroupService.createContractDetailEmployeeGroup(request);
-//    }
-
     @PostMapping("/batch/{employeeGroupUuid}")
     //@PreAuthorize("hasRole('Create-Provider-Contract')")
     @Operation(summary = "Batch create associations", description = "Creates multiple associations between contract details and employee groups")

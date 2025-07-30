@@ -102,6 +102,9 @@ public class Payer extends Audit {
     @Builder.Default
     private boolean isDeleted = false;
 
+    @Column(name = "is_insurance", nullable = false)
+    private boolean isInsurance = false;
+
     @OneToMany(mappedBy = "payer", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<User> users = new ArrayList<>();

@@ -263,7 +263,6 @@ public class PharmacyIntegrationController {
         return pharmacyIntegrationService.editDrugDispensingRecord(dispensingUuid, editRequest);
     }
 
-
     @PutMapping("/dispensing/{dispensingUuid}/remove-from-batch")
     @Operation(
             summary = "Remove dispensing record from batch",
@@ -275,7 +274,9 @@ public class PharmacyIntegrationController {
             @Parameter(description = "UUID of the dispensing record to be removed from batch", required = true)
             @PathVariable String dispensingUuid
     ) {
+
         return pharmacyIntegrationService.removeDispensingFromBatch(dispensingUuid);
+
     }
 
 }

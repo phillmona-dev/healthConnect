@@ -14,7 +14,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/healthConnect/drugs")
@@ -81,4 +80,5 @@ public class DrugController {
     public ResponseEntity<?> exportDrugsToExcel(@PathVariable String providerUuid) throws IOException {
         return servicelistService.exportDrugsToExcel(providerUuid);
     }
+
 }

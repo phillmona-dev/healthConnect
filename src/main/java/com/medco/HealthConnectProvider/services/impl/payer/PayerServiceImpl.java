@@ -717,6 +717,7 @@ public class PayerServiceImpl implements PayerService {
             response.setTotalContracts(contractCount);
 
             payerResponses.add(response);
+
         }
 
         PagedResponse<PayerResponse> pagedResponse = new PagedResponse<>();

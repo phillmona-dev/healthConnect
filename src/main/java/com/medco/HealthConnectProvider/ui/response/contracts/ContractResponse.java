@@ -27,34 +27,30 @@ public class ContractResponse {
     private LocalDate endDate;
     private Status status;
     private String remark;
+    private String rejectionReason;
     private String preparedBy;
     private String contractCode;
     private Double coPaymentPercentage;
     private String description;
     private boolean isDeleted;
 
-    // Payer information
     private String payerUuid;
     private String payerName;
     private String payerCode;
 
-    // Provider information
     private String providerUuid;
     private String providerName;
     private String providerCode;
 
-    // Termination information
     private Date terminationDate;
     private String terminationReason;
     private String terminationNotes;
     private String terminatedBy;
     private Date terminationRequestDate;
 
-    // Audit information
     private Instant createdAt;
     private Instant updatedAt;
 
-    // Summary information
     private int totalServices;
     private int totalInsured;
     private int totalDependants;
@@ -70,6 +66,7 @@ public class ContractResponse {
     @AllArgsConstructor
     @Builder
     public static class ContractDetailSummary {
+
         private String contractDetailUuid;
         private String itemType;
         private String serviceUuid;
@@ -81,6 +78,7 @@ public class ContractResponse {
         private Double negotiatedPrice;
         private List<String> assignedGroups;
         private String description;
+
     }
 
     @Getter
@@ -110,12 +108,15 @@ public class ContractResponse {
     @AllArgsConstructor
     @Builder
     public static class DependantSummary {
+
         private String dependantUuid;
         private String fullName;
         private String relationshipType;
         private String phone;
+
     }
 
     private String payerLogoBase64;
     private String providerLogoBase64;
+
 }

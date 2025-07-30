@@ -504,13 +504,13 @@ public class ContractServiceImpl implements ContractService {
         newPayer.setEmail(request.getPayerEmail());
         newPayer.setCategory(request.getPayerCategory());
         newPayer.setAddress2(request.getPayerSubCity());
+        newPayer.setInsurance(true);
         newPayer.setStatus(Status.ACTIVE);
         newPayer.setRegistrationDate(new Date());
 
         return payerRepository.save(newPayer);
 
     }
-
 
     private String generateUniqueContractName(String baseName) {
 
@@ -1511,6 +1511,7 @@ public class ContractServiceImpl implements ContractService {
         boolean isProvider = userDetails.getProviderUuid() != null;
 
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
+
         if (contract == null){
             throw new ResourceNotFoundException("Contract", "contractUuid", contractUuid);
         }
@@ -1525,8 +1526,8 @@ public class ContractServiceImpl implements ContractService {
 
         switch (updateRequest.getAction().toUpperCase()) {
             case "APPROVE":
-                if (isProvider && contract.getStatus() == Status.PENDING) {
-                    contract.setStatus(Status.APPROVED);
+                if ((isProvider && contract.getStatus() == Status.PENDING) || (isProvider && contract.getStatus() == Status.RESUBMITTED)) {
+                    contract.setStatus(Status.ACTIVE);
                     contract.setProviderReviewedBy(userUuid);
                     contract.setProviderReviewDate(new Date());
                 } else {
@@ -1690,6 +1691,7 @@ public class ContractServiceImpl implements ContractService {
             List<String> invalidDependantRequests = new ArrayList<>();
 
             for (AddInsuredToContractRequest.DependantRequest dependantRequest : request.getDependants()) {
+
                 if ("string".equals(dependantRequest.getInsuredUuid()) || "string".equals(dependantRequest.getDependantUuid())) {
                     continue;
                 }

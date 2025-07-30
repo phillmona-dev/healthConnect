@@ -39,6 +39,7 @@ public class PayerResponse {
 
     private Long numberOfInsured;
     private Long numberOfDependants;
+    private boolean isInsurance;
 
     private List<ContractSummary> contracts;
 

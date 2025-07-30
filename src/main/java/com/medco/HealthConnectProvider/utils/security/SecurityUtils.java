@@ -1,6 +1,5 @@
 package com.medco.HealthConnectProvider.utils.security;
 
-
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -28,6 +27,7 @@ public class SecurityUtils {
     private static final Logger logger = LoggerFactory.getLogger(SecurityUtils.class);
 
     public static UserPrincipal getAuthenticatedUser() {
+
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         logger.debug("Authentication object: {}", authentication);
