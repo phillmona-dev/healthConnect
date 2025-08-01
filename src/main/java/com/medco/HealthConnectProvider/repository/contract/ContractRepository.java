@@ -242,4 +242,9 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
 
     Optional<ContractHeader> findActiveContractByProviderProviderUuidAndPayerPayerUuid(@Size(min = 36, max = 40, message = "Provided Uuid Must be between 36 and 40") String providerUuid, String payerUuid);
 
+    int countByPayerPayerUuid(String payerUuid);
+    int countByProviderProviderUuid(String providerUuid);
+
+    @Query("SELECT p.payerName, COUNT(c) FROM ContractHeader c JOIN c.payer p GROUP BY p.payerName")
+    List<Object[]> countContractsByPayer();
 }

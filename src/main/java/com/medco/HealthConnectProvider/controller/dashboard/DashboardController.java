@@ -22,12 +22,22 @@ public class DashboardController {
         this.dashboardService = dashboardService;
     }
 
+//    @GetMapping("/report")
+//    @Operation(
+//            summary = "Generate Dashboard Report",
+//            description = "Generates a comprehensive dashboard report including total counts of payers, providers, " +
+//                    "insured individuals, claims, and groups. It also provides summaries for payers and providers, " +
+//                    "claim statistics across different statuses, and monthly claim totals."
+//    )
+//    public ResponseEntity<DashboardResponse> getDashboardReport() {
+//        DashboardResponse report = dashboardService.generateDashboardReport();
+//        return ResponseEntity.ok(report);
+//    }
+
     @GetMapping("/report")
     @Operation(
             summary = "Generate Dashboard Report",
-            description = "Generates a comprehensive dashboard report including total counts of payers, providers, " +
-                    "insured individuals, claims, and groups. It also provides summaries for payers and providers, " +
-                    "claim statistics across different statuses, and monthly claim totals."
+            description = "Generates a dashboard report based on the user's role. Admins see comprehensive data, while providers and payers see their own data."
     )
     public ResponseEntity<DashboardResponse> getDashboardReport() {
         DashboardResponse report = dashboardService.generateDashboardReport();

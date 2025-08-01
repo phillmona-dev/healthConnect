@@ -1,9 +1,11 @@
 package com.medco.HealthConnectProvider.services.impl.dashboard;
 
+import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.repository.claims.ClaimRepository;
+import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
 import com.medco.HealthConnectProvider.repository.group.EmployeeDependantGroupRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
@@ -15,19 +17,15 @@ import com.medco.HealthConnectProvider.ui.response.groups.GroupSummary;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerSummary;
 import com.medco.HealthConnectProvider.ui.response.provider.ProviderSummary;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
+import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,6 +35,9 @@ public class DashboardServiceImpl implements DashboardService {
     private final ProviderRepository providerRepository;
     private final InsuredRepository insuredRepository;
     private final ClaimRepository claimRepository;
+
+    @Autowired
+    private ContractRepository contractRepository;
 
     @Autowired
     private EmployeeDependantGroupRepository groupRepository;
@@ -54,23 +55,83 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     public DashboardResponse generateDashboardReport() {
-        DashboardResponse response = new DashboardResponse();
 
-        response.setTotalPayers(payerRepository.count());
-        response.setTotalProviders(providerRepository.count());
-        response.setTotalInsured(insuredRepository.count());
-        response.setTotalClaims(claimRepository.count());
-        response.setTotalGroups(groupRepository.count());
+        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+        String providerUuid = userDetails.getProviderUuid();
+        String payerUuid = userDetails.getPayerUuid();
+
+        if (providerUuid != null && !providerUuid.isEmpty()) {
+            return generateProviderReport(providerUuid);
+        } else if (payerUuid != null && !payerUuid.isEmpty()) {
+            return generatePayerReport(payerUuid);
+        } else {
+            return generateFullReport();
+        }
+    }
+
+    private DashboardResponse generateProviderReport(String providerUuid) {
+        DashboardResponse response = new DashboardResponse();
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider == null) {
+            throw new NoSuchElementException("Provider not found");
+        }
+
+        response.setTotalProviders(1);
+        response.setTotalClaims(claimRepository.countByProviderUuid(providerUuid));
+
+        List<ProviderSummary> providerSummaries = new ArrayList<>();
+        providerSummaries.add(mapToProviderSummary(provider));
+        response.setProviderSummaries(providerSummaries);
+
+        response.setClaimStatistics(generateClaimStatisticsForProvider(providerUuid));
+        response.setMonthlyClaimTotals(generateMonthlyClaimTotalsForProvider(providerUuid));
+        response.setTotalContracts(contractRepository.countByProviderProviderUuid(providerUuid));
+        Map<String, Integer> contractSummary = new HashMap<>();
+        contractSummary.put(provider.getProviderName(), response.getTotalContracts());
+        response.setContractSummaries(contractSummary);
+
+        return response;
+
+    }
+
+    private DashboardResponse generatePayerReport(String payerUuid) {
+        DashboardResponse response = new DashboardResponse();
+        Payer payer = payerRepository.findByPayerUuid(payerUuid);
+        if (payer == null) {
+            throw new NoSuchElementException("Payer not found");
+        }
+
+        response.setTotalPayers(1);
+        response.setTotalInsured(insuredRepository.countByPayerUuid(payerUuid));
+        response.setTotalClaims(claimRepository.countByPayerUuid(payerUuid));
+        response.setTotalGroups(groupRepository.countByPayerPayerUuid(payerUuid));
+
+        List<PayerSummary> payerSummaries = new ArrayList<>();
+        payerSummaries.add(mapToPayerSummary(payer));
+        response.setPayerSummaries(payerSummaries);
+
+        response.setClaimStatistics(generateClaimStatisticsForPayer(payerUuid));
+        response.setMonthlyClaimTotals(generateMonthlyClaimTotalsForPayer(payerUuid));
+        response.setTotalContracts(contractRepository.countByPayerPayerUuid(payerUuid));
+        Map<String, Integer> contractSummary = new HashMap<>();
+        contractSummary.put(payer.getPayerName(), response.getTotalContracts());
+        response.setContractSummaries(contractSummary);
+
+        return response;
+    }
+
+    private DashboardResponse generateFullReport() {
+        DashboardResponse response = new DashboardResponse();
+        response.setTotalPayers((int) payerRepository.count());
+        response.setTotalProviders((int) providerRepository.count());
+        response.setTotalInsured((int) insuredRepository.count());
+        response.setTotalClaims((int) claimRepository.count());
+        response.setTotalGroups((int) groupRepository.count());
 
         List<PayerSummary> payerSummaries = payerRepository.findAll().stream()
                 .map(this::mapToPayerSummary)
                 .collect(Collectors.toList());
         response.setPayerSummaries(payerSummaries);
-
-        long numberOfPayersWithInsured = payerSummaries.stream()
-                .filter(summary -> summary.getTotalInsured() > 0)
-                .count();
-        response.setNumberOfPayersWithInsured(numberOfPayersWithInsured);
 
         List<ProviderSummary> providerSummaries = providerRepository.findAll().stream()
                 .map(this::mapToProviderSummary)
@@ -80,11 +141,21 @@ public class DashboardServiceImpl implements DashboardService {
         response.setClaimStatistics(generateClaimStatistics());
         response.setMonthlyClaimTotals(generateMonthlyClaimTotals());
 
+        response.setTotalContracts((int) contractRepository.count());
+
+        Map<String, Integer> contractSummaries = new HashMap<>();
+        List<Object[]> payerContractCounts = contractRepository.countContractsByPayer();
+        for (Object[] result : payerContractCounts) {
+            String payerName = (String) result[0];
+            Integer contractCount = ((Number) result[1]).intValue();
+            contractSummaries.put(payerName, contractCount);
+        }
+        response.setContractSummaries(contractSummaries);
+
         return response;
     }
 
     private PayerSummary mapToPayerSummary(Payer payer) {
-
         PayerSummary summary = new PayerSummary();
         summary.setPayerUuid(payer.getPayerUuid());
         summary.setPayerName(payer.getPayerName());
@@ -112,13 +183,11 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     private ProviderSummary mapToProviderSummary(Provider provider) {
-
         ProviderSummary summary = new ProviderSummary();
         summary.setProviderUuid(provider.getProviderUuid());
         summary.setProviderName(provider.getProviderName());
         summary.setTotalClaims(claimRepository.countByProviderUuid(provider.getProviderUuid()));
         return summary;
-
     }
 
     private ClaimStatistics generateClaimStatistics() {
@@ -130,25 +199,60 @@ public class DashboardServiceImpl implements DashboardService {
         return statistics;
     }
 
+    private ClaimStatistics generateClaimStatisticsForProvider(String providerUuid) {
+        ClaimStatistics statistics = new ClaimStatistics();
+        statistics.setPendingClaims(claimRepository.countByProviderUuidAndStatus(providerUuid, ClaimStatus.DRAFT));
+        statistics.setApprovedClaims(claimRepository.countByProviderUuidAndStatus(providerUuid, ClaimStatus.APPROVED));
+        statistics.setRejectedClaims(claimRepository.countByProviderUuidAndStatus(providerUuid, ClaimStatus.REJECTED));
+        statistics.setUnderReviewClaims(claimRepository.countByProviderUuidAndStatus(providerUuid, ClaimStatus.UNDER_REVIEW));
+        return statistics;
+    }
+
+    private ClaimStatistics generateClaimStatisticsForPayer(String payerUuid) {
+        ClaimStatistics statistics = new ClaimStatistics();
+        statistics.setPendingClaims(claimRepository.countByPayerUuidAndStatus(payerUuid, ClaimStatus.DRAFT));
+        statistics.setApprovedClaims(claimRepository.countByPayerUuidAndStatus(payerUuid, ClaimStatus.APPROVED));
+        statistics.setRejectedClaims(claimRepository.countByPayerUuidAndStatus(payerUuid, ClaimStatus.REJECTED));
+        statistics.setUnderReviewClaims(claimRepository.countByPayerUuidAndStatus(payerUuid, ClaimStatus.UNDER_REVIEW));
+        return statistics;
+    }
+
     private Map<String, Integer> generateMonthlyClaimTotals() {
+        return generateMonthlyClaimTotals(null, null);
+    }
+
+    private Map<String, Integer> generateMonthlyClaimTotalsForProvider(String providerUuid) {
+        return generateMonthlyClaimTotals(providerUuid, null);
+    }
+
+    private Map<String, Integer> generateMonthlyClaimTotalsForPayer(String payerUuid) {
+        return generateMonthlyClaimTotals(null, payerUuid);
+    }
+
+    private Map<String, Integer> generateMonthlyClaimTotals(String providerUuid, String payerUuid) {
         Map<String, Integer> monthlyClaimTotals = new LinkedHashMap<>();
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM");
-        ZoneId zoneId = ZoneId.systemDefault();
 
         for (int i = 11; i >= 0; i--) {
             LocalDateTime month = now.minusMonths(i);
             String monthKey = month.format(formatter);
-            LocalDateTime startOfMonth = month.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
-            LocalDateTime endOfMonth = month.plusMonths(1).withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).minusSeconds(1);
+            LocalDateTime startOfMonth = month.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+            LocalDateTime endOfMonth = month.withDayOfMonth(month.toLocalDate().lengthOfMonth()).withHour(23).withMinute(59).withSecond(59).withNano(999999999);
 
-            Instant startInstant = startOfMonth.atZone(zoneId).toInstant();
-            Instant endInstant = endOfMonth.atZone(zoneId).toInstant();
+            int claimCount;
+            if (providerUuid != null) {
+                claimCount = claimRepository.countByProviderUuidAndSubmissionDateBetween(providerUuid, startOfMonth, endOfMonth);
+            } else if (payerUuid != null) {
+                claimCount = claimRepository.countByPayerUuidAndSubmissionDateBetween(payerUuid, startOfMonth, endOfMonth);
+            } else {
+                claimCount = claimRepository.countBySubmissionDateBetween(startOfMonth, endOfMonth);
+            }
 
-            int claimCount = claimRepository.countByCreatedAtBetween(startInstant, endInstant);
             monthlyClaimTotals.put(monthKey, claimCount);
         }
 
         return monthlyClaimTotals;
     }
+
 }

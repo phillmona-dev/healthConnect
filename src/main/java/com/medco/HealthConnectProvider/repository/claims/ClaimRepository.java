@@ -14,6 +14,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.Optional;
 
 @Repository
@@ -227,98 +228,6 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
             @Param("providerUuid") String providerUuid,
             Pageable pageable);
 
-//
-//    @Query(value = "SELECT NEW com.medco.HealthConnectProvider.ui.response.claims.ClaimCustomResponse(" +
-//            "c.claimUuid, " +
-//            "b.batchCode, " +
-//            "b.claimDatingFrom, " +
-//            "b.claimDatingTo, " +
-//            "m.dispensingUuid, " +
-//            "p.payerUuid, " +
-//            "p.payerName, " +
-//            "pr.providerUuid, " +
-//            "pr.providerName, " +
-//            "ch.contractHeaderUuid, " +
-//            "ch.contractCode, " +
-//            "c.mrnNumber, " +
-//            "c.claimNumber, " +
-//            "c.visitDate, " +
-//            "c.totalAmount, " +
-//            "c.status, " +
-//            "c.submissionDate, " +
-//            "SIZE(c.attachments), " +
-//            "SIZE(c.comments), " +
-//            "SIZE(b.medicationDispensing)" +
-//            ") " +
-//            "FROM Claim c " +
-//            "LEFT JOIN c.batchRecord b " +
-//            "LEFT JOIN b.medicationDispensing m " +
-//            "LEFT JOIN m.items i " +
-//            "LEFT JOIN i.contractDetail cd " +
-//            "LEFT JOIN cd.contractHeader ch " +
-//            "LEFT JOIN ch.payer p " +
-//            "LEFT JOIN ch.provider pr",
-//            countQuery = "SELECT COUNT(c) FROM Claim c")
-//    Page<ClaimCustomResponse> findAllClaims(@Param("payerUuid")String payerUuid, Pageable pageable);
-
-//
-//    @Query(value = "SELECT NEW com.medco.HealthConnectProvider.ui.response.claims.ClaimCustomResponse(" +
-//            "c.claimUuid, " +
-//            "b.batchCode, " +
-//            "b.claimDatingFrom, " +
-//            "b.claimDatingTo, " +
-//            "m.dispensingUuid, " +
-//            "p.payerUuid, " +
-//            "p.payerName, " +
-//            "pr.providerUuid, " +
-//            "pr.providerName, " +
-//            "ch.contractHeaderUuid, " +
-//            "ch.contractCode, " +
-//            "c.mrnNumber, " +
-//            "c.claimNumber, " +
-//            "c.visitDate, " +
-//            "c.totalAmount, " +
-//            "c.status, " +
-//            "c.submissionDate, " +
-//            "SIZE(c.attachments), " +
-//            "SIZE(c.comments), " +
-//            "SIZE(b.medicationDispensing)" +
-//            ") " +
-//            "FROM Claim c " +
-//            "LEFT JOIN c.batchRecord b " +
-//            "LEFT JOIN b.medicationDispensing m " +
-//            "LEFT JOIN m.items i " +
-//            "LEFT JOIN i.contractDetail cd " +
-//            "LEFT JOIN cd.contractHeader ch " +
-//            "LEFT JOIN ch.payer p " +
-//            "LEFT JOIN ch.provider pr",
-//            countQuery = "SELECT COUNT(c) FROM Claim c")
-//    Page<ClaimCustomResponse> findAllClaims(@Param("payerUuid")String payerUuid, Pageable pageable);
-
-//    @Query(value = "SELECT NEW com.medco.HealthConnectProvider.ui.response.claims.ClaimCustomResponse(" +
-//            "c.claimUuid, " +
-//            "b.batchCode, " +
-//            "b.claimDatingFrom, " +
-//            "b.claimDatingTo, " +
-//            "c.payerUuid, " +
-//            "c.providerUuid, " +
-//            "c.mrnNumber, " +
-//            "c.claimNumber, " +
-//            "c.visitDate, " +
-//            "c.totalAmount, " +
-//            "c.status, " +
-//            "c.submissionDate, " +
-//            "SIZE(c.attachments), " +
-//            "SIZE(c.comments), " +
-//            "SIZE(b.medicationDispensing)" +
-//            ") " +
-//            "FROM Claim c " +
-//            "LEFT JOIN c.batchRecord b " ,
-//            countQuery = "SELECT COUNT(c) FROM Claim c")
-//    Page<ClaimCustomResponse> findAllClaims(@Param("payerUuid")String payerUuid, Pageable pageable);
-//
-//
-
     @Query(value = "SELECT NEW com.medco.HealthConnectProvider.ui.response.claims.ClaimCustomResponse(" +
             "c.claimUuid, " +
             "b.batchCode, " +
@@ -351,6 +260,17 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
     int countByCreatedAtBetween(Instant startInstant, Instant endInstant);
 
     Claim findByBatchRecord(BatchRecord batch);
+
+    int countByProviderUuidAndSubmissionDateBetween(String providerUuid, LocalDateTime startDate, LocalDateTime endDate);
+
+    int countByPayerUuidAndSubmissionDateBetween(String payerUuid, LocalDateTime startDate, LocalDateTime endDate);
+
+
+    int countBySubmissionDateBetween(LocalDateTime startDate, LocalDateTime endDate);
+
+    int countByProviderUuidAndStatus(String providerUuid, ClaimStatus status);
+
+    int countByPayerUuidAndStatus(String payerUuid, ClaimStatus status);
 
 }
 

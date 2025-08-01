@@ -50,4 +50,5 @@ public class ClaimAttachment extends Audit {
     private String uploadedByUuid;
 
     private String uploadedByName;
+
 }

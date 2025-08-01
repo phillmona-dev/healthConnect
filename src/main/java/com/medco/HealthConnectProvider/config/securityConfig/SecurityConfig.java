@@ -65,6 +65,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/v1/healthConnect/users/signin",
                                 "/api/v1/healthConnect/users/signup",
+                                "/api/v1/healthConnect/users/forgot-password",
+                                "/api/v1/healthConnect/users/password/resetPassword",
                                 "/api/v1/healthConnect/integration/pharmacy/check",
                                 "/api/v1/healthConnect/integration/pharmacy/dispensing",
                                 "/api/v1/healthConnect/provider/list/forHcPayer",
@@ -105,6 +107,7 @@ public class SecurityConfig {
         authProvider.setPasswordEncoder(passwordEncoder());
 
         return authProvider;
+
     }
 
 }

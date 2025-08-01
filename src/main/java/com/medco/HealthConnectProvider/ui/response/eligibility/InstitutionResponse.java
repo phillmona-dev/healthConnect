@@ -10,5 +10,4 @@ import lombok.NoArgsConstructor;
 public class InstitutionResponse {
     private String uuid;
     private String name;
-    // Add other fields as needed
 }

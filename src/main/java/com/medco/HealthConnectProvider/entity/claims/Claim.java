@@ -139,8 +139,6 @@ public class Claim extends Audit {
     @Column
     private Instant reviewedAt;
 
-//    @OneToOne(mappedBy = "claim")
-//    private BatchRecord batchRecord;
     @OneToOne
     @JoinColumn(name = "batch_record_id")
     private BatchRecord batchRecord;

@@ -632,13 +632,35 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     @Override
-    public ResponseEntity<?> updateServiceClaimStatus(String medicationDispensingUuid, String newStatus,String remark) {
-        MedicationDispensing medicationDispensing=dispensingRepository.findByDispensingUuid(medicationDispensingUuid);
+    @Transactional
+    public ResponseEntity<?> updateServiceClaimStatus(String medicationDispensingUuid, String newStatus, String remark) {
+        MedicationDispensing medicationDispensing = dispensingRepository.findByDispensingUuid(medicationDispensingUuid);
+        if (medicationDispensing == null) {
+            throw new ResourceNotFoundException("MedicationDispensing", "uuid", medicationDispensingUuid);
+        }
+
+        BatchRecord batchRecord = medicationDispensing.getBatchRecord();
+        if (batchRecord == null) {
+            throw new BadRequestException("This medication dispensing is not associated with any batch.");
+        }
+
         medicationDispensing.setClaimStatus(newStatus);
         medicationDispensing.setRemark(remark);
-        medicationDispensing.setBatchRecord(null);
         dispensingRepository.save(medicationDispensing);
-        return ResponseEntity.ok("claim status  updated successfully ");
+
+        boolean allSameStatus = batchRecord.getMedicationDispensing().stream()
+                .allMatch(md -> newStatus.equals(md.getClaimStatus()));
+
+        if (allSameStatus) {
+            Claim claim = batchRecord.getClaim();
+            if (claim != null) {
+                claim.setStatus(ClaimStatus.valueOf(newStatus));
+                claimRepository.save(claim);
+            }
+        }
+
+        return ResponseEntity.ok("Claim status updated successfully");
+
     }
 
     private DispensingDetailResponse.DispensingItemDetail convertToItemDetail(MedicationDispensingItem item) {
@@ -739,9 +761,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     private String getDefaultLogoBase64() {
-        // Implement this method to return a base64 encoded default logo
-        // You can either read from a default logo file or return a hardcoded base64 string
-        return null; // or your default logo base64 string
+        return null;
     }
 
     private MedicationDispensingDTO.MedicationItemDTO convertToMedicationItemDTO(MedicationDispensingItem item) {

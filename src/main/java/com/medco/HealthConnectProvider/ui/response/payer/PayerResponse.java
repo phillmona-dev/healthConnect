@@ -35,6 +35,7 @@ public class PayerResponse {
     private String dependantCoverage;
 
     private Status status;
+
     private long totalPages;
 
     private Long numberOfInsured;
@@ -56,4 +57,5 @@ public class PayerResponse {
     private String logoPath;
     private String logoBase64;
     private Long totalContracts;
+
 }

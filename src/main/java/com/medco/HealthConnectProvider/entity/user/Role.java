@@ -43,7 +43,6 @@ public class Role {
     @Column(name = "provider_uuid")
     private String providerUuid;
 
-    // Add these methods to help identify the role type
     public boolean isPayerRole() {
         return this.roleName.toLowerCase().contains("payer");
     }

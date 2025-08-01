@@ -27,6 +27,4 @@ private ClaimStatusUpdater(SubmittedStatus submittedStatus,
         }
         return updater;
     }
-
-
 }

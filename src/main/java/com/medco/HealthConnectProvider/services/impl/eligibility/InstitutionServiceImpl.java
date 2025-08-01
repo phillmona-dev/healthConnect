@@ -31,6 +31,7 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     @Override
     public List<InstitutionResponse> getInstitutions() {
+
         logger.info("Fetching list of institutions");
 
         HttpHeaders headers = new HttpHeaders();
@@ -55,5 +56,7 @@ public class InstitutionServiceImpl implements InstitutionService {
 
         logger.info("Retrieved {} institutions", institutions.size());
         return institutions;
+
     }
+
 }

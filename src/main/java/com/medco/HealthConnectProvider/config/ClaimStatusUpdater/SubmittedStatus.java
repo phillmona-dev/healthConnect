@@ -58,8 +58,6 @@ public class SubmittedStatus implements UpdateClaimStatus {
         }
         medicationDispensingRepository.saveAll(medicationDispensingList);
 
-
-
         // Save updated claim
         claimRepository.save(claim);
 

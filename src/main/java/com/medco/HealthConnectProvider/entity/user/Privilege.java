@@ -51,5 +51,4 @@ public class Privilege {
     )
     private Set<Role> roles = new HashSet<>();
 
-
 }

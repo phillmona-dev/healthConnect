@@ -35,6 +35,7 @@ public class ApprovedStatus implements UpdateClaimStatus{
 
     @Override
     public ResponseEntity<?> updateTransferStatus(String claimUuid, String comment) {
+
        ClaimStatus newStatus= ClaimStatus.APPROVED;
 
         Claim claim = claimRepository.findByClaimUuid(claimUuid)
@@ -58,8 +59,6 @@ public class ApprovedStatus implements UpdateClaimStatus{
         }
         medicationDispensingRepository.saveAll(medicationDispensingList);
 
-
-
         // Save updated claim
         claimRepository.save(claim);
 
@@ -74,7 +73,6 @@ public class ApprovedStatus implements UpdateClaimStatus{
     // Helper methods for claim processing
     private void validateStatusTransition(Claim claim, ClaimStatus newStatus) {
         String currentStatus = String.valueOf(claim.getStatus());
-
 
         // Define valid transitions
         if (currentStatus.equals(newStatus.toString())) {
@@ -135,6 +133,7 @@ public class ApprovedStatus implements UpdateClaimStatus{
 
 
     private void createClaimLog(Claim claim, UserPrincipal userDetails, ClaimStatus previousStatus, ClaimStatus newStatus, String comment) {
+
         ClaimLogs log = new ClaimLogs();
         log.setLogUuid(UUID.randomUUID().toString());
         log.setClaimUuid(claim.getClaimUuid());
@@ -148,6 +147,7 @@ public class ApprovedStatus implements UpdateClaimStatus{
         log.setComment(comment);
 
         claimLogsRepository.save(log);
+
     }
 
 }

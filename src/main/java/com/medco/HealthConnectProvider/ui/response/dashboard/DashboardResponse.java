@@ -23,6 +23,8 @@ public class DashboardResponse {
     private long totalInsured;
     private long totalClaims;
     private long totalGroups;
+    private int totalContracts;
+    private Map<String, Integer> contractSummaries;
     private List<PayerSummary> payerSummaries;
     private List<ProviderSummary> providerSummaries;
     private ClaimStatistics claimStatistics;

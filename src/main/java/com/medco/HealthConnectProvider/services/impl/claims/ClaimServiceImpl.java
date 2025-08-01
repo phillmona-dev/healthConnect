@@ -272,7 +272,7 @@ public class ClaimServiceImpl implements ClaimService {
         BeanUtils.copyProperties(claim, response);
 
         // Set related entity data from relationships
-        System.out.println("medication size "+claim.getBatchRecord().getMedicationDispensing().size());
+        System.out.println("medication size " + claim.getBatchRecord().getMedicationDispensing().size());
         System.out.println("batch code "+claim.getBatchRecord().getBatchCode());
         response.setPayerUuid(claim.getPayerUuid());
         if (claim.getBatchRecord().getMedicationDispensing()!=null) {
@@ -506,8 +506,6 @@ public class ClaimServiceImpl implements ClaimService {
     @Override
     @Transactional
     public ResponseEntity<?> updateClaimStatus(String claimUuid, ClaimStatus newStatus, String comment) {
-
-
 
         UpdateClaimStatus updater = claimStatusUpdater.getUpdater(newStatus);
         return updater.updateTransferStatus(claimUuid,comment);

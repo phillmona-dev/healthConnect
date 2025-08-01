@@ -476,6 +476,7 @@ public class ContractServiceImpl implements ContractService {
         }
 
         ContractHeader contract = new ContractHeader();
+
         modelMapper.map(request, contract);
 
         contract.setPayer(payer);
@@ -492,6 +493,7 @@ public class ContractServiceImpl implements ContractService {
         modelMapper.map(savedContract, response);
 
         return response;
+
     }
 
     private Payer createNewPayer(CreateActiveContractRequest request) {

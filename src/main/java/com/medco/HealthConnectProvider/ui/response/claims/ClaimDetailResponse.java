@@ -39,8 +39,6 @@ public class ClaimDetailResponse {
     private String payerName;
     private String payerCode;
 
-
-
     // Claim details
     private String mrnNumber;
 
