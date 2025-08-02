@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.repository.service;
 
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.entity.services.Servicelist;
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -43,13 +44,11 @@ public interface ServicelistRepository extends JpaRepository<Servicelist, Long> 
 
     Page<Servicelist> findAllByProviderProviderUuidAndIsDeleted(String providerUuid, boolean isDeleted, Pageable pageable);
 
-    List<Servicelist> findAllByProviderProviderUuidAndStatusAndIsDeleted(String providerUuid, String status, boolean isDeleted);
+    List<Servicelist> findAllByProviderProviderUuidAndStatusAndIsDeleted(String providerUuid, Status status, boolean isDeleted);
 
     Servicelist findByServiceUuidAndProviderProviderUuid(String serviceUuid, String providerUuid);
 
     List<Service> findByServiceUuidIn(List<String> services);
-
-    Page<Servicelist> findByProviderAndServiceCategoryIn(Optional<Provider> provider, List<String> categories, Pageable pageable);
 
     @Query("SELECT DISTINCT s.serviceCategory FROM Servicelist s WHERE s.provider = :provider AND s.isDeleted = false ORDER BY s.serviceCategory")
     List<String> findDistinctCategoriesByProvider(@Param("provider") Provider provider);
@@ -58,4 +57,11 @@ public interface ServicelistRepository extends JpaRepository<Servicelist, Long> 
 
     Optional<Servicelist> findByServiceName(String serviceName);
 
+    long countByProviderId(Long id);
+
+    @Query("SELECT s FROM Servicelist s LEFT JOIN FETCH s.provider WHERE s.provider = :provider")
+    List<Servicelist> findAllByProviderWithEagerFetch(@Param("provider") Provider provider);
+
+    @Query("SELECT s FROM Servicelist s LEFT JOIN FETCH s.provider WHERE s.provider = :provider AND s.serviceCategory IN :categories")
+    List<Servicelist> findByProviderAndServiceCategoryInWithEagerFetch(@Param("provider") Provider provider, @Param("categories") List<String> categories);
 }

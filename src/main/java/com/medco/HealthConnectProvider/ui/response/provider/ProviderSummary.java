@@ -13,4 +13,5 @@ public class ProviderSummary {
     private String providerUuid;
     private String providerName;
     private long totalClaims;
+    private long totalServices;
 }

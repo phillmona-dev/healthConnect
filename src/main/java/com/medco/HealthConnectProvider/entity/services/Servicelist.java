@@ -77,7 +77,6 @@ public class Servicelist extends Audit implements Serializable {
 
     }
 
-    // Helper methods to maintain bidirectional relationship with ContractDetail
     public void addContractDetail(ContractDetail contractDetail) {
         contractDetails.add(contractDetail);
         contractDetail.setServicelist(this);

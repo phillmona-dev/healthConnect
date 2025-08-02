@@ -10,6 +10,7 @@ import com.medco.HealthConnectProvider.repository.group.EmployeeDependantGroupRe
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
+import com.medco.HealthConnectProvider.repository.service.ServicelistRepository;
 import com.medco.HealthConnectProvider.services.dashboard.DashboardService;
 import com.medco.HealthConnectProvider.ui.response.claims.ClaimStatistics;
 import com.medco.HealthConnectProvider.ui.response.dashboard.DashboardResponse;
@@ -35,6 +36,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final ProviderRepository providerRepository;
     private final InsuredRepository insuredRepository;
     private final ClaimRepository claimRepository;
+    private final ServicelistRepository servicelistRepository;
 
     @Autowired
     private ContractRepository contractRepository;
@@ -46,11 +48,12 @@ public class DashboardServiceImpl implements DashboardService {
     public DashboardServiceImpl(PayerRepository payerRepository,
                                 ProviderRepository providerRepository,
                                 InsuredRepository insuredRepository,
-                                ClaimRepository claimRepository) {
+                                ClaimRepository claimRepository, ServicelistRepository servicelistRepository) {
         this.payerRepository = payerRepository;
         this.providerRepository = providerRepository;
         this.insuredRepository = insuredRepository;
         this.claimRepository = claimRepository;
+        this.servicelistRepository = servicelistRepository;
     }
 
     @Override
@@ -70,6 +73,7 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     private DashboardResponse generateProviderReport(String providerUuid) {
+
         DashboardResponse response = new DashboardResponse();
         Provider provider = providerRepository.findByProviderUuid(providerUuid);
         if (provider == null) {
@@ -79,8 +83,12 @@ public class DashboardServiceImpl implements DashboardService {
         response.setTotalProviders(1);
         response.setTotalClaims(claimRepository.countByProviderUuid(providerUuid));
 
+        long totalServices = servicelistRepository.countByProviderId(provider.getId());
+
         List<ProviderSummary> providerSummaries = new ArrayList<>();
-        providerSummaries.add(mapToProviderSummary(provider));
+        ProviderSummary summary = mapToProviderSummary(provider);
+        summary.setTotalServices(totalServices);
+        providerSummaries.add(summary);
         response.setProviderSummaries(providerSummaries);
 
         response.setClaimStatistics(generateClaimStatisticsForProvider(providerUuid));
@@ -118,6 +126,7 @@ public class DashboardServiceImpl implements DashboardService {
         response.setContractSummaries(contractSummary);
 
         return response;
+
     }
 
     private DashboardResponse generateFullReport() {
@@ -187,6 +196,7 @@ public class DashboardServiceImpl implements DashboardService {
         summary.setProviderUuid(provider.getProviderUuid());
         summary.setProviderName(provider.getProviderName());
         summary.setTotalClaims(claimRepository.countByProviderUuid(provider.getProviderUuid()));
+        summary.setTotalServices(servicelistRepository.countByProviderId(provider.getId()));
         return summary;
     }
 

@@ -326,6 +326,7 @@ public class ContractServiceImpl implements ContractService {
 
     @Override
     public ContractResponse getContract(String contractUuid, String userType, String searchKey) {
+
         ContractHeader contract = contractRepository.findByContractHeaderUuid(contractUuid);
 
         if (contract == null)
@@ -346,10 +347,26 @@ public class ContractServiceImpl implements ContractService {
 
             contractResponse.setPayerLogoBase64(getBase64FromPath(contract.getPayer().getLogoPath(), "payer"));
             contractResponse.setProviderLogoBase64("");
+
+            contractResponse.setPayerAddress(contract.getPayer().getAddress1()+ "," + contract.getPayer().getAddress2() + "," + contract.getPayer().getAddress3());
+            contractResponse.setPayerTelephone(contract.getPayer().getTelephone());
+            contractResponse.setPayerContactEmail(contract.getPayer().getEmail());
+
+            contractResponse.setProviderAddress("");
+            contractResponse.setProviderTelephone("");
+            contractResponse.setProviderContactEmail("");
         } else if ("provider".equalsIgnoreCase(userType)) {
 
             contractResponse.setProviderLogoBase64(getBase64FromPath(contract.getProvider().getLogoPath(), "provider"));
             contractResponse.setPayerLogoBase64("");
+
+            contractResponse.setProviderAddress(contract.getProvider().getAddress1()+ "," + contract.getProvider().getAddress2() + "," + contract.getProvider().getAddress3());
+            contractResponse.setProviderTelephone(contract.getProvider().getTelephone());
+            contractResponse.setProviderContactEmail(contract.getProvider().getEmail());
+
+            contractResponse.setPayerAddress("");
+            contractResponse.setPayerTelephone("");
+            contractResponse.setPayerContactEmail("");
 
         } else {
             throw new BadRequestException("Invalid user type: " + userType);
@@ -390,6 +407,7 @@ public class ContractServiceImpl implements ContractService {
     @Transactional
     @Override
     public ResponseEntity<List<ContractResponse>> createKenemaContracts(List<String> payerUuids) {
+
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         String providerUuid = userDetails.getProviderUuid();
 

@@ -5,10 +5,9 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Optional;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import com.medco.HealthConnectProvider.entity.drug.Drug;
@@ -31,6 +30,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -92,7 +93,6 @@ public class ServicelistServiceImpl implements ServicelistService {
         service.setServiceName(serviceRequest.getServiceName());
         service.setServiceCategory(serviceRequest.getServiceCategory());
         service.setServiceSubCategory(serviceRequest.getSubCategory());
-        service.setPrice(serviceRequest.getPrice());
         service.setServiceDescription(serviceRequest.getServiceDescription());
 
         if (serviceRequest.getStatus() != null && !serviceRequest.getStatus().isEmpty()) {
@@ -152,58 +152,69 @@ public class ServicelistServiceImpl implements ServicelistService {
 
     }
 
+    @Transactional
     @Override
     public ResponseEntity<InputStreamResource> exportServicesToExcel(String providerUuid, List<String> categories) throws IOException {
+        Logger logger = LoggerFactory.getLogger(this.getClass());
+
+        logger.info("Starting export of services to Excel for provider UUID: {}", providerUuid);
 
         Provider provider = providerRepository.findByProviderUuid(providerUuid);
         if (provider == null) {
+            logger.error("Provider not found for UUID: {}", providerUuid);
             throw new BadRequestException("Can't find provider with the provided UUID");
         }
+        logger.info("Provider found: {}", provider.getProviderName());
+
+        List<Servicelist> services;
+        if (categories == null || categories.isEmpty()) {
+            logger.info("Fetching all services for provider");
+            services = servicelistRepository.findAllByProviderWithEagerFetch(provider);
+        } else {
+            logger.info("Fetching services for provider with categories: {}", categories);
+            services = servicelistRepository.findByProviderAndServiceCategoryInWithEagerFetch(provider, categories);
+        }
+        logger.info("Retrieved {} services", services.size());
 
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("Services");
 
         createHeaderRow(workbook, sheet);
+        logger.info("Created header row in Excel sheet");
 
         CellStyle dataStyle = createDataStyle(workbook);
         CellStyle categoryStyle = createCategoryStyle(workbook);
 
-        int pageNumber = 0;
-        Page<Servicelist> servicePage;
         int rowNum = 1;
         String currentCategory = null;
 
-        do {
-            Pageable pageable = PageRequest.of(pageNumber, BATCH_SIZE);
-            servicePage = (categories == null || categories.isEmpty())
-                    ? servicelistRepository.findByProvider(Optional.of(provider), pageable)
-                    : servicelistRepository.findByProviderAndServiceCategoryIn(Optional.of(provider), categories, pageable);
-
-            for (Servicelist service : servicePage.getContent()) {
-                if (!service.getServiceCategory().equals(currentCategory)) {
-                    currentCategory = service.getServiceCategory();
-                    Row categoryRow = sheet.createRow(rowNum++);
-                    Cell categoryCell = categoryRow.createCell(0);
-                    categoryCell.setCellValue(currentCategory);
-                    categoryCell.setCellStyle(categoryStyle);
-                    sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 7));
-                }
-                Row row = sheet.createRow(rowNum++);
-                populateServiceRow(service, row, dataStyle);
+        for (Servicelist service : services) {
+            if (!Objects.equals(service.getServiceCategory(), currentCategory)) {
+                currentCategory = service.getServiceCategory();
+                Row categoryRow = sheet.createRow(rowNum++);
+                Cell categoryCell = categoryRow.createCell(0);
+                categoryCell.setCellValue(currentCategory != null ? currentCategory : "");
+                categoryCell.setCellStyle(categoryStyle);
+                sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 7));
+                logger.debug("Added category row: {}", currentCategory);
             }
-
-            pageNumber++;
-        } while (servicePage.hasNext());
+            Row row = sheet.createRow(rowNum++);
+            populateServiceRow(service, row, dataStyle);
+            logger.debug("Added service row: {}", service.getServiceName());
+        }
 
         autoSizeColumns(sheet);
+        logger.info("Finished populating Excel sheet with {} rows", rowNum - 1);
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         workbook.write(outputStream);
         workbook.close();
+        logger.info("Wrote workbook to ByteArrayOutputStream");
 
         ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
         String fileName = "services_" + provider.getProviderName() +
                 (categories != null && !categories.isEmpty() ? "_" + String.join("_", categories) : "") + ".xlsx";
+        logger.info("Created file name: {}", fileName);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + fileName)
@@ -396,22 +407,43 @@ public class ServicelistServiceImpl implements ServicelistService {
     }
 
     private void populateServiceRow(Servicelist service, Row row, CellStyle dataStyle) {
+        Logger logger = LoggerFactory.getLogger(this.getClass());
+        logger.debug("Populating row for service: {}", service.getServiceName());
+
         int colNum = 0;
 
-        row.createCell(colNum++).setCellValue(service.getServiceCode() != null ? service.getServiceCode() : "");
-        row.createCell(colNum++).setCellValue(service.getServiceName() != null ? service.getServiceName() : "");
-        row.createCell(colNum++).setCellValue(service.getServiceCategory() != null ? service.getServiceCategory() : "");
-        row.createCell(colNum++).setCellValue(service.getServiceSubCategory() != null ? service.getServiceSubCategory() : "");
-        row.createCell(colNum++).setCellValue(service.getServiceDescription() != null ? service.getServiceDescription() : "");
+        setCellValue(row, colNum++, service.getServiceCode(), "Service Code", dataStyle);
+        setCellValue(row, colNum++, service.getServiceName(), "Service Name", dataStyle);
+        setCellValue(row, colNum++, service.getServiceCategory(), "Category", dataStyle);
+        setCellValue(row, colNum++, service.getServiceSubCategory(), "Sub Category", dataStyle);
+        setCellValue(row, colNum++, service.getServiceDescription(), "Description", dataStyle);
+        setCellValue(row, colNum++, service.getNegotiatedPrice(), "Negotiated Price", dataStyle);
+        setCellValue(row, colNum++, service.getStatus() != null ? service.getStatus().toString() : "ACTIVE", "Status", dataStyle);
+        setCellValue(row, colNum, service.getUnitOfMeasure(), "Unit of Measure", dataStyle);
 
-        row.createCell(colNum++).setCellValue("");
+        logger.debug("Finished populating row for service: {}", service.getServiceName());
+    }
 
-        row.createCell(colNum++).setCellValue(service.getStatus() != null ? service.getStatus().toString() : "ACTIVE");
-        row.createCell(colNum++).setCellValue(service.getUnitOfMeasure() != null ? service.getUnitOfMeasure() : "");
 
-        for (int i = 0; i < colNum; i++) {
-            row.getCell(i).setCellStyle(dataStyle);
+    private void setCellValue(Row row, int colNum, Object value, String fieldName, CellStyle style) {
+        Logger logger = LoggerFactory.getLogger(this.getClass());
+        Cell cell = row.createCell(colNum);
+        if (value != null) {
+            if (value instanceof String) {
+                cell.setCellValue((String) value);
+            } else if (value instanceof Integer) {
+                cell.setCellValue((Integer) value);
+            } else if (value instanceof Double) {
+                cell.setCellValue((Double) value);
+            } else {
+                cell.setCellValue(value.toString());
+            }
+            logger.trace("Set {} to: {}", fieldName, value);
+        } else {
+            cell.setCellValue("");
+            logger.warn("{} is null for this service", fieldName);
         }
+        cell.setCellStyle(style);
     }
 
     private void autoSizeColumns(Sheet sheet) {
@@ -462,7 +494,7 @@ public class ServicelistServiceImpl implements ServicelistService {
                 .map(servicelist -> {
                     var servicelistResponse = new ServicelistResponse();
                     BeanUtils.copyProperties(servicelist, servicelistResponse);
-                    servicelistResponse.setPrice(BigDecimal.valueOf(servicelist.getPrice()));
+//                    servicelistResponse.setPrice(BigDecimal.valueOf(servicelist.getPrice()));
                     servicelistResponse.setStatus(String.valueOf(servicelist.getStatus()));
                     servicelistResponse.setProviderName(servicelist.getProvider().getProviderName());
 
@@ -497,7 +529,7 @@ public class ServicelistServiceImpl implements ServicelistService {
     @Override
     public ResponseEntity<?> exportServiceList(HttpServletResponse response, String providerUuid) {
         List<Servicelist> services = servicelistRepository.findAllByProviderProviderUuidAndStatusAndIsDeleted(
-                providerUuid, "Active", false);
+                providerUuid, Status.ACTIVE, false);
 
         if (services.isEmpty())
             return ResponseEntity.ok(new MessageResponse("No Service Lists found for the provider"));
@@ -601,7 +633,7 @@ public class ServicelistServiceImpl implements ServicelistService {
             }
 
             Row headerRow = rowIterator.next();
-            validateHeaderRow(headerRow);
+            Map<String, Integer> headerMap = validateAndMapHeaders(headerRow);
 
             while (rowIterator.hasNext()) {
                 Row row = rowIterator.next();
@@ -609,7 +641,7 @@ public class ServicelistServiceImpl implements ServicelistService {
                     continue;
                 }
 
-                Servicelist servicelist = createServicelistFromRow(row, provider);
+                Servicelist servicelist = createServicelistFromRow(row, provider, headerMap);
                 servicelistList.add(servicelist);
             }
 
@@ -623,35 +655,79 @@ public class ServicelistServiceImpl implements ServicelistService {
         return ResponseEntity.ok(new MessageResponse("Service list imported successfully!"));
     }
 
-    private void validateHeaderRow(Row headerRow) {
-        String[] expectedHeaders = {"Item Code", "Item", "Category", "Sub Category"};
-        for (int i = 0; i < expectedHeaders.length; i++) {
+    private Map<String, Integer> validateAndMapHeaders(Row headerRow) {
+        Map<String, Integer> headerMap = new HashMap<>();
+        String[] expectedHeaders = {
+                "Service Code", "Service Name", "Service Description", "Service Category",
+                "Service Sub Category", "Default Price", "Negotiated Price", "Status",
+                "Price", "Unit of Measure"
+        };
+
+        for (int i = 0; i < headerRow.getLastCellNum(); i++) {
             Cell cell = headerRow.getCell(i);
-            if (cell == null || !cell.getStringCellValue().equalsIgnoreCase(expectedHeaders[i])) {
-                throw new BadRequestException("Invalid header format. Expected: " + String.join(", ", expectedHeaders));
+            if (cell != null) {
+                String headerValue = cell.getStringCellValue().trim();
+                if (Arrays.asList(expectedHeaders).contains(headerValue)) {
+                    headerMap.put(headerValue, i);
+                }
             }
         }
+
+        if (headerMap.isEmpty()) {
+            throw new BadRequestException("No valid headers found in the Excel sheet.");
+        }
+
+        return headerMap;
     }
 
     private boolean isRowEmpty(Row row) {
         if (row == null) {
             return true;
         }
-        if (row.getCell(0) == null) {
-            return true;
+        for (int cellNum = row.getFirstCellNum(); cellNum < row.getLastCellNum(); cellNum++) {
+            Cell cell = row.getCell(cellNum);
+            if (cell != null && cell.getCellType() != CellType.BLANK) {
+                return false;
+            }
         }
-        return row.getCell(0).getCellType() == CellType.BLANK;
+        return true;
     }
 
-    private Servicelist createServicelistFromRow(Row row, Provider provider) {
+    private Servicelist createServicelistFromRow(Row row, Provider provider, Map<String, Integer> headerMap) {
+
         Servicelist servicelist = new Servicelist();
         servicelist.setProvider(provider);
-        servicelist.setServiceCode(getCellValueAsString(row.getCell(0)));
-        servicelist.setServiceName(getCellValueAsString(row.getCell(1)));
-        servicelist.setServiceCategory(getCellValueAsString(row.getCell(2)));
-        servicelist.setServiceSubCategory(getCellValueAsString(row.getCell(3)));
-        servicelist.setStatus(Status.ACTIVE);
+
+        setFieldIfPresent(headerMap, row, "Service Code", servicelist::setServiceCode);
+        setFieldIfPresent(headerMap, row, "Service Name", servicelist::setServiceName);
+        setFieldIfPresent(headerMap, row, "Service Description", servicelist::setServiceDescription);
+        setFieldIfPresent(headerMap, row, "Service Category", servicelist::setServiceCategory);
+        setFieldIfPresent(headerMap, row, "Service Sub Category", servicelist::setServiceSubCategory);
+        setFieldIfPresent(headerMap, row, "Default Price", value -> servicelist.setDefaultPrice(new BigDecimal(value)));
+        setFieldIfPresent(headerMap, row, "Negotiated Price", value -> servicelist.setNegotiatedPrice(Integer.parseInt(value)));
+        setFieldIfPresent(headerMap, row, "Status", value -> servicelist.setStatus(Status.valueOf(value.toUpperCase())));
+        setFieldIfPresent(headerMap, row, "Price", value -> servicelist.setPrice(Double.parseDouble(value)));
+        setFieldIfPresent(headerMap, row, "Unit of Measure", servicelist::setUnitOfMeasure);
+
+        if (servicelist.getStatus() == null) {
+            servicelist.setStatus(Status.ACTIVE);
+        }
+        if (servicelist.getServiceUuid() == null) {
+            servicelist.setServiceUuid(UUID.randomUUID().toString());
+        }
+
         return servicelist;
+
+    }
+
+    private void setFieldIfPresent(Map<String, Integer> headerMap, Row row, String headerName, Consumer<String> setter) {
+        Integer columnIndex = headerMap.get(headerName);
+        if (columnIndex != null) {
+            String value = getCellValueAsString(row.getCell(columnIndex));
+            if (!value.isEmpty()) {
+                setter.accept(value);
+            }
+        }
     }
 
     private String getCellValueAsString(Cell cell) {
@@ -659,8 +735,21 @@ public class ServicelistServiceImpl implements ServicelistService {
             return "";
         }
         return switch (cell.getCellType()) {
-            case STRING -> cell.getStringCellValue();
-            case NUMERIC -> String.valueOf(cell.getNumericCellValue());
+            case STRING -> cell.getStringCellValue().trim();
+            case NUMERIC -> {
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    yield DateTimeFormatter.ofPattern("yyyy-MM-dd").format(cell.getLocalDateTimeCellValue());
+                }
+                yield String.valueOf(cell.getNumericCellValue());
+            }
+            case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
+            case FORMULA -> {
+                try {
+                    yield String.valueOf(cell.getNumericCellValue());
+                } catch (IllegalStateException e) {
+                    yield cell.getRichStringCellValue().getString();
+                }
+            }
             default -> "";
         };
     }

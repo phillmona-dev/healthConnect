@@ -37,10 +37,16 @@ public class ContractResponse {
     private String payerUuid;
     private String payerName;
     private String payerCode;
+    private String payerTelephone;
+    private String payerAddress;
+    private String payerContactEmail;
 
     private String providerUuid;
     private String providerName;
     private String providerCode;
+    private String providerTelephone;
+    private String providerAddress;
+    private String providerContactEmail;
 
     private Date terminationDate;
     private String terminationReason;

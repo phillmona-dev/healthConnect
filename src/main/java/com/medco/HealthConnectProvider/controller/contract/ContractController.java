@@ -121,23 +121,25 @@ public class ContractController {
         return contractService.getProvidersContractLists(providerUuid, searchKey, page, limit, status);
     }
 
-
     @GetMapping("/available-providers")
     @Operation(summary = "Get available providers", description = "Retrieves a list of providers available for contracting")
     // @PreAuthorize("hasRole('Read-Provider-Contract')")
     public ResponseEntity<?> getAvailableProviders(
+
             @RequestParam(name = "search", required = false) String searchKey,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "limit", defaultValue = "25") int limit) {
 
         Pageable pageable = PaginationUtils.paginateResource(page, limit, "providerName", "asc");
         return contractService.getAvailableProvidersForContract(searchKey, pageable);
+
     }
 
     @GetMapping("/provider/{providerUuid}/services")
     @Operation(summary = "Get provider services", description = "Retrieves a list of services offered by a specific provider")
     // @PreAuthorize("hasRole('Read-Provider-Contract')")
     public ResponseEntity<?> getProviderServices(
+
             @PathVariable String providerUuid,
             @RequestParam(name = "search", required = false) String searchKey,
             @RequestParam(value = "page", defaultValue = "1") int page,
@@ -145,6 +147,7 @@ public class ContractController {
 
         Pageable pageable = PaginationUtils.paginateResource(page, limit, "serviceName", "asc");
         return contractService.getAvailableServicesForProvider(providerUuid, searchKey, pageable);
+
     }
 
     @PostMapping("/{contractUuid}/employee-groups")
