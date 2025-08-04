@@ -96,9 +96,7 @@ public class InsuredController {
      * @throws BadRequestException if validation fails
      */
     private void validateDependantRequest(DependantRequest dependant) {
-        // Only validate if this is an update to an existing dependant (has UUID)
         if (dependant.getInsuredPersonUuid() != null && !dependant.getInsuredPersonUuid().trim().isEmpty()) {
-            // For existing dependants, validate required fields
             if (dependant.getDependantFirstName() == null || dependant.getDependantFirstName().trim().isEmpty()) {
                 throw new BadRequestException("Dependant first name is required");
             }

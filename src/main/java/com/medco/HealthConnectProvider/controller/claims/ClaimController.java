@@ -62,57 +62,20 @@ public class ClaimController {
                                                          @RequestParam(defaultValue = "desc") String sortDirection) {
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.fromString(sortDirection), sortBy));
         return claimService.getAll(payerUuid,providerUuid,status,pageable);
+
     }
 
-
-//    @GetMapping("/provider/{providerUuid}")
-//    @Operation(summary = "Get claims by provider")
-//    public List<ClaimResponse> getClaimsByProvider(
-//            @PathVariable String providerUuid,
-//            @RequestParam(defaultValue = "0") int page,
-//            @RequestParam(defaultValue = "10") int size) {
-//        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-//        return claimService.getClaimsByProvider(providerUuid, pageable);
-//    }
-    
-//    @GetMapping("/payer/{payerUuid}")
-//    @Operation(summary = "Get claims by payer")
-//    public List<ClaimResponse> getClaimsByPayer(
-//            @PathVariable String payerUuid,
-//            @RequestParam(defaultValue = "0") int page,
-//            @RequestParam(defaultValue = "10") int size) {
-//        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-//        return claimService.getClaimsByPayer(payerUuid, pageable);
-//    }
-
-
-//    @GetMapping("/status/{status}")
-//    @Operation(summary = "Get claims by status")
-//    public List<ClaimResponse> getClaimsByStatus(
-//            @PathVariable ClaimStatus status,
-//            @RequestParam(defaultValue = "0") int page,
-//            @RequestParam(defaultValue = "10") int size) {
-//        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-//        return claimService.getClaimsByStatus(status, pageable);
-//    }
     
     @PutMapping("/{claimUuid}/status")
     @Operation(summary = "Update claim status")
     public ResponseEntity<?> updateClaimStatus(
+
             @PathVariable String claimUuid,
             @RequestParam ClaimStatus newStatus,
             @RequestParam(required = false) String comment) {
         return claimService.updateClaimStatus(claimUuid, newStatus, comment);
+
     }
-    
-//    @PutMapping("/{claimUuid}/review")
-//    @Operation(summary = "Review a claim (approve or reject)")
-//    public ResponseEntity<?> reviewClaim(
-//            @PathVariable String claimUuid,
-//            @RequestParam boolean approved,
-//            @RequestParam(required = false) String reviewComment) {
-//        return claimService.reviewClaim(claimUuid, approved, reviewComment);
-//    }
     
     @PostMapping(value = "/{claimUuid}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Add attachment to a claim")
@@ -159,14 +122,6 @@ public class ClaimController {
         Pageable pageable = PageRequest.of(page, size, Sort.by("actionDate").descending());
         return claimService.getClaimLogs(claimUuid, pageable);
     }
-
-    //payment
-
-//
-//    @PostMapping("/claims/{claimUuid}/payment")
-//    public ResponseEntity<?> initiatePayment(@PathVariable String claimUuid, @RequestBody ClaimPaymentRequest paymentRequest) {
-//        return claimService.processPayment(claimUuid, paymentRequest);
-//    }
 
     @PostMapping("/claims/{claimUuid}/payment/verify")
     public ResponseEntity<?> verifyPayment(@PathVariable String claimUuid) {

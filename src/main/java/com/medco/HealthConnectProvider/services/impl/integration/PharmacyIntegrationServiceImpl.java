@@ -412,7 +412,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Transactional
     @Override
     public ResponseEntity<?> editDispensingRecord(String dispensingUuid, DispensingRecordEditRequest editRequest) {
-
         log.info("Editing dispensing record: {}", dispensingUuid);
         try {
             UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
@@ -424,6 +423,20 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
             if (!Arrays.asList("DRAFT", "REJECTED", "RESUBMITTED").contains(dispensing.getClaimStatus())) {
                 throw new BadRequestException("Only dispensing records in DRAFT, REJECTED, or RESUBMITTED status can be edited");
+            }
+
+            if (editRequest.getClaimStatus() != null) {
+                if (!"RESUBMITTED".equals(editRequest.getClaimStatus())) {
+                    throw new BadRequestException("Only status change to RESUBMITTED is allowed");
+                }
+
+                if (!"REJECTED".equals(dispensing.getClaimStatus())) {
+                    throw new BadRequestException("Only REJECTED records can be changed to RESUBMITTED");
+                }
+
+                dispensing.setClaimStatus(editRequest.getClaimStatus());
+            } else if (Arrays.asList("REJECTED", "RESUBMITTED").contains(dispensing.getClaimStatus())) {
+                dispensing.setClaimStatus("DRAFT");
             }
 
             Provider provider = providerRepository.findByProviderUuid(userDetails.getProviderUuid());
@@ -444,10 +457,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             List<MedicationDispensingItem> updatedItems = updateDispensingItems(dispensing, editRequest.getMedicationItems(), provider, payer, activeContract);
 
             updateDispensingRecordTotals(dispensing, updatedItems);
-
-            if (Arrays.asList("REJECTED", "RESUBMITTED").contains(dispensing.getClaimStatus())) {
-                dispensing.setClaimStatus("DRAFT");
-            }
 
             MedicationDispensing savedRecord = dispensingRepository.save(dispensing);
 

@@ -142,6 +142,11 @@ public class DashboardServiceImpl implements DashboardService {
                 .collect(Collectors.toList());
         response.setPayerSummaries(payerSummaries);
 
+        long numberOfPayersWithInsured = payerSummaries.stream()
+                .filter(payer -> payer.getTotalInsured() > 0)
+                .count();
+        response.setNumberOfPayersWithInsured(numberOfPayersWithInsured);
+
         List<ProviderSummary> providerSummaries = providerRepository.findAll().stream()
                 .map(this::mapToProviderSummary)
                 .collect(Collectors.toList());
@@ -240,6 +245,7 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     private Map<String, Integer> generateMonthlyClaimTotals(String providerUuid, String payerUuid) {
+
         Map<String, Integer> monthlyClaimTotals = new LinkedHashMap<>();
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM");

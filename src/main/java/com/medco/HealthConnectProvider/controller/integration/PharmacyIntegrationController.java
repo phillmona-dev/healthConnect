@@ -246,7 +246,8 @@ public class PharmacyIntegrationController {
 
     @PutMapping("/updateDispensing/{dispensingUuid}")
     @Operation(summary = "Edit a dispensing record",
-            description = "Edits an existing dispensing record identified by its UUID")
+            description = "Edits an existing dispensing record identified by its UUID. " +
+                    "For REJECTED records, you can optionally change status to RESUBMITTED by including claimStatus=RESUBMITTED in the request.")
     public ResponseEntity<?> editDispensingRecord(
             @PathVariable String dispensingUuid,
             @Valid @RequestBody DispensingRecordEditRequest editRequest) {

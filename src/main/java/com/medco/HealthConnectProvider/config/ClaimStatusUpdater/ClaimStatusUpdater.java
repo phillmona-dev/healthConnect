@@ -8,6 +8,7 @@ import java.util.Map;
 
 @Component
 public class ClaimStatusUpdater {
+
 private final Map<ClaimStatus,UpdateClaimStatus> statusUpdater;
 
 private ClaimStatusUpdater(SubmittedStatus submittedStatus,

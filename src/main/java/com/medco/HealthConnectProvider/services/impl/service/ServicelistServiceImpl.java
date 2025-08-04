@@ -10,6 +10,7 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import com.medco.HealthConnectProvider.encryption.EncryptionUtil;
 import com.medco.HealthConnectProvider.entity.drug.Drug;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
@@ -66,6 +67,7 @@ public class ServicelistServiceImpl implements ServicelistService {
     private final ServicelistRepository servicelistRepository;
     private final ProviderRepository providerRepository;
     private final DrugRepository drugRepository;
+    private final EncryptionUtil encryptionUtil;
 
     @Autowired(required = false)
     private RabbitTemplate template;
@@ -73,10 +75,11 @@ public class ServicelistServiceImpl implements ServicelistService {
     @Autowired
     public ServicelistServiceImpl(
             ServicelistRepository servicelistRepository,
-            ProviderRepository providerRepository, DrugRepository drugRepository) {
+            ProviderRepository providerRepository, DrugRepository drugRepository, EncryptionUtil encryptionUtil) {
         this.servicelistRepository = servicelistRepository;
         this.providerRepository = providerRepository;
         this.drugRepository = drugRepository;
+        this.encryptionUtil = encryptionUtil;
     }
 
     @Override
@@ -363,7 +366,8 @@ public class ServicelistServiceImpl implements ServicelistService {
         Row headerRow = sheet.createRow(0);
         String[] headers = {
                 "Service Code", "Service Name", "Category", "Sub Category",
-                "Description", "Negotiated Price", "Status", "Unit of Measure"
+                "Description", "Negotiated Price", "Status", "Unit of Measure",
+                "Encrypted Service UUID"
         };
 
         CellStyle headerStyle = createHeaderStyle(workbook);
@@ -419,35 +423,50 @@ public class ServicelistServiceImpl implements ServicelistService {
         setCellValue(row, colNum++, service.getServiceDescription(), "Description", dataStyle);
         setCellValue(row, colNum++, service.getNegotiatedPrice(), "Negotiated Price", dataStyle);
         setCellValue(row, colNum++, service.getStatus() != null ? service.getStatus().toString() : "ACTIVE", "Status", dataStyle);
-        setCellValue(row, colNum, service.getUnitOfMeasure(), "Unit of Measure", dataStyle);
+        setCellValue(row, colNum++, service.getUnitOfMeasure(), "Unit of Measure", dataStyle);
+
+        try {
+            String encryptedUuid = encryptionUtil.encrypt(service.getServiceUuid());
+            setCellValue(row, colNum, encryptedUuid, "Encrypted Service UUID", dataStyle);
+            logger.trace("Successfully encrypted service UUID for service: {}", service.getServiceName());
+        } catch (Exception e) {
+            logger.error("Failed to encrypt service UUID for service: {}. Error: {}",
+                    service.getServiceName(), e.getMessage());
+            setCellValue(row, colNum, "ENCRYPTION_FAILED", "Encrypted Service UUID", dataStyle);
+        }
 
         logger.debug("Finished populating row for service: {}", service.getServiceName());
     }
 
-
     private void setCellValue(Row row, int colNum, Object value, String fieldName, CellStyle style) {
         Logger logger = LoggerFactory.getLogger(this.getClass());
-        Cell cell = row.createCell(colNum);
-        if (value != null) {
-            if (value instanceof String) {
-                cell.setCellValue((String) value);
-            } else if (value instanceof Integer) {
-                cell.setCellValue((Integer) value);
-            } else if (value instanceof Double) {
-                cell.setCellValue((Double) value);
+        try {
+            Cell cell = row.createCell(colNum);
+            if (value != null) {
+                if (value instanceof String) {
+                    cell.setCellValue((String) value);
+                } else if (value instanceof Integer) {
+                    cell.setCellValue((Integer) value);
+                } else if (value instanceof Double) {
+                    cell.setCellValue((Double) value);
+                } else {
+                    cell.setCellValue(value.toString());
+                }
+                logger.trace("Set {} to: {}", fieldName, value);
             } else {
-                cell.setCellValue(value.toString());
+                cell.setCellValue("");
+                logger.warn("{} is null for this service", fieldName);
             }
-            logger.trace("Set {} to: {}", fieldName, value);
-        } else {
-            cell.setCellValue("");
-            logger.warn("{} is null for this service", fieldName);
+            cell.setCellStyle(style);
+        } catch (Exception e) {
+            logger.error("Error setting value for {} at column {}: {}",
+                    fieldName, colNum, e.getMessage());
+            throw e;
         }
-        cell.setCellStyle(style);
     }
 
     private void autoSizeColumns(Sheet sheet) {
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 9; i++) {
             sheet.autoSizeColumn(i);
         }
     }

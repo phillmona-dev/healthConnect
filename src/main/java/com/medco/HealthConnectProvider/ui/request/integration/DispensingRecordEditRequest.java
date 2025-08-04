@@ -7,10 +7,12 @@ import java.util.List;
 
 @Data
 public class DispensingRecordEditRequest {
+
     private String insuredUuid;
     private String dependantUuid;
     private String primaryDiagnosis;
     private String secondaryDiagnosis;
+    private String claimStatus;
     private List<DispensingItemEditRequest> medicationItems;
 
     @Data

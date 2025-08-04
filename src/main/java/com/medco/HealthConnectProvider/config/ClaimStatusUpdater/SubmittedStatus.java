@@ -128,6 +128,7 @@ public class SubmittedStatus implements UpdateClaimStatus {
                 break;
         }
     }
+
     private void createClaimLog(Claim claim, UserPrincipal userDetails, ClaimStatus previousStatus, ClaimStatus newStatus, String comment) {
         ClaimLogs log = new ClaimLogs();
         log.setLogUuid(UUID.randomUUID().toString());

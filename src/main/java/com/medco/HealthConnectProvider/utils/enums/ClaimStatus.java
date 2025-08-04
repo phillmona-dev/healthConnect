@@ -11,5 +11,6 @@ public enum ClaimStatus {
     CANCELLED,
     PAYMENT_INITIATED,
     RECONCILED,
-    RESUBMITTED
+    RESUBMITTED,
+    REMOVED
 }

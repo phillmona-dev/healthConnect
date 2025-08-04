@@ -42,15 +42,13 @@ public class ApprovedStatus implements UpdateClaimStatus{
                 .orElseThrow(() -> new ResourceNotFoundException("Claim", "claimUuid", claimUuid));
 
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+
         ClaimStatus previousStatus = claim.getStatus();
 
-        // Validate status transition
         validateStatusTransition(claim, newStatus);
 
-        // Update claim status
         claim.setStatus(newStatus);
 
-        // Update specific status fields based on the new status
         updateStatusSpecificFields(claim, newStatus, userDetails);
         List<MedicationDispensing> medicationDispensingList=new ArrayList<>();
         for (MedicationDispensing medicationDispensing:claim.getBatchRecord().getMedicationDispensing()){
@@ -59,10 +57,8 @@ public class ApprovedStatus implements UpdateClaimStatus{
         }
         medicationDispensingRepository.saveAll(medicationDispensingList);
 
-        // Save updated claim
         claimRepository.save(claim);
 
-        // Create claim log
         createClaimLog(claim, userDetails, previousStatus, newStatus, comment);
 
         return ResponseEntity.ok(new MessageResponse("Claim status updated successfully to " + newStatus));

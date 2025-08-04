@@ -410,23 +410,15 @@ public class InsuredServiceImpl implements InsuredService {
             throw new ResourceNotFoundException("Payer", "payerUuid", payerUuid);
         }
 
-        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("firstName").ascending());
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("first_name").ascending());
+
+        String normalizedSearch = StringUtils.hasText(search) ? search.trim().toLowerCase() : null;
 
         Page<Insured> insuredPage;
         if (StringUtils.hasText(contractUuid)) {
-
-            if (StringUtils.hasText(search)) {
-                insuredPage = insuredRepository.findByPayerAndNotInContractAndSearchKey(payerUuid, contractUuid, false, search, pageable);
-            } else {
-                insuredPage = insuredRepository.findByPayerAndNotInContract(payerUuid, contractUuid, false, pageable);
-            }
+            insuredPage = insuredRepository.findByPayerAndNotInContractAndSearchKey(payerUuid, contractUuid, false, normalizedSearch, pageable);
         } else {
-
-            if (StringUtils.hasText(search)) {
-                insuredPage = insuredRepository.findByPayerAndSearchKey(payerUuid, false, search, pageable);
-            } else {
-                insuredPage = insuredRepository.findByPayerPayerUuidAndIsDeleted(payerUuid, false, pageable);
-            }
+            insuredPage = insuredRepository.findByPayerAndSearchKey(payerUuid, false, normalizedSearch, pageable);
         }
 
         List<InsuredDependantResponse> insuredDependantResponses = insuredPage.getContent().stream()

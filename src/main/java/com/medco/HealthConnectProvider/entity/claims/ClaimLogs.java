@@ -1,6 +1,7 @@
 package com.medco.HealthConnectProvider.entity.claims;
 
 import com.medco.HealthConnectProvider.shared.Audit;
+import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -53,4 +54,14 @@ public class ClaimLogs extends Audit {
 
     @Column(length = 500)
     private String comment;
+
+
+    public ClaimLogs(Claim claim, ClaimStatus newStatus, String comment) {
+        this.claim = claim;
+        this.claimUuid = claim.getClaimUuid();
+        this.actionStatus = newStatus.name();
+        this.previousStatus = claim.getStatus().name();
+        this.comment = comment;
+        this.actionDate = Instant.now();
+    }
 }
