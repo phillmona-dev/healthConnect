@@ -36,21 +36,4 @@ public class ClaimListResponse {
     private int totalComments;
     private int totalClaims;
 
-
-
-
-
-//private String claimUuid;
-//    private long batchNumber;
-//    private LocalDate claimDatingFrom;
-//    private LocalDate claimDatingTo;
-//    private String mrnNumber;
-//    private Long claimNumber;
-//    private LocalDateTime visitDate;
-//    private BigDecimal totalAmount;
-//    private ClaimStatus status;
-//    private LocalDateTime submissionDate;
-//    private int totalAttachments;
-//    private int totalComments;
-
 }

@@ -25,4 +25,6 @@ public class ServicelistResponse implements Serializable {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String providerName;
+    private String generatedServiceId;
+
 }

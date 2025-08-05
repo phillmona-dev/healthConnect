@@ -33,6 +33,9 @@ public class Servicelist extends Audit implements Serializable {
     @Column(unique = true, nullable = false)
     private String serviceUuid;
 
+    @Column(unique = true)
+    private String generatedServiceId;
+
     @Column(nullable = false)
     private String serviceName;
 

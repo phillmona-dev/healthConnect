@@ -412,74 +412,188 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Transactional
     @Override
     public ResponseEntity<?> editDispensingRecord(String dispensingUuid, DispensingRecordEditRequest editRequest) {
-        log.info("Editing dispensing record: {}", dispensingUuid);
+        log.info("[DISPENSING-EDIT] Starting edit for dispensing record: {}", dispensingUuid);
         try {
+            // 1. Authentication and basic validation
             UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
+            log.debug("[DISPENSING-EDIT] Authenticated user: {}", userDetails.getUsername());
 
+            // 2. Find the dispensing record
             MedicationDispensing dispensing = dispensingRepository.findByDispensingUuid(dispensingUuid);
             if (dispensing == null) {
+                log.error("[DISPENSING-EDIT] Dispensing record not found with UUID: {}", dispensingUuid);
                 throw new ResourceNotFoundException("Dispensing Record", "uuid", dispensingUuid);
             }
 
-            if (!Arrays.asList("DRAFT", "REJECTED", "RESUBMITTED").contains(dispensing.getClaimStatus())) {
+            // 3. Set claim association from request
+            if (editRequest.getClaimUuid() != null) {
+                log.info("[DISPENSING-EDIT] Associating dispensing with claim: {}", editRequest.getClaimUuid());
+                dispensing.setClaimUuid(editRequest.getClaimUuid());
+            } else {
+                log.warn("[DISPENSING-EDIT] No claimUuid provided in request");
+            }
+
+            // 4. Status change validation
+            String originalStatus = dispensing.getClaimStatus();
+            log.debug("[DISPENSING-EDIT] Original status: {}", originalStatus);
+
+            if (!Arrays.asList("DRAFT", "REJECTED", "RESUBMITTED").contains(originalStatus)) {
+                log.warn("[DISPENSING-EDIT] Invalid status for editing: {}", originalStatus);
                 throw new BadRequestException("Only dispensing records in DRAFT, REJECTED, or RESUBMITTED status can be edited");
             }
 
+            // 5. Handle status changes
             if (editRequest.getClaimStatus() != null) {
+                log.debug("[DISPENSING-EDIT] Requested status change to: {}", editRequest.getClaimStatus());
                 if (!"RESUBMITTED".equals(editRequest.getClaimStatus())) {
+                    log.warn("[DISPENSING-EDIT] Invalid status change requested: {}", editRequest.getClaimStatus());
                     throw new BadRequestException("Only status change to RESUBMITTED is allowed");
                 }
-
-                if (!"REJECTED".equals(dispensing.getClaimStatus())) {
+                if (!"REJECTED".equals(originalStatus)) {
+                    log.warn("[DISPENSING-EDIT] Attempt to resubmit non-REJECTED record: {}", originalStatus);
                     throw new BadRequestException("Only REJECTED records can be changed to RESUBMITTED");
                 }
-
                 dispensing.setClaimStatus(editRequest.getClaimStatus());
-            } else if (Arrays.asList("REJECTED", "RESUBMITTED").contains(dispensing.getClaimStatus())) {
+                log.info("[DISPENSING-EDIT] Changed status from {} to RESUBMITTED", originalStatus);
+            } else if (Arrays.asList("REJECTED", "RESUBMITTED").contains(originalStatus)) {
                 dispensing.setClaimStatus("DRAFT");
+                log.info("[DISPENSING-EDIT] Changed status from {} to DRAFT", originalStatus);
             }
 
+            // 6. Validate provider
             Provider provider = providerRepository.findByProviderUuid(userDetails.getProviderUuid());
             if (provider == null) {
+                log.error("[DISPENSING-EDIT] Provider not found: {}", userDetails.getProviderUuid());
                 throw new ResourceNotFoundException("Provider", "uuid", userDetails.getProviderUuid());
             }
+            log.debug("[DISPENSING-EDIT] Validated provider: {}", provider.getProviderName());
 
+            // 7. Validate insured and dependant
             Insured insured = validateInsured(editRequest.getInsuredUuid());
             Dependant dependant = validateDependant(editRequest.getDependantUuid());
+            log.debug("[DISPENSING-EDIT] Validated insured and dependant");
 
+            // 8. Validate contract
             Payer payer = insured.getPayer();
+            ContractHeader activeContract = contractHeaderRepository.findActiveContractByProviderProviderUuidAndPayerPayerUuid(
+                            provider.getProviderUuid(), payer.getPayerUuid())
+                    .orElseThrow(() -> {
+                        log.error("[DISPENSING-EDIT] Active contract not found for provider {} and payer {}",
+                                provider.getProviderUuid(), payer.getPayerUuid());
+                        return new ResourceNotFoundException("Active contract", "payer", payer.getPayerUuid());
+                    });
+            log.debug("[DISPENSING-EDIT] Validated active contract");
 
-            ContractHeader activeContract = contractHeaderRepository.findActiveContractByProviderProviderUuidAndPayerPayerUuid(provider.getProviderUuid(), payer.getPayerUuid())
-                    .orElseThrow(() -> new ResourceNotFoundException("Active contract", "payer", payer.getPayerUuid()));
-
+            // 9. Update dispensing details
             updateDispensingRecordDetails(dispensing, editRequest, insured, dependant);
-
-            List<MedicationDispensingItem> updatedItems = updateDispensingItems(dispensing, editRequest.getMedicationItems(), provider, payer, activeContract);
-
+            List<MedicationDispensingItem> updatedItems = updateDispensingItems(
+                    dispensing, editRequest.getMedicationItems(), provider, payer, activeContract);
             updateDispensingRecordTotals(dispensing, updatedItems);
 
+            // 10. Save the updated dispensing
             MedicationDispensing savedRecord = dispensingRepository.save(dispensing);
+            log.info("[DISPENSING-EDIT] Successfully saved dispensing record with claimUuid: {}", savedRecord.getClaimUuid());
 
-            log.info("Successfully edited dispensing record: {}", dispensingUuid);
+            // 11. Trigger auto-resubmission if conditions met
+            if (savedRecord.getClaimUuid() != null && "RESUBMITTED".equals(savedRecord.getClaimStatus())) {
+                log.info("[DISPENSING-EDIT] Triggering auto-resubmission for claim: {}", savedRecord.getClaimUuid());
+                checkAndResubmitClaim(savedRecord.getClaimUuid(), userDetails, savedRecord.getDispensingUuid());
+            } else {
+                log.info("[DISPENSING-EDIT] Auto-resubmission not triggered. ClaimUuid: {}, Status: {}",
+                        savedRecord.getClaimUuid(), savedRecord.getClaimStatus());
+            }
+
             return ResponseEntity.ok(new DispensingRecordResponse(savedRecord));
 
         } catch (ResourceNotFoundException e) {
-            log.error("Resource not found: {}", e.getMessage());
+            log.error("[DISPENSING-ERROR] Resource not found: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new ApiErrorResponse(e.getMessage()));
         } catch (BadRequestException e) {
-            log.error("Bad request: {}", e.getMessage());
+            log.error("[DISPENSING-ERROR] Bad request: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new ApiErrorResponse(e.getMessage()));
         } catch (DataIntegrityViolationException e) {
-            log.error("Data integrity violation: {}", e.getMessage());
+            log.error("[DISPENSING-ERROR] Data integrity violation: {}", e.getMessage(), e);
             String errorMessage = "A conflict occurred while updating the record. Please check for duplicate entries or missing required fields.";
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new ApiErrorResponse(errorMessage));
         } catch (Exception e) {
-            log.error("Unexpected error in editDispensingRecord: ", e);
+            log.error("[DISPENSING-ERROR] Unexpected error in editDispensingRecord: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiErrorResponse("An unexpected error occurred. Please try again later."));
+        }
+    }
+
+    private void checkAndResubmitClaim(String claimUuid, UserPrincipal userDetails, String currentDispensingUuid) {
+        log.info("[AUTO-RESUBMIT] INITIATING for claim: {}", claimUuid);
+
+        try {
+            // 1. Verify claim exists
+            Claim claim = claimRepository.findByClaimUuid(claimUuid)
+                    .orElseThrow(() -> {
+                        log.error("[AUTO-RESUBMIT] Claim not found: {}", claimUuid);
+                        return new ResourceNotFoundException("Claim", "uuid", claimUuid);
+                    });
+            log.debug("[AUTO-RESUBMIT] Current claim status: {}", claim.getStatus());
+
+            // 2. Get all related dispensings
+            List<MedicationDispensing> dispensings = dispensingRepository.findByClaimUuid(claimUuid);
+            log.info("[AUTO-RESUBMIT] Found {} existing dispensing records for claim", dispensings.size());
+
+            // 3. Include current dispensing if not already in the list
+            boolean includesCurrent = dispensings.stream()
+                    .anyMatch(d -> d.getDispensingUuid().equals(currentDispensingUuid));
+
+            if (!includesCurrent) {
+                log.debug("[AUTO-RESUBMIT] Adding current dispensing to evaluation");
+                MedicationDispensing currentDispensing = dispensingRepository.findByDispensingUuid(currentDispensingUuid);
+                if (currentDispensing != null) {
+                    dispensings.add(currentDispensing);
+                    log.debug("[AUTO-RESUBMIT] Current dispensing status: {}", currentDispensing.getClaimStatus());
+                }
+            }
+
+            // 4. Log all dispensing statuses
+            dispensings.forEach(d ->
+                    log.debug("[AUTO-RESUBMIT] Dispensing {} status: {}", d.getDispensingUuid(), d.getClaimStatus()));
+
+            // 5. Check conditions
+            boolean anyResubmitted = dispensings.stream()
+                    .anyMatch(d -> "RESUBMITTED".equals(d.getClaimStatus()));
+            boolean anyRejected = dispensings.stream()
+                    .anyMatch(d -> "REJECTED".equals(d.getClaimStatus()));
+
+            log.info("[AUTO-RESUBMIT] Conditions - Any RESUBMITTED: {}, Any REJECTED: {}",
+                    anyResubmitted, anyRejected);
+
+            if (anyResubmitted && !anyRejected) {
+                log.info("[AUTO-RESUBMIT] ELIGIBLE for auto-resubmission");
+
+                if (claim.getStatus() != ClaimStatus.RESUBMITTED) {
+                    log.info("[AUTO-RESUBMIT] Updating claim status from {} to RESUBMITTED", claim.getStatus());
+
+                    claim.setStatus(ClaimStatus.RESUBMITTED);
+                    claim.addLog(new ClaimLogs(claim, ClaimStatus.RESUBMITTED,
+                            "Auto-resubmitted because all dispensing records are either RESUBMITTED or DRAFT"));
+
+                    Claim updatedClaim = claimRepository.save(claim);
+                    log.info("[AUTO-RESUBMIT] SUCCESSFULLY updated claim {} to status: {}",
+                            claimUuid, updatedClaim.getStatus());
+                } else {
+                    log.info("[AUTO-RESUBMIT] Claim already in RESUBMITTED status - no change needed");
+                }
+            } else {
+                log.info("[AUTO-RESUBMIT] NOT ELIGIBLE - Requires at least one RESUBMITTED and zero REJECTED");
+                if (!anyResubmitted) {
+                    log.info("[AUTO-RESUBMIT] No RESUBMITTED dispensing records found");
+                }
+                if (anyRejected) {
+                    log.info("[AUTO-RESUBMIT] REJECTED dispensing records present - blocking auto-resubmission");
+                }
+            }
+        } catch (Exception e) {
+            log.error("[AUTO-RESUBMIT] ERROR processing claim {}: {}", claimUuid, e.getMessage(), e);
         }
     }
 

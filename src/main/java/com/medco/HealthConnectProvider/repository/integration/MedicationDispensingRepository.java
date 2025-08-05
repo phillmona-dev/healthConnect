@@ -35,4 +35,6 @@ public interface MedicationDispensingRepository extends JpaRepository<Medication
 
     Page<MedicationDispensing> findByBatchCode(String batchCode, Pageable pageable);
 
+    List<MedicationDispensing> findByBatchRecord_ClaimUuid(String claimUuid);
+
 }

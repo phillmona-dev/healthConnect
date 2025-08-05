@@ -89,8 +89,19 @@ public class ServicelistServiceImpl implements ServicelistService {
             throw new BadRequestException("can't find provider with the provided Id");
         }
 
+        String serviceNamePrefix = serviceRequest.getServiceName() != null &&
+                serviceRequest.getServiceName().length() >= 3 ?
+                serviceRequest.getServiceName().substring(0, 3).toUpperCase() :
+                "SRV";
+
+        Long lastSequenceNumber = servicelistRepository.findMaxGeneratedIdSequenceNumber(provider.getId());
+        long currentSequence = lastSequenceNumber != null ? lastSequenceNumber + 1 : 1;
+        String generatedId = String.format("%s%010d", serviceNamePrefix, currentSequence);
+
         var service = new Servicelist();
         BeanUtils.copyProperties(serviceRequest, service);
+
+        service.setGeneratedServiceId(generatedId);
 
         service.setServiceCode(serviceRequest.getServiceCode());
         service.setServiceName(serviceRequest.getServiceName());
@@ -115,6 +126,7 @@ public class ServicelistServiceImpl implements ServicelistService {
         var response = new ServicelistResponse();
 
         response.setServiceUuid(serviceEntity.getServiceUuid());
+        response.setGeneratedServiceId(serviceEntity.getGeneratedServiceId());
         response.setServiceCode(serviceEntity.getServiceCode());
         response.setServiceName(serviceEntity.getServiceName());
         response.setServiceCategory(serviceEntity.getServiceCategory());
@@ -152,7 +164,6 @@ public class ServicelistServiceImpl implements ServicelistService {
         }
 
         return ResponseEntity.ok(response);
-
     }
 
     @Transactional
@@ -367,7 +378,7 @@ public class ServicelistServiceImpl implements ServicelistService {
         String[] headers = {
                 "Service Code", "Service Name", "Category", "Sub Category",
                 "Description", "Negotiated Price", "Status", "Unit of Measure",
-                "Encrypted Service UUID"
+                "Service ID"
         };
 
         CellStyle headerStyle = createHeaderStyle(workbook);
@@ -425,15 +436,7 @@ public class ServicelistServiceImpl implements ServicelistService {
         setCellValue(row, colNum++, service.getStatus() != null ? service.getStatus().toString() : "ACTIVE", "Status", dataStyle);
         setCellValue(row, colNum++, service.getUnitOfMeasure(), "Unit of Measure", dataStyle);
 
-        try {
-            String encryptedUuid = encryptionUtil.encrypt(service.getServiceUuid());
-            setCellValue(row, colNum, encryptedUuid, "Encrypted Service UUID", dataStyle);
-            logger.trace("Successfully encrypted service UUID for service: {}", service.getServiceName());
-        } catch (Exception e) {
-            logger.error("Failed to encrypt service UUID for service: {}. Error: {}",
-                    service.getServiceName(), e.getMessage());
-            setCellValue(row, colNum, "ENCRYPTION_FAILED", "Encrypted Service UUID", dataStyle);
-        }
+        setCellValue(row, colNum, service.getGeneratedServiceId(), "Service ID", dataStyle);
 
         logger.debug("Finished populating row for service: {}", service.getServiceName());
     }
@@ -644,6 +647,10 @@ public class ServicelistServiceImpl implements ServicelistService {
                 throw new ResourceNotFoundException("Provider", "UUID", providerUuid);
             }
 
+            // Get the highest existing generated ID number for this provider
+            Long lastSequenceNumber = servicelistRepository.findMaxGeneratedIdSequenceNumber(provider.getId());
+            long currentSequence = lastSequenceNumber != null ? lastSequenceNumber + 1 : 1;
+
             List<Servicelist> servicelistList = new ArrayList<>();
             Iterator<Row> rowIterator = sheet.iterator();
 
@@ -661,6 +668,14 @@ public class ServicelistServiceImpl implements ServicelistService {
                 }
 
                 Servicelist servicelist = createServicelistFromRow(row, provider, headerMap);
+
+                String serviceNamePrefix = servicelist.getServiceName() != null && servicelist.getServiceName().length() >= 3
+                        ? servicelist.getServiceName().substring(0, 3).toUpperCase()
+                        : "SRV";
+
+                String generatedId = String.format("%s%010d", serviceNamePrefix, currentSequence++);
+                servicelist.setGeneratedServiceId(generatedId);
+
                 servicelistList.add(servicelist);
             }
 

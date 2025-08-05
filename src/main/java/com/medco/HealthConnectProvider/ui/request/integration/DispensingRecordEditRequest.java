@@ -7,7 +7,7 @@ import java.util.List;
 
 @Data
 public class DispensingRecordEditRequest {
-
+    private String claimUuid;
     private String insuredUuid;
     private String dependantUuid;
     private String primaryDiagnosis;

@@ -53,16 +53,26 @@ public class ClaimController {
 
     @GetMapping("/allClaims")
     @Operation(summary = "Get all paginated claims")
-    public PagedResponse<ClaimListResponse> getAllClaims(@RequestParam(value = "ClaimStatus",required = false) ClaimStatus status,
-                                                         @RequestParam(value = "payerUuid",required = false) String payerUuid,
-                                                         @RequestParam(value = "providerUuid",required = false) String providerUuid,
-                                                         @RequestParam(defaultValue = "1") int page,
-                                                         @RequestParam(defaultValue = "25") int size,
-                                                         @RequestParam(defaultValue = "createdAt") String sortBy,
-                                                         @RequestParam(defaultValue = "desc") String sortDirection) {
-        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.fromString(sortDirection), sortBy));
-        return claimService.getAll(payerUuid,providerUuid,status,pageable);
+    public PagedResponse<ClaimListResponse> getAllClaims(
+            @RequestParam(value = "ClaimStatus", required = false) ClaimStatus status,
+            @RequestParam(value = "payerUuid", required = false) String payerUuid,
+            @RequestParam(value = "providerUuid", required = false) String providerUuid,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDirection) {
 
+        List<ClaimStatus> statuses = null;
+        if (status != null) {
+            if (status == ClaimStatus.DRAFT) {
+                statuses = List.of(ClaimStatus.DRAFT, ClaimStatus.RESUBMITTED, ClaimStatus.REJECTED);
+            } else {
+                statuses = List.of(status);
+            }
+        }
+
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.fromString(sortDirection), sortBy));
+        return claimService.getAll(payerUuid, providerUuid, status, statuses, pageable);
     }
 
     

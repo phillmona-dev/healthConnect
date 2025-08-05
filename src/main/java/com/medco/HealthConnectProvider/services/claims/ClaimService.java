@@ -42,7 +42,8 @@ public interface ClaimService {
 
     ResponseEntity<?> createBatchClaim(String batchCode);
 
-    PagedResponse<ClaimListResponse> getAll(String payer ,String provider,ClaimStatus status,Pageable pageable);
 
     ResponseEntity<?> rejectOrResubmitBatch(String batchCode, @NotBlank(message = "Remark is required") @Size(max = 1000, message = "Remark must not exceed 1000 characters") String remark);
+
+    PagedResponse<ClaimListResponse> getAll(String payerUuid, String providerUuid, ClaimStatus status, List<ClaimStatus> statuses, Pageable pageable);
 }

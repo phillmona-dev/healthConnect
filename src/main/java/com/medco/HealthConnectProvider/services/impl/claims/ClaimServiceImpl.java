@@ -1003,45 +1003,53 @@ public class ClaimServiceImpl implements ClaimService {
     }
 
     @Override
-    public PagedResponse<ClaimListResponse> getAll(String provider,String payer,ClaimStatus status,Pageable pageable) {
+    public PagedResponse<ClaimListResponse> getAll(String provider, String payer, ClaimStatus status, List<ClaimStatus> statuses, Pageable pageable) {
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
-        String payerUuid=userDetails.getPayerUuid();
-        String providerUuid=userDetails.getProviderUuid();
+        String payerUuid = userDetails.getPayerUuid();
+        String providerUuid = userDetails.getProviderUuid();
 
-        Page<ClaimCustomResponse> claims =new PageImpl<>(new ArrayList<>());
-        if (payerUuid!=null) {
-            if (provider!=null) {
-                claims = status == null ? claimRepository.findAllPayerProviderClaims(payerUuid,provider,pageable) : claimRepository.findAllPayerProviderClaimsByStatus(payerUuid, provider, status, pageable);
-            }else {
+        Page<ClaimCustomResponse> claims = new PageImpl<>(new ArrayList<>());
 
-//                claims =  claimRepository.findAllPayerClaims(payerUuid,pageable) ;
-                claims = status == null ? claimRepository.findAllPayerClaims(payerUuid,pageable) : claimRepository.findAllPayerClaimsByStatus(payerUuid, status, pageable);
-                System.out.println("new claimsssssss"+claims.getTotalElements());
-                System.out.println("payerUuid "+payerUuid);
-                System.out.println("status "+status);
+        if (payerUuid != null) {
+            if (provider != null) {
+                claims = statuses == null ?
+                        claimRepository.findAllPayerProviderClaims(payerUuid, provider, pageable) :
+                        claimRepository.findAllPayerProviderClaimsByStatusIn(payerUuid, provider, statuses, pageable);
+            } else {
+                claims = statuses == null ?
+                        claimRepository.findAllPayerClaims(payerUuid, pageable) :
+                        claimRepository.findAllPayerClaimsByStatusIn(payerUuid, statuses, pageable);
+            }
+        }
+        else if (providerUuid != null) {
+            if (payer != null) {
+                claims = statuses == null ?
+                        claimRepository.findAllPayerProviderClaims(payer, providerUuid, pageable) :
+                        claimRepository.findAllPayerProviderClaimsByStatusIn(payer, providerUuid, statuses, pageable);
+            } else {
+                claims = statuses == null ?
+                        claimRepository.findAllProviderClaims(providerUuid, pageable) :
+                        claimRepository.findAllProviderClaimsByStatusIn(providerUuid, statuses, pageable);
             }
         }
 
-        else if (providerUuid!=null) {
-            if (payer!=null) {
-                claims = status == null ? claimRepository.findAllPayerProviderClaims(provider,providerUuid,pageable) : claimRepository.findAllPayerProviderClaimsByStatus(payer, providerUuid, status, pageable);
-            }else {
-                claims = status == null ? claimRepository.findAllProviderClaims(providerUuid,pageable) : claimRepository.findAllProviderClaimsByStatus(providerUuid, status, pageable);
-            }
-
-        }
         List<ClaimListResponse> responseList = claims.stream().map(claimCustomResponse -> {
-            ClaimListResponse claimListResponse= new ClaimListResponse();
-            BeanUtils.copyProperties(claimCustomResponse,claimListResponse);
-            Provider provider1=providerRepository.findByProviderUuid(claimCustomResponse.getProviderUuid());
-//            Payer payer1=payerRepository.findByPayerUuid(claimCustomResponse.getPayerUuid());
+            ClaimListResponse claimListResponse = new ClaimListResponse();
+            BeanUtils.copyProperties(claimCustomResponse, claimListResponse);
+            Provider provider1 = providerRepository.findByProviderUuid(claimCustomResponse.getProviderUuid());
             claimListResponse.setProviderName(provider1.getProviderName());
+
+            if (claimCustomResponse.getPayerUuid() != null) {
+                Payer payer1 = payerRepository.findByPayerUuid(claimCustomResponse.getPayerUuid());
+                claimListResponse.setPayerName(payer1 != null ? payer1.getPayerName() : null);
+            }
+
             return claimListResponse;
         }).toList();
 
         return new PagedResponse<>(
                 responseList,
-                pageable.getPageNumber(),
+                pageable.getPageNumber() + 1,
                 pageable.getPageSize(),
                 claims.getTotalElements(),
                 claims.getTotalPages(),

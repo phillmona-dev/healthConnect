@@ -37,7 +37,6 @@ public class ClaimLogs extends Audit {
     @JoinColumn(name = "claim_id",referencedColumnName = "id", nullable = false)
     private Claim claim;
 
-    @Column(nullable = false)
     private String actionByUuid;
 
     private String actionByName;

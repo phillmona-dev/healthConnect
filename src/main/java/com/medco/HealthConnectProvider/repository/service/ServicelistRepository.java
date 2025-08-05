@@ -64,4 +64,7 @@ public interface ServicelistRepository extends JpaRepository<Servicelist, Long> 
 
     @Query("SELECT s FROM Servicelist s LEFT JOIN FETCH s.provider WHERE s.provider = :provider AND s.serviceCategory IN :categories")
     List<Servicelist> findByProviderAndServiceCategoryInWithEagerFetch(@Param("provider") Provider provider, @Param("categories") List<String> categories);
+
+    @Query("SELECT MAX(CAST(SUBSTRING(s.generatedServiceId, 4) AS long)) FROM Servicelist s WHERE s.provider.id = :providerId")
+    Long findMaxGeneratedIdSequenceNumber(@Param("providerId") Long providerId);
 }
