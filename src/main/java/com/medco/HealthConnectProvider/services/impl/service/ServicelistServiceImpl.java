@@ -209,7 +209,7 @@ public class ServicelistServiceImpl implements ServicelistService {
                 Cell categoryCell = categoryRow.createCell(0);
                 categoryCell.setCellValue(currentCategory != null ? currentCategory : "");
                 categoryCell.setCellStyle(categoryStyle);
-                sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 7));
+                sheet.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 6));
                 logger.debug("Added category row: {}", currentCategory);
             }
             Row row = sheet.createRow(rowNum++);
@@ -234,6 +234,7 @@ public class ServicelistServiceImpl implements ServicelistService {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + fileName)
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(new InputStreamResource(inputStream));
+
     }
 
     @Override
@@ -376,9 +377,8 @@ public class ServicelistServiceImpl implements ServicelistService {
     private void createHeaderRow(Workbook workbook, Sheet sheet) {
         Row headerRow = sheet.createRow(0);
         String[] headers = {
-                "Service Code", "Service Name", "Category", "Sub Category",
-                "Description", "Negotiated Price", "Status", "Unit of Measure",
-                "Service ID"
+                "Service ID","Service Code", "Service Name", "Category", "Sub Category",
+                "Description", "Negotiated Price"
         };
 
         CellStyle headerStyle = createHeaderStyle(workbook);
@@ -427,16 +427,13 @@ public class ServicelistServiceImpl implements ServicelistService {
 
         int colNum = 0;
 
+        setCellValue(row, colNum++, service.getGeneratedServiceId(), "Service ID", dataStyle);
         setCellValue(row, colNum++, service.getServiceCode(), "Service Code", dataStyle);
         setCellValue(row, colNum++, service.getServiceName(), "Service Name", dataStyle);
         setCellValue(row, colNum++, service.getServiceCategory(), "Category", dataStyle);
         setCellValue(row, colNum++, service.getServiceSubCategory(), "Sub Category", dataStyle);
         setCellValue(row, colNum++, service.getServiceDescription(), "Description", dataStyle);
-        setCellValue(row, colNum++, service.getNegotiatedPrice(), "Negotiated Price", dataStyle);
-        setCellValue(row, colNum++, service.getStatus() != null ? service.getStatus().toString() : "ACTIVE", "Status", dataStyle);
-        setCellValue(row, colNum++, service.getUnitOfMeasure(), "Unit of Measure", dataStyle);
-
-        setCellValue(row, colNum, service.getGeneratedServiceId(), "Service ID", dataStyle);
+        setCellValue(row, colNum, service.getNegotiatedPrice(), "Negotiated Price", dataStyle);
 
         logger.debug("Finished populating row for service: {}", service.getServiceName());
     }
@@ -469,7 +466,7 @@ public class ServicelistServiceImpl implements ServicelistService {
     }
 
     private void autoSizeColumns(Sheet sheet) {
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < 7; i++) {
             sheet.autoSizeColumn(i);
         }
     }
@@ -509,6 +506,7 @@ public class ServicelistServiceImpl implements ServicelistService {
 
     @Override
     public PagedResponse<ServicelistResponse> searchServices(String providerUuid, String searchKey, int page, int limit) {
+
         Pageable pageable = Pagination.paginateResource(page, limit, "id", "desc");
         Page<Servicelist> serviceLists = searchKey != null ? getServicesBySearch(searchKey, providerUuid, pageable) : getAllServices(providerUuid, pageable);
 
@@ -639,6 +637,7 @@ public class ServicelistServiceImpl implements ServicelistService {
     @Override
     @Transactional
     public ResponseEntity<?> importServiceListData(File file, String providerUuid) throws IOException {
+
         try (Workbook workbook = WorkbookFactory.create(file)) {
             Sheet sheet = workbook.getSheetAt(0);
 
@@ -647,7 +646,6 @@ public class ServicelistServiceImpl implements ServicelistService {
                 throw new ResourceNotFoundException("Provider", "UUID", providerUuid);
             }
 
-            // Get the highest existing generated ID number for this provider
             Long lastSequenceNumber = servicelistRepository.findMaxGeneratedIdSequenceNumber(provider.getId());
             long currentSequence = lastSequenceNumber != null ? lastSequenceNumber + 1 : 1;
 

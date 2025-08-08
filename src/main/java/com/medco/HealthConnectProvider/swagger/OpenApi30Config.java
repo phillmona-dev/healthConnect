@@ -35,6 +35,6 @@ public class OpenApi30Config {
                         .description("HealthConnect Documentation")
                         .url("https://healthconnect.org/docs")
                 )
-                .addSecurityItem(new SecurityRequirement().addList("bearerAuth")); // Add this line
+                .addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
     }
 }

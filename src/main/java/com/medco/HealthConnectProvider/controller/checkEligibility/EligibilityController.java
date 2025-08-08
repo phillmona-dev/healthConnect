@@ -42,7 +42,6 @@ public class EligibilityController {
                     @Parameter(name = "institutionUuid", description = "UUID of the institution", required = true),
                     @Parameter(name = "search", description = "Search criteria for insured individuals (e.g., name, ID, policy number)", required = true)
             }
-
     )
     public ResponseEntity<List<CheckEligibilityResponse>> checkEligibility(
             @RequestParam String institutionUuid,

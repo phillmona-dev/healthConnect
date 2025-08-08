@@ -200,10 +200,12 @@ public class PayerServiceImpl implements PayerService {
         log.info("Payer created with UUID: {}, status: {}", savedPayer.getPayerUuid(), savedPayer.getStatus());
 
         Role role = new Role();
+
         String payerNameForRole = payerRequest.getPayerName();
         if (payerNameForRole.length() > 35) {
             payerNameForRole = payerNameForRole.substring(0, 35);
         }
+
         role.setRoleName("PA_" + payerNameForRole + "_Manager");
         role.setPayerUuid(savedPayer.getPayerUuid());
         role.setRoleDescription("Manages the system for " + payerRequest.getPayerName());

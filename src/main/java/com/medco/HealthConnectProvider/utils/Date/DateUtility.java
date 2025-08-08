@@ -255,6 +255,7 @@ public final class DateUtility {
         Instant instant = zonedDateTime.toInstant();
         Date date = Date.from(instant);
         return date;
+
     }
 
     public static Date convertStringToDate(String date) throws ParseException {

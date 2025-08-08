@@ -489,6 +489,7 @@ public class ContractServiceImpl implements ContractService {
         }
 
         Provider provider = providerRepository.findByProviderUuid(request.getProviderUuid());
+
         if (provider == null){
             throw new ResourceNotFoundException("Provider", "providerUuid", request.getProviderUuid());
         }
@@ -538,7 +539,6 @@ public class ContractServiceImpl implements ContractService {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
         String dateSuffix = now.format(formatter);
         return baseName + " " + dateSuffix;
-
     }
 
     private ContractResponse.InsuredSummary filterDependants(ContractResponse.InsuredSummary summary, String searchKey) {

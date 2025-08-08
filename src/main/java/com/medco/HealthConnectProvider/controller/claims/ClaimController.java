@@ -38,13 +38,6 @@ public class ClaimController {
         this.pharmacyIntegrationService = pharmacyIntegrationService;
     }
 
-//
-//    @PostMapping
-//    @Operation(summary = "Submit a new claim")
-//    public ResponseEntity<?> submitClaim(@Valid @RequestBody ClaimRequest claimRequest) {
-//        return claimService.submitClaim(claimRequest);
-//    }
-
     @GetMapping("/{claimUuid}")
     @Operation(summary = "Get claim details by UUID")
     public ClaimDetailResponse getClaimByUuid(@PathVariable String claimUuid) {
@@ -75,7 +68,6 @@ public class ClaimController {
         return claimService.getAll(payerUuid, providerUuid, status, statuses, pageable);
     }
 
-    
     @PutMapping("/{claimUuid}/status")
     @Operation(summary = "Update claim status")
     public ResponseEntity<?> updateClaimStatus(
@@ -143,8 +135,6 @@ public class ClaimController {
         return pharmacyIntegrationService.reconcilePayment(claimUuid);
     }
 
-    // Todo  NEW APIS FOR THE CLAIM
-
     @PostMapping("/createBatchClaim/{batchCode}")
     @Operation(summary = "Create claim from a batch",
             description = "Creates a new claim from authorized batch")
@@ -161,5 +151,4 @@ public class ClaimController {
             @RequestBody @Valid BatchRejectRequest rejectRequest) {
         return claimService.rejectOrResubmitBatch(batchCode, rejectRequest.getRemark());
     }
-
 }
