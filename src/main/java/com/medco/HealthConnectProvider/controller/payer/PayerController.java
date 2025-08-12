@@ -3,7 +3,6 @@ package com.medco.HealthConnectProvider.controller.payer;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
 import com.medco.HealthConnectProvider.services.payer.PayerService;
 import com.medco.HealthConnectProvider.ui.request.auth.password.payer.PayerRequest;
-import com.medco.HealthConnectProvider.ui.response.ImportResponse;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerImportResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerProviderResponse;
@@ -20,7 +19,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -76,7 +74,7 @@ public class PayerController {
     }
 
     @GetMapping("/list")
-//@PreAuthorize("hasRole('Read-Providers')")
+    //@PreAuthorize("hasRole('Read-Providers')")
     @Operation(
             summary = "List payers",
             description = "Retrieves a list of Payers with pagination, search, and advanced filtering options"

@@ -37,7 +37,6 @@ public class EligibilityController {
     @Operation(
             summary = "Check insured eligibility",
             description = "Checks the eligibility of insured individuals based on the provided institution UUID and search criteria.",
-            tags = {"Eligibility"},
             parameters = {
                     @Parameter(name = "institutionUuid", description = "UUID of the institution", required = true),
                     @Parameter(name = "search", description = "Search criteria for insured individuals (e.g., name, ID, policy number)", required = true)

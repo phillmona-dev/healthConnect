@@ -43,5 +43,6 @@ public class ContractRequest {
         private String serviceName;
         private String itemType;
         private BigDecimal negotiatedPrice;
+        private String packageCategory;
     }
 }

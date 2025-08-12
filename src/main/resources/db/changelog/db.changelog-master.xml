@@ -7,4 +7,5 @@
 
     <include file="04-add-negotiatedPrice-column-to-servicelist.xml" relativeToChangelogFile="true"/>
     <include file="05-add-is-insurance-column-to-payers.xml" relativeToChangelogFile="true"/>
+    <include file="06-add-package-category-tables.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

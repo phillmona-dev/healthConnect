@@ -19,14 +19,17 @@ import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
 import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
 import com.medco.HealthConnectProvider.repository.service.ServicelistRepository;
+import com.medco.HealthConnectProvider.repository.packageCategory.ServiceCategoryMappingRepository;
+import com.medco.HealthConnectProvider.entity.packageCategory.ServiceCategoryMapping;
 import com.medco.HealthConnectProvider.services.eligibility.EligibilityService;
+import com.medco.HealthConnectProvider.services.packageCategory.PackageCategoryLimitService;
 import com.medco.HealthConnectProvider.services.persons.InsuredService;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.CategoryLimitSummaryResponse;
 import com.medco.HealthConnectProvider.ui.request.eligibility.EligibilityCheckRequest;
 import com.medco.HealthConnectProvider.ui.response.eligibility.*;
 import com.medco.HealthConnectProvider.ui.response.persons.DependantResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredSearchResponse;
 import com.medco.HealthConnectProvider.ui.response.persons.MultipleInsuredResponse;
-import com.medco.HealthConnectProvider.utils.enums.Relationship;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +41,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @Service
@@ -74,6 +78,12 @@ public class EligibilityServiceImpl implements EligibilityService {
 
     @Autowired
     private ContractDetailEmployeeGroupRepository contractDetailEmployeeGroupRepository;
+
+    @Autowired
+    private PackageCategoryLimitService packageCategoryLimitService;
+
+    @Autowired
+    private ServiceCategoryMappingRepository serviceCategoryMappingRepository;
 
 
     @Override
@@ -402,7 +412,7 @@ public class EligibilityServiceImpl implements EligibilityService {
         ContractDetail bestContractDetail = findBestContractDetail(contractDetails, insuredGroupUuids);
 
         if (bestContractDetail != null) {
-            return calculateCoverage(response, bestContractDetail, contractHeader);
+            return calculateCoverage(response, bestContractDetail, contractHeader, insured);
         } else {
             return handleUncoveredService(response, service);
         }
@@ -499,7 +509,8 @@ public class EligibilityServiceImpl implements EligibilityService {
     private ServiceEligibilityResponse calculateCoverage(
             ServiceEligibilityResponse response,
             ContractDetail bestContractDetail,
-            ContractHeader contractHeader) {
+            ContractHeader contractHeader,
+            Insured insured) {
         response.setCovered(true);
         response.setPrice(bestContractDetail.getNegotiatedPrice());
 
@@ -515,6 +526,9 @@ public class EligibilityServiceImpl implements EligibilityService {
         response.setCoPaymentAmount(coPaymentAmount);
         response.setInsuranceCoverage(price.subtract(coPaymentAmount));
 
+        // Add package category limit information
+        addCategoryLimitInfo(response, bestContractDetail, insured, price);
+
         // Set applied group info if available
 //        if (bestContractDetail.getAppliedGroupUuid() != null) {
 //            response.setAppliedGroupUuid(bestContractDetail.getAppliedGroupUuid());
@@ -522,5 +536,78 @@ public class EligibilityServiceImpl implements EligibilityService {
 //        }
 
         return response;
+    }
+
+    private void addCategoryLimitInfo(ServiceEligibilityResponse response,
+                                     ContractDetail contractDetail,
+                                     Insured insured,
+                                     BigDecimal serviceAmount) {
+        try {
+            // Get category mappings for this service
+            List<ServiceCategoryMapping> mappings = serviceCategoryMappingRepository
+                    .findActiveByContractDetailUuid(contractDetail.getContractDetailUuid());
+
+            if (mappings.isEmpty()) {
+                response.setHasAvailableLimit(true);
+                response.setCategoryLimits(new ArrayList<>());
+                return;
+            }
+
+            List<ServiceEligibilityResponse.CategoryLimitInfo> categoryLimits = new ArrayList<>();
+            List<String> limitWarnings = new ArrayList<>();
+
+            for (ServiceCategoryMapping mapping : mappings) {
+                if (!mapping.isConsumesFromLimit()) {
+                    continue;
+                }
+
+                // Get category limit summary for this insured person
+                CategoryLimitSummaryResponse summary = packageCategoryLimitService
+                        .getCategoryLimitSummary(insured.getInsuredUuid(),
+                                               contractDetail.getContractHeaderUuid());
+
+                // Find the specific category limit
+                summary.getCategoryLimits().stream()
+                        .filter(limit -> limit.getCategoryUuid().equals(mapping.getPackageCategory().getCategoryUuid()))
+                        .findFirst()
+                        .ifPresent(limit -> {
+                            ServiceEligibilityResponse.CategoryLimitInfo info =
+                                    new ServiceEligibilityResponse.CategoryLimitInfo();
+                            info.setCategoryUuid(limit.getCategoryUuid());
+                            info.setCategoryName(limit.getCategoryName());
+                            info.setCategoryCode(limit.getCategoryCode());
+                            info.setLimitValue(limit.getLimitValue());
+                            info.setUsedAmount(limit.getUsedAmount());
+                            info.setRemainingAmount(limit.getRemainingAmount());
+                            info.setPeriodType(limit.getPeriodType());
+                            info.setExpired(limit.isExpired());
+                            info.setUtilizationPercentage(limit.getUtilizationPercentage());
+
+                            categoryLimits.add(info);
+
+                            // Check if service amount would exceed remaining limit
+                            if (limit.getRemainingAmount().compareTo(serviceAmount) < 0) {
+                                limitWarnings.add(String.format(
+                                        "Insufficient limit in category '%s' (Remaining: %s, Required: %s)",
+                                        limit.getCategoryName(),
+                                        limit.getRemainingAmount(),
+                                        serviceAmount));
+                            }
+                        });
+            }
+
+            // Determine if all limits are available
+            boolean hasAvailableLimit = limitWarnings.isEmpty();
+
+            response.setCategoryLimits(categoryLimits);
+            response.setHasAvailableLimit(hasAvailableLimit);
+            response.setLimitWarning(limitWarnings.isEmpty() ? null : String.join("; ", limitWarnings));
+
+        } catch (Exception e) {
+            log.warn("Error checking category limits for service: {}", contractDetail.getServiceUuid(), e);
+            response.setHasAvailableLimit(true);
+            response.setCategoryLimits(new ArrayList<>());
+            response.setLimitWarning("Unable to verify category limits");
+        }
     }
 }
