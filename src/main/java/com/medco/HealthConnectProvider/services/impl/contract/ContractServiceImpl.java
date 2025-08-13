@@ -12,6 +12,7 @@ import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
 import com.medco.HealthConnectProvider.entity.services.Servicelist;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
+import com.medco.HealthConnectProvider.exception.ResourceAlreadyExistsException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.contract.ContractDetailRepository;
 import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
@@ -482,6 +483,10 @@ public class ContractServiceImpl implements ContractService {
 
     @Override
     public ContractNewResponse createActiveContract(CreateActiveContractRequest request) {
+        if (request.getContractUuid() != null &&
+                contractRepository.existsByContractHeaderUuid(request.getContractUuid())) {
+            throw new ResourceAlreadyExistsException("Contract", "contractUuid", request.getContractUuid());
+        }
 
         Payer payer = payerRepository.findByPayerUuid(request.getPayerUuid());
         if (payer == null) {
@@ -489,15 +494,23 @@ public class ContractServiceImpl implements ContractService {
         }
 
         Provider provider = providerRepository.findByProviderUuid(request.getProviderUuid());
-
-        if (provider == null){
+        if (provider == null) {
             throw new ResourceNotFoundException("Provider", "providerUuid", request.getProviderUuid());
         }
 
-        ContractHeader contract = new ContractHeader();
+        boolean contractExists = contractRepository.existsByPayerAndProviderAndIsDeletedFalse(payer, provider);
+        if (contractExists) {
+            throw new ResourceAlreadyExistsException(
+                    "Contract already exists for this payer and provider combination",
+                    "payerName", request.getPayerName(),
+                    "providerName", provider.getProviderName()
+            );
+        }
 
+        ContractHeader contract = new ContractHeader();
         modelMapper.map(request, contract);
 
+        contract.setContractHeaderUuid(request.getContractUuid());
         contract.setPayer(payer);
         contract.setProvider(provider);
         contract.setStatus(Status.ACTIVE);
@@ -512,7 +525,6 @@ public class ContractServiceImpl implements ContractService {
         modelMapper.map(savedContract, response);
 
         return response;
-
     }
 
     private Payer createNewPayer(CreateActiveContractRequest request) {

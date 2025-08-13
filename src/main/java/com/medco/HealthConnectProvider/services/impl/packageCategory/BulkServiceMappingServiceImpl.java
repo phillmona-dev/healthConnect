@@ -45,7 +45,6 @@ public class BulkServiceMappingServiceImpl implements BulkServiceMappingService 
     public ResponseEntity<BulkServiceMappingResponse> processBulkServiceMappings(BulkServiceMappingRequest request) {
         log.info("Processing bulk service mappings for contract: {}", request.getContractUuid());
 
-        // Validate contract exists
         ContractHeader contract = contractRepository.findByContractHeaderUuid(request.getContractUuid());
         if (contract == null) {
             throw new ResourceNotFoundException("Contract", "contractUuid", request.getContractUuid());
@@ -102,7 +101,6 @@ public class BulkServiceMappingServiceImpl implements BulkServiceMappingService 
             throw new BadRequestException("Excel file is empty");
         }
 
-        // Validate file format
         if (!file.getOriginalFilename().endsWith(".xlsx") && !file.getOriginalFilename().endsWith(".xls")) {
             throw new BadRequestException("File must be an Excel file (.xlsx or .xls)");
         }
@@ -126,7 +124,6 @@ public class BulkServiceMappingServiceImpl implements BulkServiceMappingService 
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Service Category Mappings");
             
-            // Create header row
             Row headerRow = sheet.createRow(0);
             String[] headers = {
                 "Service Code", "Service Name", "Category Codes (comma-separated)", 
@@ -137,7 +134,6 @@ public class BulkServiceMappingServiceImpl implements BulkServiceMappingService 
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(headers[i]);
                 
-                // Style header
                 CellStyle headerStyle = workbook.createCellStyle();
                 Font font = workbook.createFont();
                 font.setBold(true);
@@ -145,7 +141,6 @@ public class BulkServiceMappingServiceImpl implements BulkServiceMappingService 
                 cell.setCellStyle(headerStyle);
             }
             
-            // Add sample data
             Row sampleRow = sheet.createRow(1);
             sampleRow.createCell(0).setCellValue("SURG001");
             sampleRow.createCell(1).setCellValue("Heart Surgery");
@@ -153,7 +148,6 @@ public class BulkServiceMappingServiceImpl implements BulkServiceMappingService 
             sampleRow.createCell(3).setCellValue("true");
             sampleRow.createCell(4).setCellValue("Major surgical procedure");
             
-            // Auto-size columns
             for (int i = 0; i < headers.length; i++) {
                 sheet.autoSizeColumn(i);
             }
@@ -192,7 +186,6 @@ public class BulkServiceMappingServiceImpl implements BulkServiceMappingService 
                 return ResponseEntity.badRequest().body("File must contain at least one data row");
             }
             
-            // Validate headers
             Row headerRow = sheet.getRow(0);
             if (headerRow == null || headerRow.getPhysicalNumberOfCells() < 4) {
                 return ResponseEntity.badRequest().body("Invalid file format. Please use the provided template.");
@@ -208,7 +201,6 @@ public class BulkServiceMappingServiceImpl implements BulkServiceMappingService 
     private List<BulkServiceMappingRequest.ServiceMappingItem> parseExcelSheet(Sheet sheet) {
         List<BulkServiceMappingRequest.ServiceMappingItem> items = new ArrayList<>();
         
-        // Skip header row (row 0)
         for (int i = 1; i <= sheet.getLastRowNum(); i++) {
             Row row = sheet.getRow(i);
             if (row == null) continue;
@@ -221,7 +213,7 @@ public class BulkServiceMappingServiceImpl implements BulkServiceMappingService 
                 String notes = getCellValueAsString(row.getCell(4));
                 
                 if (serviceCode.isEmpty() || serviceName.isEmpty() || categoryCodesStr.isEmpty()) {
-                    continue; // Skip empty rows
+                    continue;
                 }
                 
                 List<String> categoryCodes = Arrays.stream(categoryCodesStr.split(","))
@@ -250,22 +242,17 @@ public class BulkServiceMappingServiceImpl implements BulkServiceMappingService 
     private String getCellValueAsString(Cell cell) {
         if (cell == null) return "";
 
-        switch (cell.getCellType()) {
-            case STRING:
-                return cell.getStringCellValue().trim();
-            case NUMERIC:
-                return String.valueOf((long) cell.getNumericCellValue());
-            case BOOLEAN:
-                return String.valueOf(cell.getBooleanCellValue());
-            default:
-                return "";
-        }
+        return switch (cell.getCellType()) {
+            case STRING -> cell.getStringCellValue().trim();
+            case NUMERIC -> String.valueOf((long) cell.getNumericCellValue());
+            case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
+            default -> "";
+        };
     }
 
     private BulkServiceMappingResponse.MappingResult processServiceMapping(
             ContractHeader contract, BulkServiceMappingRequest.ServiceMappingItem item) {
 
-        // Find service by code - need to search through all services since there's no direct findByServiceCode method
         List<Servicelist> allServices = serviceRepository.findAll();
         Servicelist service = allServices.stream()
                 .filter(s -> item.getServiceCode().equals(s.getServiceCode()))
@@ -281,7 +268,6 @@ public class BulkServiceMappingServiceImpl implements BulkServiceMappingService 
                     .build();
         }
 
-        // Find contract detail for this service
         ContractDetail contractDetail = contract.getContractDetails().stream()
                 .filter(cd -> service.getServiceUuid().equals(cd.getServiceUuid()))
                 .findFirst()
@@ -299,10 +285,8 @@ public class BulkServiceMappingServiceImpl implements BulkServiceMappingService 
         List<String> mappedCategories = new ArrayList<>();
         List<String> errors = new ArrayList<>();
 
-        // Process each category mapping
         for (String categoryCode : item.getCategoryCodes()) {
             try {
-                // Find category by code - need to search through all categories since there's no direct findByCategoryCode method
                 List<PackageCategory> allCategories = categoryRepository.findAll();
                 PackageCategory category = allCategories.stream()
                         .filter(c -> categoryCode.equals(c.getCategoryCode()))
@@ -314,13 +298,11 @@ public class BulkServiceMappingServiceImpl implements BulkServiceMappingService 
                     continue;
                 }
 
-                // Check if mapping already exists
                 if (mappingRepository.existsByContractDetailAndPackageCategory(contractDetail, category)) {
                     mappedCategories.add(categoryCode + " (already exists)");
                     continue;
                 }
 
-                // Create new mapping
                 ServiceCategoryMapping mapping = ServiceCategoryMapping.builder()
                         .contractDetail(contractDetail)
                         .packageCategory(category)

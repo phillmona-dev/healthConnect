@@ -20,11 +20,9 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Date;
-import java.util.Optional;
 
 @Service
 public class PasswordServiceImpl implements PasswordService {
@@ -62,7 +60,6 @@ public class PasswordServiceImpl implements PasswordService {
         String token = RandomNumberGenerator.generateSixDigitNumber();
         var passwordToken = createPasswordResetTokenForUser(user, token);
 
-        // Send simple email instead of using Thymeleaf template
         sendSimpleResetEmail(user, token);
 
         return ResponseEntity.ok("An email containing a code is sent to your inbox. Please use the code before it expires at: " + passwordToken.getExpiryDate());
@@ -88,7 +85,6 @@ public class PasswordServiceImpl implements PasswordService {
             helper.setText(content);
             mailSender.send(message);
         } catch (MessagingException | UnsupportedEncodingException e) {
-            // Log the error but don't fail the operation
             System.err.println("Failed to send password reset email: " + e.getMessage());
         }
     }

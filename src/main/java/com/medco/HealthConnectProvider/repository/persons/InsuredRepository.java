@@ -203,4 +203,5 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
 
     Long countByPayerPayerUuidAndIsDeleted(String payerUuid, boolean b);
 
+    boolean existsByInsuredUuid(String insuredUuid);
 }

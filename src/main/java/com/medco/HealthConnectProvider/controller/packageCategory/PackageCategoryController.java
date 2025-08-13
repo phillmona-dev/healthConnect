@@ -59,8 +59,8 @@ public class PackageCategoryController {
     public PagedResponse<PackageCategoryResponse> getPackageCategories(
             @Parameter(description = "Search keyword") @RequestParam(required = false) String searchKey,
             @Parameter(description = "Status filter (ACTIVE/INACTIVE)") @RequestParam(required = false, defaultValue = "ACTIVE") String status,
-            @Parameter(description = "Page number") @RequestParam(defaultValue = "0") int page,
-            @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int size) {
+            @Parameter(description = "Page number") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "25") int size) {
         return packageCategoryService.getPackageCategories(searchKey, status, page, size);
     }
 

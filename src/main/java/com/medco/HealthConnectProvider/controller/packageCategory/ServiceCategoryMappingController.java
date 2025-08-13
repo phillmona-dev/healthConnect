@@ -1,7 +1,12 @@
 package com.medco.HealthConnectProvider.controller.packageCategory;
 
 import com.medco.HealthConnectProvider.services.packageCategory.ServiceCategoryMappingService;
+import com.medco.HealthConnectProvider.ui.request.packageCategory.BulkServiceCategoryAssignmentRequest;
+import com.medco.HealthConnectProvider.ui.request.packageCategory.EligibleServiceSearchRequest;
 import com.medco.HealthConnectProvider.ui.request.packageCategory.ServiceCategoryMappingRequest;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.BulkServiceCategoryAssignmentResponse;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.EligibleServiceResponse;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -60,7 +65,7 @@ public class ServiceCategoryMappingController {
     }
 
     @PutMapping("/{mappingUuid}")
-    @Operation(summary = "Update service category mapping", 
+    @Operation(summary = "Update service category mapping",
                description = "Update an existing service category mapping")
     public ResponseEntity<String> updateServiceCategoryMapping(
             @Parameter(description = "Mapping UUID") @PathVariable String mappingUuid,
@@ -68,4 +73,28 @@ public class ServiceCategoryMappingController {
         log.info("Updating service category mapping: {}", mappingUuid);
         return mappingService.updateServiceCategoryMapping(mappingUuid, request);
     }
+
+    @PostMapping("/bulk-assign")
+    @Operation(summary = "Assign multiple services to category",
+               description = "Assign multiple contract details (eligible services) to a package category")
+    public ResponseEntity<BulkServiceCategoryAssignmentResponse> assignServicesToCategory(
+            @Valid @RequestBody BulkServiceCategoryAssignmentRequest request) {
+        log.info("Bulk assigning {} services to category {}",
+                request.getContractDetailUuids().size(), request.getCategoryUuid());
+        return mappingService.assignServicesToCategory(request);
+    }
+
+    @GetMapping("/eligible-services")
+    @Operation(summary = "Get eligible services for category",
+               description = "Fetch contract details (eligible services) for a selected category and contract with optional search")
+    public PagedResponse<EligibleServiceResponse> getEligibleServicesForCategory(
+            @Parameter(description = "Search request containing all search criteria") EligibleServiceSearchRequest search) {
+
+        log.info("Fetching eligible services for category: {} in contract: {} with search key: {}",
+                search.getCategoryName(), search.getContractUuid(), search.getSearchKey());
+
+        return mappingService.getEligibleServicesForCategory(search);
+
+    }
+
 }

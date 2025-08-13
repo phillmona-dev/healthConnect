@@ -63,7 +63,6 @@ public class PackageCategoryLimitServiceImpl implements PackageCategoryLimitServ
             PackageCategory category = categoryRepository.findByCategoryUuid(request.getCategoryUuid())
                     .orElseThrow(() -> new ResourceNotFoundException("Category not found with UUID: " + request.getCategoryUuid()));
 
-            // Check if limit already exists for this category and contract
             boolean limitExists = limitRepository.existsByPackageCategoryAndContractHeaderAndIsActiveTrueAndResetDateAfter(
                     category, contract, LocalDate.now());
 
@@ -101,7 +100,6 @@ public class PackageCategoryLimitServiceImpl implements PackageCategoryLimitServ
         PackageCategoryLimit limit = limitRepository.findByLimitUuid(limitUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("Category limit not found with UUID: " + limitUuid));
 
-        // Update fields
         limit.setLimitType(LimitType.valueOf(request.getLimitType()));
         limit.setLimitValue(request.getLimitValue());
         limit.setPeriodType(PeriodType.valueOf(request.getPeriodType()));
@@ -194,14 +192,13 @@ public class PackageCategoryLimitServiceImpl implements PackageCategoryLimitServ
     @Override
     @Transactional(readOnly = true)
     public boolean canConsumeService(String insuredUuid, String contractDetailUuid, BigDecimal serviceAmount) {
-        // Get all categories mapped to this service
         List<String> categoryUuids = mappingRepository.findActiveByContractDetailUuid(contractDetailUuid)
                 .stream()
                 .map(mapping -> mapping.getPackageCategory().getCategoryUuid())
                 .collect(Collectors.toList());
 
         if (categoryUuids.isEmpty()) {
-            return true; // No category limits apply
+            return true;
         }
 
         Insured insured = insuredRepository.findByInsuredUuid(insuredUuid);
@@ -209,11 +206,10 @@ public class PackageCategoryLimitServiceImpl implements PackageCategoryLimitServ
             throw new ResourceNotFoundException("Insured person not found with UUID: " + insuredUuid);
         }
 
-        // Check if all applicable categories have sufficient limits
         for (String categoryUuid : categoryUuids) {
             BigDecimal remainingLimit = getRemainingLimitInternal(insured, categoryUuid);
             if (remainingLimit.compareTo(serviceAmount) < 0) {
-                return false; // Insufficient limit in at least one category
+                return false;
             }
         }
 
@@ -253,7 +249,6 @@ public class PackageCategoryLimitServiceImpl implements PackageCategoryLimitServ
         List<PackageCategoryLimit> expiredLimits = limitRepository.findExpiredLimits(LocalDate.now());
         
         for (PackageCategoryLimit limit : expiredLimits) {
-            // Create new limit for next period
             LocalDate newResetDate = calculateNextResetDate(limit.getPeriodType(), limit.getResetDate());
             
             PackageCategoryLimit newLimit = PackageCategoryLimit.builder()
@@ -269,7 +264,6 @@ public class PackageCategoryLimitServiceImpl implements PackageCategoryLimitServ
 
             limitRepository.save(newLimit);
             
-            // Deactivate old limit
             limit.setActive(false);
             limitRepository.save(limit);
         }
@@ -284,29 +278,21 @@ public class PackageCategoryLimitServiceImpl implements PackageCategoryLimitServ
     }
 
     private LocalDate calculatePeriodStart(PeriodType periodType, LocalDate resetDate) {
-        switch (periodType) {
-            case ANNUAL:
-                return resetDate.minusYears(1);
-            case MONTHLY:
-                return resetDate.minusMonths(1);
-            case CONTRACT_PERIOD:
-                return resetDate.minusYears(1); // Assuming 1 year contract
-            default:
-                return resetDate.minusMonths(1);
-        }
+        return switch (periodType) {
+            case ANNUAL -> resetDate.minusYears(1);
+            case MONTHLY -> resetDate.minusMonths(1);
+            case CONTRACT_PERIOD -> resetDate.minusYears(1); // Assuming 1 year contract
+            default -> resetDate.minusMonths(1);
+        };
     }
 
     private LocalDate calculateNextResetDate(PeriodType periodType, LocalDate currentResetDate) {
-        switch (periodType) {
-            case ANNUAL:
-                return currentResetDate.plusYears(1);
-            case MONTHLY:
-                return currentResetDate.plusMonths(1);
-            case CONTRACT_PERIOD:
-                return currentResetDate.plusYears(1);
-            default:
-                return currentResetDate.plusMonths(1);
-        }
+        return switch (periodType) {
+            case ANNUAL -> currentResetDate.plusYears(1);
+            case MONTHLY -> currentResetDate.plusMonths(1);
+            case CONTRACT_PERIOD -> currentResetDate.plusYears(1);
+            default -> currentResetDate.plusMonths(1);
+        };
     }
 
     private PackageCategoryLimitResponse mapToResponse(PackageCategoryLimit limit) {

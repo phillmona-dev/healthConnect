@@ -28,25 +28,31 @@ public class EligibilityController {
             description = "Retrieves a list of all registered institutions in the system."
 
     )
-    public ResponseEntity<List<InstitutionResponse>> getInstitutions() {
-        List<InstitutionResponse> institutions = institutionService.getInstitutions();
+    public ResponseEntity<List<InstitutionResponse>> getInstitutions(
+            @RequestParam String contractUuid) {
+        List<InstitutionResponse> institutions = institutionService.getInstitutions(contractUuid);
         return ResponseEntity.ok(institutions);
     }
 
     @GetMapping("/insuredEligibility")
     @Operation(
             summary = "Check insured eligibility",
-            description = "Checks the eligibility of insured individuals based on the provided institution UUID and search criteria.",
+            description = "Checks the eligibility of insured individuals",
             parameters = {
-                    @Parameter(name = "institutionUuid", description = "UUID of the institution", required = true),
-                    @Parameter(name = "search", description = "Search criteria for insured individuals (e.g., name, ID, policy number)", required = true)
+                    @Parameter(name = "contractUuid", description = "Contract UUID", required = true),
+                    @Parameter(name = "institutionUuid", description = "Institution UUID", required = true),
+                    @Parameter(name = "search", description = "Optional search criteria", required = false)
             }
     )
     public ResponseEntity<List<CheckEligibilityResponse>> checkEligibility(
+            @RequestParam String contractUuid,
             @RequestParam String institutionUuid,
-            @RequestParam String search) {
-        List<CheckEligibilityResponse> responses = eligibilityService.checkEligibility(institutionUuid, search);
+            @RequestParam(required = false) String search) {
+        List<CheckEligibilityResponse> responses = eligibilityService.checkEligibility(
+                contractUuid,
+                institutionUuid,
+                search
+        );
         return ResponseEntity.ok(responses);
     }
-
 }

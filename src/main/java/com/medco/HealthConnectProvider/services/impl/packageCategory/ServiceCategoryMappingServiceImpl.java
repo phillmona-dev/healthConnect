@@ -9,13 +9,30 @@ import com.medco.HealthConnectProvider.repository.contract.ContractDetailReposit
 import com.medco.HealthConnectProvider.repository.packageCategory.PackageCategoryRepository;
 import com.medco.HealthConnectProvider.repository.packageCategory.ServiceCategoryMappingRepository;
 import com.medco.HealthConnectProvider.services.packageCategory.ServiceCategoryMappingService;
+import com.medco.HealthConnectProvider.ui.request.packageCategory.BulkServiceCategoryAssignmentRequest;
+import com.medco.HealthConnectProvider.ui.request.packageCategory.EligibleServiceSearchRequest;
 import com.medco.HealthConnectProvider.ui.request.packageCategory.ServiceCategoryMappingRequest;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.BulkServiceCategoryAssignmentResponse;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.EligibleServiceResponse;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -45,14 +62,12 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
             PackageCategory category = categoryRepository.findByCategoryUuid(categoryUuid)
                     .orElseThrow(() -> new ResourceNotFoundException("Package category not found with UUID: " + categoryUuid));
 
-            // Check if mapping already exists
             if (mappingRepository.existsByContractDetailAndPackageCategory(contractDetail, category)) {
                 log.warn("Mapping already exists for service {} and category {}", 
                         request.getContractDetailUuid(), categoryUuid);
                 continue;
             }
 
-            // Validate that category belongs to the same payer as the contract
             if (!category.getPayer().getId().equals(contractDetail.getContractHeader().getPayer().getId())) {
                 throw new BadRequestException("Category does not belong to the same payer as the contract");
             }
@@ -86,7 +101,6 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
         ServiceCategoryMapping mapping = mappingRepository.findByContractDetailAndPackageCategory(contractDetail, category)
                 .orElseThrow(() -> new ResourceNotFoundException("Service-category mapping not found"));
 
-        // Soft delete the mapping
         mapping.setDeleted(true);
         mappingRepository.save(mapping);
 
@@ -126,5 +140,373 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
 
         log.info("Service category mapping updated successfully");
         return ResponseEntity.ok("Service category mapping updated successfully");
+    }
+
+    @Override
+    public ResponseEntity<BulkServiceCategoryAssignmentResponse> assignServicesToCategory(BulkServiceCategoryAssignmentRequest request) {
+        log.info("Assigning {} services to category {}", request.getContractDetailUuids().size(), request.getCategoryUuid());
+
+        PackageCategory category = categoryRepository.findByCategoryUuid(request.getCategoryUuid())
+                .orElseThrow(() -> new ResourceNotFoundException("PackageCategory", "categoryUuid", request.getCategoryUuid()));
+
+        String contractUuid = null;
+        String contractName = null;
+
+        List<BulkServiceCategoryAssignmentResponse.ServiceAssignmentResult> results = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        int successCount = 0;
+        int failedCount = 0;
+        int skippedCount = 0;
+
+        for (String contractDetailUuid : request.getContractDetailUuids()) {
+            try {
+                BulkServiceCategoryAssignmentResponse.ServiceAssignmentResult result =
+                        processServiceAssignment(contractDetailUuid, category, request);
+
+                results.add(result);
+
+                if (contractUuid == null && result.getContractDetailUuid() != null) {
+                    ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(contractDetailUuid);
+                    if (contractDetail != null) {
+                        contractUuid = contractDetail.getContractHeader().getContractHeaderUuid();
+                        contractName = contractDetail.getContractHeader().getContractName();
+                    }
+                }
+
+                switch (result.getStatus()) {
+                    case "SUCCESS":
+                    case "REPLACED":
+                        successCount++;
+                        break;
+                    case "SKIPPED":
+                        skippedCount++;
+                        break;
+                    case "FAILED":
+                        failedCount++;
+                        break;
+                }
+
+            } catch (Exception e) {
+                log.error("Error processing service assignment for contractDetail: {}", contractDetailUuid, e);
+                results.add(BulkServiceCategoryAssignmentResponse.ServiceAssignmentResult.builder()
+                        .contractDetailUuid(contractDetailUuid)
+                        .status("FAILED")
+                        .message("Error: " + e.getMessage())
+                        .build());
+                failedCount++;
+            }
+        }
+
+        BulkServiceCategoryAssignmentResponse response = BulkServiceCategoryAssignmentResponse.builder()
+                .categoryUuid(category.getCategoryUuid())
+                .categoryName(category.getCategoryName())
+                .categoryCode(category.getCategoryCode())
+                .contractUuid(contractUuid)
+                .contractName(contractName)
+                .totalServicesProcessed(request.getContractDetailUuids().size())
+                .successfulAssignments(successCount)
+                .failedAssignments(failedCount)
+                .skippedAssignments(skippedCount)
+                .results(results)
+                .errors(errors)
+                .build();
+
+        log.info("Bulk assignment completed: {} successful, {} failed, {} skipped",
+                successCount, failedCount, skippedCount);
+
+        return ResponseEntity.ok(response);
+    }
+
+    private BulkServiceCategoryAssignmentResponse.ServiceAssignmentResult processServiceAssignment(
+            String contractDetailUuid, PackageCategory category, BulkServiceCategoryAssignmentRequest request) {
+
+        ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(contractDetailUuid);
+        if (contractDetail == null) {
+            return BulkServiceCategoryAssignmentResponse.ServiceAssignmentResult.builder()
+                    .contractDetailUuid(contractDetailUuid)
+                    .status("FAILED")
+                    .message("Contract detail not found")
+                    .build();
+        }
+
+        if (!category.getPayer().getId().equals(contractDetail.getContractHeader().getPayer().getId())) {
+            return BulkServiceCategoryAssignmentResponse.ServiceAssignmentResult.builder()
+                    .contractDetailUuid(contractDetailUuid)
+                    .serviceName(contractDetail.getServicelist() != null ? contractDetail.getServicelist().getServiceName() : "Unknown")
+                    .serviceCode(contractDetail.getServicelist() != null ? contractDetail.getServicelist().getServiceCode() : "Unknown")
+                    .status("FAILED")
+                    .message("Category does not belong to the same payer as the contract")
+                    .build();
+        }
+
+        String serviceName = contractDetail.getServicelist() != null ? contractDetail.getServicelist().getServiceName() : "Unknown";
+        String serviceCode = contractDetail.getServicelist() != null ? contractDetail.getServicelist().getServiceCode() : "Unknown";
+
+        boolean mappingExists = mappingRepository.existsByContractDetailAndPackageCategory(contractDetail, category);
+
+        if (mappingExists && !request.getReplaceExisting()) {
+            return BulkServiceCategoryAssignmentResponse.ServiceAssignmentResult.builder()
+                    .contractDetailUuid(contractDetailUuid)
+                    .serviceName(serviceName)
+                    .serviceCode(serviceCode)
+                    .status("SKIPPED")
+                    .message("Mapping already exists")
+                    .build();
+        }
+
+        String status = "SUCCESS";
+        String message = "Successfully assigned to category";
+
+        if (mappingExists && request.getReplaceExisting()) {
+            ServiceCategoryMapping existingMapping = mappingRepository
+                    .findByContractDetailAndPackageCategory(contractDetail, category)
+                    .orElse(null);
+            if (existingMapping != null) {
+                mappingRepository.delete(existingMapping);
+                status = "REPLACED";
+                message = "Replaced existing mapping";
+            }
+        }
+
+        ServiceCategoryMapping mapping = ServiceCategoryMapping.builder()
+                .contractDetail(contractDetail)
+                .packageCategory(category)
+                .consumesFromLimit(request.getConsumesFromLimit())
+                .notes(request.getNotes())
+                .build();
+
+        mappingRepository.save(mapping);
+
+        return BulkServiceCategoryAssignmentResponse.ServiceAssignmentResult.builder()
+                .contractDetailUuid(contractDetailUuid)
+                .serviceName(serviceName)
+                .serviceCode(serviceCode)
+                .status(status)
+                .message(message)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PagedResponse<EligibleServiceResponse> getEligibleServicesForCategory(EligibleServiceSearchRequest request) {
+
+        log.info("Fetching eligible services for category with search criteria");
+
+        Specification<ServiceCategoryMapping> spec = createSpecification(request);
+
+        Pageable pageable = createPageable(request);
+
+        Page<ServiceCategoryMapping> mappingPage = mappingRepository.findAll(spec, pageable);
+
+        List<EligibleServiceResponse> responses = mappingPage.getContent().stream()
+                .map(this::mapToEligibleServiceResponse)
+                .collect(Collectors.toList());
+
+        return new PagedResponse<>(
+                responses,
+                mappingPage.getNumber(),
+                mappingPage.getSize(),
+                mappingPage.getTotalElements(),
+                mappingPage.getTotalPages(),
+                mappingPage.isLast()
+        );
+
+    }
+
+    private Specification<ServiceCategoryMapping> createSpecification(EligibleServiceSearchRequest request) {
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            Join<ServiceCategoryMapping, ContractDetail> contractDetailJoin =
+                    root.join("contractDetail", JoinType.INNER);
+            Join<ServiceCategoryMapping, PackageCategory> categoryJoin =
+                    root.join("packageCategory", JoinType.INNER);
+            Join<ContractDetail, com.medco.HealthConnectProvider.entity.services.Servicelist> serviceJoin =
+                    contractDetailJoin.join("servicelist", JoinType.LEFT);
+            Join<ContractDetail, com.medco.HealthConnectProvider.entity.contracts.ContractHeader> contractJoin =
+                    contractDetailJoin.join("contractHeader", JoinType.INNER);
+
+            if (request.getContractUuid() != null && !request.getContractUuid().isEmpty()) {
+                predicates.add(criteriaBuilder.equal(
+                        contractJoin.get("contractHeaderUuid"), request.getContractUuid()));
+            }
+
+            if (request.getCategoryUuid() != null && !request.getCategoryUuid().isEmpty()) {
+                predicates.add(criteriaBuilder.equal(
+                        categoryJoin.get("categoryUuid"), request.getCategoryUuid()));
+            }
+            if (request.getCategoryName() != null && !request.getCategoryName().isEmpty()) {
+                predicates.add(criteriaBuilder.like(
+                        criteriaBuilder.lower(categoryJoin.get("categoryName")),
+                        "%" + request.getCategoryName().toLowerCase() + "%"));
+            }
+            if (request.getCategoryCode() != null && !request.getCategoryCode().isEmpty()) {
+                predicates.add(criteriaBuilder.equal(
+                        categoryJoin.get("categoryCode"), request.getCategoryCode()));
+            }
+
+            if (request.getSearchKey() != null && !request.getSearchKey().isEmpty()) {
+                String searchPattern = "%" + request.getSearchKey().toLowerCase() + "%";
+                Predicate searchPredicate = criteriaBuilder.or(
+                        criteriaBuilder.like(criteriaBuilder.lower(serviceJoin.get("serviceName")), searchPattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(serviceJoin.get("serviceCode")), searchPattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(serviceJoin.get("serviceDescription")), searchPattern)
+                );
+                predicates.add(searchPredicate);
+            }
+
+            if (request.getServiceName() != null && !request.getServiceName().isEmpty()) {
+                predicates.add(criteriaBuilder.like(
+                        criteriaBuilder.lower(serviceJoin.get("serviceName")),
+                        "%" + request.getServiceName().toLowerCase() + "%"));
+            }
+
+            if (request.getServiceCode() != null && !request.getServiceCode().isEmpty()) {
+                predicates.add(criteriaBuilder.equal(
+                        serviceJoin.get("serviceCode"), request.getServiceCode()));
+            }
+
+            if (request.getServiceCategory() != null && !request.getServiceCategory().isEmpty()) {
+                predicates.add(criteriaBuilder.like(
+                        criteriaBuilder.lower(serviceJoin.get("serviceCategory")),
+                        "%" + request.getServiceCategory().toLowerCase() + "%"));
+            }
+
+            if (request.getServiceSubCategory() != null && !request.getServiceSubCategory().isEmpty()) {
+                predicates.add(criteriaBuilder.like(
+                        criteriaBuilder.lower(serviceJoin.get("serviceSubCategory")),
+                        "%" + request.getServiceSubCategory().toLowerCase() + "%"));
+            }
+
+            if (request.getServiceCodes() != null && !request.getServiceCodes().isEmpty()) {
+                predicates.add(serviceJoin.get("serviceCode").in(request.getServiceCodes()));
+            }
+
+            if (request.getExcludeServiceCodes() != null && !request.getExcludeServiceCodes().isEmpty()) {
+                predicates.add(criteriaBuilder.not(serviceJoin.get("serviceCode").in(request.getExcludeServiceCodes())));
+            }
+
+            if (request.getMinPrice() != null) {
+                if ("CONTRACT_PRICE".equals(request.getPriceType())) {
+                    predicates.add(criteriaBuilder.greaterThanOrEqualTo(
+                            contractDetailJoin.get("negotiatedPrice"), request.getMinPrice()));
+                } else {
+                    predicates.add(criteriaBuilder.greaterThanOrEqualTo(
+                            serviceJoin.get("defaultPrice"), request.getMinPrice()));
+                }
+            }
+
+            if (request.getMaxPrice() != null) {
+                if ("CONTRACT_PRICE".equals(request.getPriceType())) {
+                    predicates.add(criteriaBuilder.lessThanOrEqualTo(
+                            contractDetailJoin.get("negotiatedPrice"), request.getMaxPrice()));
+                } else {
+                    predicates.add(criteriaBuilder.lessThanOrEqualTo(
+                            serviceJoin.get("defaultPrice"), request.getMaxPrice()));
+                }
+            }
+
+            if (request.getStatus() != null && !request.getStatus().isEmpty()) {
+                predicates.add(criteriaBuilder.equal(
+                        serviceJoin.get("status"), request.getStatus()));
+            }
+
+            if (request.getConsumesFromLimit() != null) {
+                predicates.add(criteriaBuilder.equal(
+                        root.get("consumesFromLimit"), request.getConsumesFromLimit()));
+            }
+
+            if (request.getContractName() != null && !request.getContractName().isEmpty()) {
+                predicates.add(criteriaBuilder.like(
+                        criteriaBuilder.lower(contractJoin.get("contractName")),
+                        "%" + request.getContractName().toLowerCase() + "%"));
+            }
+
+            if (request.getDateRange() != null && !request.getDateRange().isEmpty()) {
+                Instant startDate = getStartDateForRange(request.getDateRange());
+                if (startDate != null) {
+                    predicates.add(criteriaBuilder.greaterThanOrEqualTo(
+                            root.get("createdAt"), startDate));
+                }
+            }
+
+            predicates.add(criteriaBuilder.equal(root.get("isDeleted"), false));
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    private Pageable createPageable(EligibleServiceSearchRequest request) {
+        String sortBy = request.getSortBy() != null ? request.getSortBy() : "serviceName";
+        String sortDirection = request.getSortDirection() != null ? request.getSortDirection() : "ASC";
+
+        String actualSortField = mapSortField(sortBy);
+        Sort.Direction direction = "DESC".equalsIgnoreCase(sortDirection) ?
+                Sort.Direction.DESC : Sort.Direction.ASC;
+
+        Sort sort = Sort.by(direction, actualSortField);
+        return PageRequest.of(request.getPage(), request.getSize(), sort);
+    }
+
+    private String mapSortField(String sortBy) {
+        return switch (sortBy.toLowerCase()) {
+            case "servicename" -> "contractDetail.servicelist.serviceName";
+            case "servicecode" -> "contractDetail.servicelist.serviceCode";
+            case "price" -> "contractDetail.negotiatedPrice";
+            case "mappedat" -> "createdAt";
+            case "categoryname" -> "packageCategory.categoryName";
+            default -> "contractDetail.servicelist.serviceName";
+        };
+    }
+
+    private Instant getStartDateForRange(String dateRange) {
+        LocalDate now = LocalDate.now();
+        return switch (dateRange.toUpperCase()) {
+            case "TODAY" -> now.atStartOfDay().toInstant(ZoneOffset.UTC);
+            case "WEEK" -> now.minusWeeks(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+            case "MONTH" -> now.minusMonths(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+            case "YEAR" -> now.minusYears(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+            default -> null;
+        };
+    }
+
+    private EligibleServiceResponse mapToEligibleServiceResponse(ServiceCategoryMapping mapping) {
+        ContractDetail contractDetail = mapping.getContractDetail();
+        PackageCategory category = mapping.getPackageCategory();
+        com.medco.HealthConnectProvider.entity.services.Servicelist service = contractDetail.getServicelist();
+
+        List<String> additionalCategories = mappingRepository
+                .findByContractDetailOrderByPackageCategory_CategoryNameAsc(contractDetail)
+                .stream()
+                .map(m -> m.getPackageCategory().getCategoryName())
+                .filter(name -> !name.equals(category.getCategoryName()))
+                .collect(Collectors.toList());
+
+        return EligibleServiceResponse.builder()
+                .contractDetailUuid(contractDetail.getContractDetailUuid())
+                .serviceUuid(service != null ? service.getServiceUuid() : null)
+                .serviceName(service != null ? service.getServiceName() : "Unknown Service")
+                .serviceCode(service != null ? service.getServiceCode() : "N/A")
+                .serviceDescription(service != null ? service.getServiceDescription() : null)
+                .serviceCategory(service != null ? service.getServiceCategory() : null)
+                .serviceSubCategory(service != null ? service.getServiceSubCategory() : null)
+                .servicePrice(service != null ? service.getDefaultPrice() : null)
+                .contractPrice(contractDetail.getNegotiatedPrice())
+                .priceType("NEGOTIATED_PRICE")
+                .consumesFromLimit(mapping.isConsumesFromLimit())
+                .mappingNotes(mapping.getNotes())
+                .mappedAt(mapping.getCreatedAt())
+                .mappedBy(mapping.getCreatedBy())
+                .contractUuid(contractDetail.getContractHeader().getContractHeaderUuid())
+                .contractName(contractDetail.getContractHeader().getContractName())
+                .categoryUuid(category.getCategoryUuid())
+                .categoryName(category.getCategoryName())
+                .categoryCode(category.getCategoryCode())
+                .providerUuid(contractDetail.getContractHeader().getProvider().getProviderUuid())
+                .providerName(contractDetail.getContractHeader().getProvider().getProviderName())
+                .status(service != null ? service.getStatus().toString() : "UNKNOWN")
+                .isActive(!mapping.isDeleted())
+                .additionalCategories(additionalCategories)
+                .build();
     }
 }

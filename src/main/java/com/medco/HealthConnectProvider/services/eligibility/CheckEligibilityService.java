@@ -7,6 +7,6 @@ import java.util.List;
 
 public interface CheckEligibilityService {
 
-    List<CheckEligibilityResponse> checkEligibility(String institutionUuid, String search);
+    List<CheckEligibilityResponse> checkEligibility(String institutionUuid,String contractUuid, String search);
 
 }

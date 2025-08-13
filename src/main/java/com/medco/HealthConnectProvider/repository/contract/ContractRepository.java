@@ -247,4 +247,7 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
 
     @Query("SELECT p.payerName, COUNT(c) FROM ContractHeader c JOIN c.payer p GROUP BY p.payerName")
     List<Object[]> countContractsByPayer();
+
+    boolean existsByContractHeaderUuid(String contractUuid);
+    boolean existsByPayerAndProviderAndIsDeletedFalse(Payer payer, Provider provider);
 }

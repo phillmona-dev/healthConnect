@@ -18,9 +18,6 @@ import com.medco.HealthConnectProvider.ui.response.packageCategory.PackageCatego
 import com.medco.HealthConnectProvider.utils.enums.PeriodType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -68,7 +65,6 @@ public class PackageCategoryUsageServiceImpl implements PackageCategoryUsageServ
             throw new ResourceNotFoundException("Contract detail not found with UUID: " + contractDetailUuid);
         }
 
-        // Get all category mappings for this service
         List<ServiceCategoryMapping> mappings = mappingRepository.findActiveByContractDetailUuid(contractDetailUuid);
 
         if (mappings.isEmpty()) {
@@ -80,10 +76,9 @@ public class PackageCategoryUsageServiceImpl implements PackageCategoryUsageServ
 
         for (ServiceCategoryMapping mapping : mappings) {
             if (!mapping.isConsumesFromLimit()) {
-                continue; // Skip if this mapping doesn't consume from limit
+                continue;
             }
 
-            // Find active limit for this category and contract
             PackageCategoryLimit activeLimit = limitRepository.findActiveLimitByCategoryAndContract(
                     mapping.getPackageCategory().getCategoryUuid(),
                     contractDetail.getContractHeaderUuid(),
@@ -97,7 +92,6 @@ public class PackageCategoryUsageServiceImpl implements PackageCategoryUsageServ
                 continue;
             }
 
-            // Check if consumption would exceed limit
             BigDecimal currentUsage = getCurrentUsageForPeriod(insured, activeLimit);
             BigDecimal newTotal = currentUsage.add(serviceAmount);
 
@@ -111,11 +105,9 @@ public class PackageCategoryUsageServiceImpl implements PackageCategoryUsageServ
                                 serviceAmount));
             }
 
-            // Calculate period dates
             LocalDate periodStart = calculatePeriodStart(activeLimit.getPeriodType(), activeLimit.getResetDate());
             LocalDate periodEnd = activeLimit.getResetDate();
 
-            // Create usage record
             PackageCategoryUsage usage = PackageCategoryUsage.builder()
                     .insuredPerson(insured)
                     .categoryLimit(activeLimit)
@@ -180,7 +172,6 @@ public class PackageCategoryUsageServiceImpl implements PackageCategoryUsageServ
             throw new ResourceNotFoundException("No usage records found for claim: " + claimUuid);
         }
 
-        // Mark usage records as deleted (soft delete)
         for (PackageCategoryUsage usage : usageRecords) {
             usage.setDeleted(true);
             usageRepository.save(usage);
@@ -255,16 +246,12 @@ public class PackageCategoryUsageServiceImpl implements PackageCategoryUsageServ
     }
 
     private LocalDate calculatePeriodStart(PeriodType periodType, LocalDate resetDate) {
-        switch (periodType) {
-            case ANNUAL:
-                return resetDate.minusYears(1);
-            case MONTHLY:
-                return resetDate.minusMonths(1);
-            case CONTRACT_PERIOD:
-                return resetDate.minusYears(1); // Assuming 1 year contract
-            default:
-                return resetDate.minusMonths(1);
-        }
+        return switch (periodType) {
+            case ANNUAL -> resetDate.minusYears(1);
+            case MONTHLY -> resetDate.minusMonths(1);
+            case CONTRACT_PERIOD -> resetDate.minusYears(1); // Assuming 1 year contract
+            default -> resetDate.minusMonths(1);
+        };
     }
 
     private PackageCategoryUsageResponse mapToResponse(PackageCategoryUsage usage) {

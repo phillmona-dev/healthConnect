@@ -6,5 +6,5 @@ import java.util.List;
 
 public interface InstitutionService {
 
-    List<InstitutionResponse> getInstitutions();
+    List<InstitutionResponse> getInstitutions(String contractUuid);
 }

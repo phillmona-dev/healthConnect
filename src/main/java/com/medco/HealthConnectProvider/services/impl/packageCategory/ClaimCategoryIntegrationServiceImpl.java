@@ -38,15 +38,12 @@ public class ClaimCategoryIntegrationServiceImpl implements ClaimCategoryIntegra
         log.info("Validating and recording category usage for claim: {}", claim.getClaimUuid());
 
         try {
-            // First validate that the claim can be processed within limits
             if (!validateClaimAgainstLimits(claim)) {
                 throw new BadRequestException("Claim exceeds available category limits");
             }
 
-            // Find the insured person for this claim
             Insured insured = findInsuredForClaim(claim);
 
-            // Record usage for batch record items (pharmacy claims)
             if (claim.getBatchRecord() != null && claim.getBatchRecord().getMedicationDispensing() != null) {
                 for (MedicationDispensing dispensing : claim.getBatchRecord().getMedicationDispensing()) {
                     for (MedicationDispensingItem item : dispensing.getItems()) {
@@ -65,13 +62,11 @@ public class ClaimCategoryIntegrationServiceImpl implements ClaimCategoryIntegra
                 }
             }
 
-            // Record usage for claim items (regular service claims)
             List<ClaimItem> claimItems = claimItemRepository.findByClaimClaimUuid(claim.getClaimUuid());
             if (claimItems != null && !claimItems.isEmpty()) {
                 for (ClaimItem item : claimItems) {
                     if (item.getProvidedServiceUuid() != null) {
                         // This would require finding the contract detail from the provided service
-                        // For now, we'll skip this as it requires additional repository lookups
                         log.info("Skipping usage recording for claim item: {} (requires provided service lookup)",
                                 item.getItemUuid());
                     }
@@ -105,10 +100,8 @@ public class ClaimCategoryIntegrationServiceImpl implements ClaimCategoryIntegra
         log.info("Validating claim against category limits: {}", claim.getClaimUuid());
 
         try {
-            // Find the insured person for this claim
             Insured insured = findInsuredForClaim(claim);
 
-            // Validate batch record items (pharmacy claims)
             if (claim.getBatchRecord() != null && claim.getBatchRecord().getMedicationDispensing() != null) {
                 for (MedicationDispensing dispensing : claim.getBatchRecord().getMedicationDispensing()) {
                     for (MedicationDispensingItem item : dispensing.getItems()) {
@@ -127,12 +120,10 @@ public class ClaimCategoryIntegrationServiceImpl implements ClaimCategoryIntegra
                 }
             }
 
-            // Validate claim items (regular service claims)
             List<ClaimItem> claimItems = claimItemRepository.findByClaimClaimUuid(claim.getClaimUuid());
             if (claimItems != null && !claimItems.isEmpty()) {
                 for (ClaimItem item : claimItems) {
                     // This would require finding the contract detail from the provided service
-                    // For now, we'll assume validation passes for regular claims
                     log.info("Skipping validation for claim item: {} (requires provided service lookup)",
                             item.getItemUuid());
                 }
@@ -164,7 +155,7 @@ public class ClaimCategoryIntegrationServiceImpl implements ClaimCategoryIntegra
                     quantity,
                     serviceDate,
                     claimUuid,
-                    null, // providedServiceUuid
+                    null,
                     notes
             );
             return ResponseEntity.ok("Service usage recorded successfully");
@@ -186,7 +177,6 @@ public class ClaimCategoryIntegrationServiceImpl implements ClaimCategoryIntegra
     }
 
     private Insured findInsuredForClaim(Claim claim) {
-        // For pharmacy claims, get insured from medication dispensing
         if (claim.getBatchRecord() != null &&
             claim.getBatchRecord().getMedicationDispensing() != null &&
             !claim.getBatchRecord().getMedicationDispensing().isEmpty()) {

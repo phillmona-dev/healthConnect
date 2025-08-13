@@ -1,7 +1,10 @@
 package com.medco.HealthConnectProvider.ui.response.eligibility;
 
 import lombok.Data;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Date;
 
 @Data
 public class CheckEligibilityResponse {
@@ -16,9 +19,9 @@ public class CheckEligibilityResponse {
     private String insuranceId;
     private String insuredPhone;
     private String email;
-    private LocalDateTime birthDate;
-    private LocalDateTime beginDate;
-    private LocalDateTime endDate;
+    private Date birthDate;
+    private Date beginDate;
+    private Date endDate;
     private String address1;
     private String address2;
     private String address3;
@@ -34,11 +37,11 @@ public class CheckEligibilityResponse {
     private String institutionPhone;
     private String payerProviderContractCode;
     private String payerProviderContractName;
-    private LocalDateTime payerProviderContractBeginDate;
-    private LocalDateTime payerProviderContractEndDate;
+    private Date payerProviderContractBeginDate;
+    private Date payerProviderContractEndDate;
     private String payerInstitutionContractCode;
     private String payerInstitutionContractName;
-    private LocalDateTime payerInstitutionContractBeginDate;
-    private LocalDateTime payerInstitutionContractEndDate;
+    private Date payerInstitutionContractBeginDate;
+    private Date payerInstitutionContractEndDate;
     private String gender;
 }

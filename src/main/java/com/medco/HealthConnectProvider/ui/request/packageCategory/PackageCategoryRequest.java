@@ -17,8 +17,6 @@ public class PackageCategoryRequest {
     private String categoryName;
 
     @NotBlank(message = "Category code is required")
-    @Size(max = 10, message = "Category code must not exceed 10 characters")
-    @Pattern(regexp = "^[A-Z0-9_]+$", message = "Category code must contain only uppercase letters, numbers, and underscores")
     private String categoryCode;
 
     @Size(max = 1000, message = "Description must not exceed 1000 characters")

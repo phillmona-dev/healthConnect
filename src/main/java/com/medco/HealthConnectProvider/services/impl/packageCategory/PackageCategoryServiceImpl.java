@@ -41,7 +41,7 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
 
     @Override
     public ResponseEntity<PackageCategoryResponse> createPackageCategory(PackageCategoryRequest request) {
-        // Get current logged-in user's payer UUID
+
         String payerUuid = SecurityUtils.getAuthenticatedUser().getPayerUuid();
         if (payerUuid == null || payerUuid.isEmpty()) {
             throw new BadRequestException("User must be associated with a payer to create package categories");
@@ -54,12 +54,10 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
             throw new ResourceNotFoundException("Payer", "payerUuid", payerUuid);
         }
 
-        // Check if category code is unique for this payer
         if (packageCategoryRepository.existsByCategoryCodeAndPayerAndIsDeletedFalse(request.getCategoryCode(), payer)) {
             throw new BadRequestException("Category code already exists for this payer: " + request.getCategoryCode());
         }
 
-        // Check if category name is unique for this payer
         if (packageCategoryRepository.existsByCategoryNameAndPayerAndIsDeletedFalse(request.getCategoryName(), payer)) {
             throw new BadRequestException("Category name already exists for this payer: " + request.getCategoryName());
         }
@@ -85,14 +83,12 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
         PackageCategory packageCategory = packageCategoryRepository.findByCategoryUuid(categoryUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("PackageCategory", "categoryUuid", categoryUuid));
 
-        // Check if category code is unique (excluding current category)
         PackageCategory existingByCode = packageCategoryRepository.findByCategoryCodeAndPayer(request.getCategoryCode(), packageCategory.getPayer())
                 .orElse(null);
         if (existingByCode != null && !existingByCode.getCategoryUuid().equals(categoryUuid)) {
             throw new BadRequestException("Category code already exists for this payer: " + request.getCategoryCode());
         }
 
-        // Check if category name is unique (excluding current category)
         if (packageCategoryRepository.existsByCategoryNameAndPayerAndIsDeletedFalse(request.getCategoryName(), packageCategory.getPayer())) {
             PackageCategory existingByName = packageCategoryRepository.findByPayerAndStatusOrderByCategoryNameAsc(
                     packageCategory.getPayer(), Status.ACTIVE).stream()
@@ -112,6 +108,7 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
         log.info("Package category updated successfully: {}", categoryUuid);
 
         return ResponseEntity.ok(mapToResponse(updatedCategory));
+
     }
 
     @Override
@@ -137,7 +134,9 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
         }
 
         Status statusEnum = status != null ? Status.valueOf(status.toUpperCase()) : Status.ACTIVE;
-        Pageable pageable = PageRequest.of(page, size, Sort.by("categoryName").ascending());
+
+        int zeroBasedPage = page > 0 ? page - 1 : 0;
+        Pageable pageable = PageRequest.of(zeroBasedPage, size, Sort.by("categoryName").ascending());
 
         Specification<PackageCategory> spec = PackageCategorySpecifications.withPayer(payer)
                 .and(PackageCategorySpecifications.withStatus(statusEnum))
@@ -152,7 +151,7 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
 
         return new PagedResponse<>(
                 responses,
-                categoryPage.getNumber(),
+                categoryPage.getNumber() + 1,
                 categoryPage.getSize(),
                 categoryPage.getTotalElements(),
                 categoryPage.getTotalPages(),
@@ -216,7 +215,6 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
         PackageCategory packageCategory = packageCategoryRepository.findByCategoryUuid(categoryUuid)
                 .orElseThrow(() -> new ResourceNotFoundException("PackageCategory", "categoryUuid", categoryUuid));
 
-        // Check if category has any service mappings
         long serviceCount = serviceCategoryMappingRepository.countActiveServicesByCategory(packageCategory);
         if (serviceCount > 0) {
             throw new BadRequestException("Cannot delete category with active service mappings. Please remove all services first.");
@@ -232,7 +230,6 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
     @Override
     @Transactional(readOnly = true)
     public boolean isCategoryCodeUnique(String categoryCode) {
-        // Get current logged-in user's payer UUID
         String payerUuid = SecurityUtils.getAuthenticatedUser().getPayerUuid();
         if (payerUuid == null || payerUuid.isEmpty()) {
             throw new BadRequestException("User must be associated with a payer to validate category codes");
@@ -249,7 +246,6 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
     @Override
     @Transactional(readOnly = true)
     public boolean isCategoryNameUnique(String categoryName) {
-        // Get current logged-in user's payer UUID
         String payerUuid = SecurityUtils.getAuthenticatedUser().getPayerUuid();
         if (payerUuid == null || payerUuid.isEmpty()) {
             throw new BadRequestException("User must be associated with a payer to validate category names");

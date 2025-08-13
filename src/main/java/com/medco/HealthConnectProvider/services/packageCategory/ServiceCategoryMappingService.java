@@ -1,6 +1,11 @@
 package com.medco.HealthConnectProvider.services.packageCategory;
 
+import com.medco.HealthConnectProvider.ui.request.packageCategory.BulkServiceCategoryAssignmentRequest;
+import com.medco.HealthConnectProvider.ui.request.packageCategory.EligibleServiceSearchRequest;
 import com.medco.HealthConnectProvider.ui.request.packageCategory.ServiceCategoryMappingRequest;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.BulkServiceCategoryAssignmentResponse;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.EligibleServiceResponse;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
@@ -31,4 +36,14 @@ public interface ServiceCategoryMappingService {
      * Update service category mapping
      */
     ResponseEntity<String> updateServiceCategoryMapping(String mappingUuid, ServiceCategoryMappingRequest request);
+
+    /**
+     * Assign multiple contract details (eligible services) to a category
+     */
+    ResponseEntity<BulkServiceCategoryAssignmentResponse> assignServicesToCategory(BulkServiceCategoryAssignmentRequest request);
+
+    /**
+     * Get eligible services for a category with advanced search and filtering
+     */
+    PagedResponse<EligibleServiceResponse> getEligibleServicesForCategory(EligibleServiceSearchRequest request);
 }
