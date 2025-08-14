@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.services.impl.packageCategory;
 
+import com.medco.HealthConnectProvider.config.ExternalApiConfig;
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.packageCategory.PackageCategory;
 import com.medco.HealthConnectProvider.entity.packageCategory.ServiceCategoryMapping;
@@ -15,6 +16,7 @@ import com.medco.HealthConnectProvider.ui.request.packageCategory.ServiceCategor
 import com.medco.HealthConnectProvider.ui.response.packageCategory.BulkServiceCategoryAssignmentResponse;
 import com.medco.HealthConnectProvider.ui.response.packageCategory.EligibleServiceResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.ExternalPackageEligibleServicesResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -22,18 +24,23 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -46,6 +53,9 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
     private final ServiceCategoryMappingRepository mappingRepository;
     private final ContractDetailRepository contractDetailRepository;
     private final PackageCategoryRepository categoryRepository;
+
+    private final ExternalApiConfig externalApiConfig;
+    private final RestTemplate restTemplate;
 
     @Override
     public ResponseEntity<String> mapServiceToCategories(ServiceCategoryMappingRequest request) {
@@ -304,13 +314,81 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
 
         return new PagedResponse<>(
                 responses,
-                mappingPage.getNumber(),
+                mappingPage.getNumber() + 1,
                 mappingPage.getSize(),
                 mappingPage.getTotalElements(),
                 mappingPage.getTotalPages(),
                 mappingPage.isLast()
         );
 
+    }
+
+    @Override
+    public ExternalPackageEligibleServicesResponse getEligibleServices(
+            String contractUuid,
+            String packageUuid,
+            String insuredUuid,
+            String search,
+            Integer page,
+            Integer limit) {
+
+        // Build URL with parameters
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromHttpUrl(externalApiConfig.getExternalApiBaseUrl())
+                .path("/packageEligibleServices/{contractUuid}")
+                .queryParam("packageUuid", packageUuid)
+                .queryParam("insuredUuid", insuredUuid);
+
+        // Add optional parameters
+        if (search != null && !search.isEmpty()) {
+            builder.queryParam("search", search);
+        }
+        if (page != null) {
+            builder.queryParam("page", page);
+        }
+        if (limit != null) {
+            builder.queryParam("limit", limit);
+        }
+
+        String url = builder.buildAndExpand(contractUuid).toUriString();
+
+        log.info("[External API] Fetching eligible services - Contract: {}, Package: {}, Insured: {}",
+                contractUuid, packageUuid, insuredUuid);
+        log.debug("[External API] Constructed URL: {}", url);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-API-Key", externalApiConfig.getApiKey());
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        try {
+            long startTime = System.currentTimeMillis();
+            ResponseEntity<ExternalPackageEligibleServicesResponse> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    ExternalPackageEligibleServicesResponse.class);
+            long duration = System.currentTimeMillis() - startTime;
+
+            log.debug("[External API] Response received in {} ms", duration);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                ExternalPackageEligibleServicesResponse responseBody = response.getBody();
+                log.info("[External API] Successfully fetched package '{}' with {} eligible services",
+                        responseBody.getPackageName(),
+                        responseBody.getPackageEligibleServices() != null ?
+                                responseBody.getPackageEligibleServices().size() : 0);
+                return responseBody;
+            }
+
+            log.error("[External API] Failed to fetch eligible services. Status: {}", response.getStatusCode());
+            throw new RuntimeException("External API returned status: " + response.getStatusCode());
+
+        } catch (RestClientException e) {
+            log.error("[External API] Error fetching eligible services: {}", e.getMessage());
+            throw new RuntimeException("Error calling external API", e);
+        }
     }
 
     private Specification<ServiceCategoryMapping> createSpecification(EligibleServiceSearchRequest request) {
@@ -326,39 +404,28 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
             Join<ContractDetail, com.medco.HealthConnectProvider.entity.contracts.ContractHeader> contractJoin =
                     contractDetailJoin.join("contractHeader", JoinType.INNER);
 
-            if (request.getContractUuid() != null && !request.getContractUuid().isEmpty()) {
-                predicates.add(criteriaBuilder.equal(
-                        contractJoin.get("contractHeaderUuid"), request.getContractUuid()));
-            }
+            predicates.add(criteriaBuilder.equal(
+                    contractJoin.get("contractHeaderUuid"), request.getContractUuid()));
 
-            if (request.getCategoryUuid() != null && !request.getCategoryUuid().isEmpty()) {
-                predicates.add(criteriaBuilder.equal(
-                        categoryJoin.get("categoryUuid"), request.getCategoryUuid()));
-            }
-            if (request.getCategoryName() != null && !request.getCategoryName().isEmpty()) {
-                predicates.add(criteriaBuilder.like(
-                        criteriaBuilder.lower(categoryJoin.get("categoryName")),
-                        "%" + request.getCategoryName().toLowerCase() + "%"));
-            }
-            if (request.getCategoryCode() != null && !request.getCategoryCode().isEmpty()) {
-                predicates.add(criteriaBuilder.equal(
-                        categoryJoin.get("categoryCode"), request.getCategoryCode()));
-            }
+            predicates.add(criteriaBuilder.like(
+                    criteriaBuilder.lower(categoryJoin.get("categoryName")),
+                    "%" + request.getCategoryName().toLowerCase() + "%"));
 
             if (request.getSearchKey() != null && !request.getSearchKey().isEmpty()) {
                 String searchPattern = "%" + request.getSearchKey().toLowerCase() + "%";
                 Predicate searchPredicate = criteriaBuilder.or(
                         criteriaBuilder.like(criteriaBuilder.lower(serviceJoin.get("serviceName")), searchPattern),
                         criteriaBuilder.like(criteriaBuilder.lower(serviceJoin.get("serviceCode")), searchPattern),
-                        criteriaBuilder.like(criteriaBuilder.lower(serviceJoin.get("serviceDescription")), searchPattern)
+                        criteriaBuilder.like(criteriaBuilder.lower(serviceJoin.get("serviceDescription")), searchPattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(serviceJoin.get("serviceCategory")), searchPattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(serviceJoin.get("serviceSubCategory")), searchPattern),
+
+                        criteriaBuilder.like(criteriaBuilder.lower(categoryJoin.get("categoryName")), searchPattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(categoryJoin.get("categoryCode")), searchPattern),
+
+                        criteriaBuilder.like(criteriaBuilder.lower(contractJoin.get("contractName")), searchPattern)
                 );
                 predicates.add(searchPredicate);
-            }
-
-            if (request.getServiceName() != null && !request.getServiceName().isEmpty()) {
-                predicates.add(criteriaBuilder.like(
-                        criteriaBuilder.lower(serviceJoin.get("serviceName")),
-                        "%" + request.getServiceName().toLowerCase() + "%"));
             }
 
             if (request.getServiceCode() != null && !request.getServiceCode().isEmpty()) {
@@ -414,12 +481,6 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
             if (request.getConsumesFromLimit() != null) {
                 predicates.add(criteriaBuilder.equal(
                         root.get("consumesFromLimit"), request.getConsumesFromLimit()));
-            }
-
-            if (request.getContractName() != null && !request.getContractName().isEmpty()) {
-                predicates.add(criteriaBuilder.like(
-                        criteriaBuilder.lower(contractJoin.get("contractName")),
-                        "%" + request.getContractName().toLowerCase() + "%"));
             }
 
             if (request.getDateRange() != null && !request.getDateRange().isEmpty()) {

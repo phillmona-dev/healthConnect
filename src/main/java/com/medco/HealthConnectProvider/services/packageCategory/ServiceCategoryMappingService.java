@@ -6,6 +6,8 @@ import com.medco.HealthConnectProvider.ui.request.packageCategory.ServiceCategor
 import com.medco.HealthConnectProvider.ui.response.packageCategory.BulkServiceCategoryAssignmentResponse;
 import com.medco.HealthConnectProvider.ui.response.packageCategory.EligibleServiceResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.ExternalPackageEligibleServicesResponse;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
@@ -46,4 +48,6 @@ public interface ServiceCategoryMappingService {
      * Get eligible services for a category with advanced search and filtering
      */
     PagedResponse<EligibleServiceResponse> getEligibleServicesForCategory(EligibleServiceSearchRequest request);
+
+    ExternalPackageEligibleServicesResponse getEligibleServices(@NotBlank String contractUuid, @NotBlank String packageUuid, @NotBlank String insuredUuid, String search, Integer page, Integer limit);
 }

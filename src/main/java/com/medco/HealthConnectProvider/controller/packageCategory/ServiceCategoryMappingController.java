@@ -7,16 +7,19 @@ import com.medco.HealthConnectProvider.ui.request.packageCategory.ServiceCategor
 import com.medco.HealthConnectProvider.ui.response.packageCategory.BulkServiceCategoryAssignmentResponse;
 import com.medco.HealthConnectProvider.ui.response.packageCategory.EligibleServiceResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.ExternalPackageEligibleServicesResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -86,15 +89,104 @@ public class ServiceCategoryMappingController {
 
     @GetMapping("/eligible-services")
     @Operation(summary = "Get eligible services for category",
-               description = "Fetch contract details (eligible services) for a selected category and contract with optional search")
+            description = "Fetch contract details (eligible services) for a selected category and contract. " +
+                    "The searchKey parameter searches across service name, code, description, category name, and contract name.")
     public PagedResponse<EligibleServiceResponse> getEligibleServicesForCategory(
-            @Parameter(description = "Search request containing all search criteria") EligibleServiceSearchRequest search) {
+            // Required parameters
+            @Parameter(description = "Contract UUID") @RequestParam String contractUuid,
+            @Parameter(description = "Category name") @RequestParam String categoryName,
+
+            // Unified search parameter
+            @Parameter(description = "Search key (searches service name, code, description, category name, contract name)")
+            @RequestParam(required = false) String searchKey,
+
+            // Specific filters (when more precise filtering is needed)
+            @Parameter(description = "Service code (exact match)") @RequestParam(required = false) String serviceCode,
+            @Parameter(description = "Service category") @RequestParam(required = false) String serviceCategory,
+            @Parameter(description = "Service sub-category") @RequestParam(required = false) String serviceSubCategory,
+            @Parameter(description = "List of service codes (comma separated)") @RequestParam(required = false) List<String> serviceCodes,
+            @Parameter(description = "List of service codes to exclude (comma separated)") @RequestParam(required = false) List<String> excludeServiceCodes,
+
+            // Price filters
+            @Parameter(description = "Minimum price") @RequestParam(required = false) BigDecimal minPrice,
+            @Parameter(description = "Maximum price") @RequestParam(required = false) BigDecimal maxPrice,
+            @Parameter(description = "Price type (SERVICE_PRICE, CONTRACT_PRICE)") @RequestParam(required = false) String priceType,
+
+            // Status filters
+            @Parameter(description = "Service status") @RequestParam(required = false) String status,
+            @Parameter(description = "Consumes from limit") @RequestParam(required = false) Boolean consumesFromLimit,
+
+            // Date filter
+            @Parameter(description = "Date range (TODAY, WEEK, MONTH, YEAR)") @RequestParam(required = false) String dateRange,
+
+            // Pagination and sorting
+            @Parameter(description = "Page number (1-based)") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Sort field") @RequestParam(required = false) String sortBy,
+            @Parameter(description = "Sort direction (ASC, DESC)") @RequestParam(required = false) String sortDirection) {
+
+        // Build the search request from parameters
+        EligibleServiceSearchRequest search = EligibleServiceSearchRequest.builder()
+                .page(page-1)
+                .size(size)
+                .contractUuid(contractUuid)
+                .categoryName(categoryName)
+                .searchKey(searchKey) // This will search across multiple fields
+                .serviceCode(serviceCode)
+                .serviceCategory(serviceCategory)
+                .serviceSubCategory(serviceSubCategory)
+                .serviceCodes(serviceCodes)
+                .excludeServiceCodes(excludeServiceCodes)
+                .minPrice(minPrice)
+                .maxPrice(maxPrice)
+                .priceType(priceType)
+                .status(status)
+                .consumesFromLimit(consumesFromLimit)
+                .dateRange(dateRange)
+                .page(page)
+                .size(size)
+                .sortBy(sortBy)
+                .sortDirection(sortDirection)
+                .build();
 
         log.info("Fetching eligible services for category: {} in contract: {} with search key: {}",
-                search.getCategoryName(), search.getContractUuid(), search.getSearchKey());
+                categoryName, contractUuid, searchKey);
 
         return mappingService.getEligibleServicesForCategory(search);
+    }
 
+
+    @GetMapping("/packageInsurance/eligible-services")
+    @Operation(summary = "Get eligible services for a package",
+            description = "Fetches eligible services from external system for the given package and insured")
+    public ResponseEntity<ExternalPackageEligibleServicesResponse> getEligibleServices(
+            @Parameter(description = "Contract UUID", required = true)
+            @RequestParam @NotBlank String contractUuid,
+
+            @Parameter(description = "Package UUID", required = true)
+            @RequestParam @NotBlank String packageUuid,
+
+            @Parameter(description = "Insured UUID", required = true)
+            @RequestParam @NotBlank String insuredUuid,
+
+            @Parameter(description = "Search term (optional)")
+            @RequestParam(required = false) String search,
+
+            @Parameter(description = "Page number (1-based, optional)")
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+
+            @Parameter(description = "Items per page (optional)")
+            @RequestParam(required = false, defaultValue = "25") Integer limit) {
+
+        ExternalPackageEligibleServicesResponse response = mappingService.getEligibleServices(
+                contractUuid,
+                packageUuid,
+                insuredUuid,
+                search,
+                page,
+                limit);
+
+        return ResponseEntity.ok(response);
     }
 
 }

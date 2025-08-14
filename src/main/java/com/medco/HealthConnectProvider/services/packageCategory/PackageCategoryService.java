@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.services.packageCategory;
 
 import com.medco.HealthConnectProvider.ui.request.packageCategory.PackageCategoryRequest;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.ExternalPackageCategoryResponse;
 import com.medco.HealthConnectProvider.ui.response.packageCategory.PackageCategoryResponse;
 import org.springframework.http.ResponseEntity;
 
@@ -58,4 +59,7 @@ public interface PackageCategoryService {
      * Check if category name is unique for a payer (from logged in user context)
      */
     boolean isCategoryNameUnique(String categoryName);
+
+    List<ExternalPackageCategoryResponse> getEligiblePackages(String insuredUuid);
+
 }

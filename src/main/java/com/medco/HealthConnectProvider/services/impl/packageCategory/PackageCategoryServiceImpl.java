@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.services.impl.packageCategory;
 
+import com.medco.HealthConnectProvider.config.ExternalApiConfig;
 import com.medco.HealthConnectProvider.entity.packageCategory.PackageCategory;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
@@ -7,6 +8,7 @@ import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.packageCategory.PackageCategoryRepository;
 import com.medco.HealthConnectProvider.repository.packageCategory.ServiceCategoryMappingRepository;
 import com.medco.HealthConnectProvider.repository.payer.PayerRepository;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.ExternalPackageCategoryResponse;
 import com.medco.HealthConnectProvider.utils.packageCategory.PackageCategorySpecifications;
 import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import com.medco.HealthConnectProvider.services.packageCategory.PackageCategoryService;
@@ -21,11 +23,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,6 +43,9 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
     private final PackageCategoryRepository packageCategoryRepository;
     private final PayerRepository payerRepository;
     private final ServiceCategoryMappingRepository serviceCategoryMappingRepository;
+
+    private final ExternalApiConfig externalApiConfig;
+    private final RestTemplate restTemplate;
 
     @Override
     public ResponseEntity<PackageCategoryResponse> createPackageCategory(PackageCategoryRequest request) {
@@ -91,7 +99,7 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
 
         if (packageCategoryRepository.existsByCategoryNameAndPayerAndIsDeletedFalse(request.getCategoryName(), packageCategory.getPayer())) {
             PackageCategory existingByName = packageCategoryRepository.findByPayerAndStatusOrderByCategoryNameAsc(
-                    packageCategory.getPayer(), Status.ACTIVE).stream()
+                            packageCategory.getPayer(), Status.ACTIVE).stream()
                     .filter(cat -> cat.getCategoryName().equals(request.getCategoryName()) && !cat.getCategoryUuid().equals(categoryUuid))
                     .findFirst().orElse(null);
             if (existingByName != null) {
@@ -257,6 +265,72 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
         }
 
         return !packageCategoryRepository.existsByCategoryNameAndPayerAndIsDeletedFalse(categoryName, payer);
+    }
+
+    @Override
+    public List<ExternalPackageCategoryResponse> getEligiblePackages(String insuredUuid) {
+        // Log the start of the operation with the insured UUID
+        log.info("[Package Service] Starting to fetch eligible packages for insured: {}", insuredUuid);
+        log.debug("[Package Service] Building request for external API...");
+
+        // Build the URL
+        String url = String.format("%s/insured-eligible-packages-dropdown/%s",
+                externalApiConfig.getExternalApiBaseUrl(),
+                insuredUuid);
+        log.debug("[Package Service] Constructed API URL: {}", url);
+
+        // Prepare headers
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-API-Key", externalApiConfig.getApiKey());
+        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+        log.debug("[Package Service] Prepared request headers");
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+        log.debug("[Package Service] Created HTTP entity with headers");
+
+        try {
+            log.info("[Package Service] Making GET request to external API for insured {}", insuredUuid);
+            log.debug("[Package Service] Request details - URL: {}, Method: GET", url);
+
+            long startTime = System.currentTimeMillis();
+            ResponseEntity<ExternalPackageCategoryResponse[]> response =
+                    restTemplate.exchange(
+                            url,
+                            HttpMethod.GET,
+                            entity,
+                            ExternalPackageCategoryResponse[].class);
+            long duration = System.currentTimeMillis() - startTime;
+
+            log.debug("[Package Service] Received response in {} ms", duration);
+            log.debug("[Package Service] Response status code: {}", response.getStatusCode());
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                if (response.getBody() != null) {
+                    log.info("[Package Service] Successfully retrieved {} packages for insured {}",
+                            response.getBody().length, insuredUuid);
+                    log.debug("[Package Service] First package details (if available): {}",
+                            response.getBody().length > 0 ? response.getBody()[0] : "No packages found");
+                    return Arrays.asList(response.getBody());
+                } else {
+                    log.warn("[Package Service] Received successful response but with null body for insured {}", insuredUuid);
+                }
+            }
+
+            log.error("[Package Service] Failed to fetch packages. Status: {}, Response: {}",
+                    response.getStatusCode(),
+                    response.getBody() != null ? "Body present" : "Empty body");
+            throw new RuntimeException("Failed to fetch packages from external system. Status: " + response.getStatusCode());
+
+        } catch (RestClientException e) {
+            log.error("[Package Service] Exception occurred while calling external API for insured {}: {}",
+                    insuredUuid,
+                    e.getClass().getSimpleName(),
+                    e.getMessage());
+            log.debug("[Package Service] Stack trace for debugging:", e);
+            throw new RuntimeException("Error calling external package API: " + e.getMessage(), e);
+        } finally {
+            log.info("[Package Service] Completed package fetch operation for insured {}", insuredUuid);
+        }
     }
 
     private PackageCategoryResponse mapToResponse(PackageCategory category) {

@@ -24,8 +24,8 @@ public class InstitutionServiceImpl implements InstitutionService {
 
     private static final Logger logger = LoggerFactory.getLogger(InstitutionServiceImpl.class);
 
-    private static final String BASE_URL = "http://192.168.16.234:8888";
-    //private static final String BASE_URL = "http://192.168.100.85:8888";
+    //private static final String BASE_URL = "http://192.168.16.234:8888";
+    private static final String BASE_URL = "http://192.168.100.85:8888";
     private static final String INSTITUTIONS_ENDPOINT = "/api/payer/claimconnect/institution/NamesList";
 
     @Autowired

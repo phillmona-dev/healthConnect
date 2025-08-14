@@ -3,6 +3,7 @@ package com.medco.HealthConnectProvider.controller.packageCategory;
 import com.medco.HealthConnectProvider.services.packageCategory.PackageCategoryService;
 import com.medco.HealthConnectProvider.ui.request.packageCategory.PackageCategoryRequest;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.ExternalPackageCategoryResponse;
 import com.medco.HealthConnectProvider.ui.response.packageCategory.PackageCategoryResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -114,5 +115,19 @@ public class PackageCategoryController {
             @Parameter(description = "Category name to validate") @RequestParam String categoryName) {
         boolean isUnique = packageCategoryService.isCategoryNameUnique(categoryName);
         return ResponseEntity.ok(isUnique);
+    }
+
+    //for hc awash
+    @GetMapping("/packageInsurance/eligible-categories/{insuredUuid}")
+    @Operation(summary = "Get eligible package categories for insured from external insurance",
+            description = "Fetches eligible package categories from external system for the given insured")
+    public ResponseEntity<List<ExternalPackageCategoryResponse>> getEligiblePackageCategories(
+            @Parameter(description = "UUID of the insured")
+            @PathVariable String insuredUuid) {
+
+        List<ExternalPackageCategoryResponse> packages =
+                packageCategoryService.getEligiblePackages(insuredUuid);
+
+        return ResponseEntity.ok(packages);
     }
 }
