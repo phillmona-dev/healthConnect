@@ -38,7 +38,8 @@ public class CheckEligibilityServiceImpl implements CheckEligibilityService {
 
     private static final Logger logger = LoggerFactory.getLogger(CheckEligibilityServiceImpl.class);
 
-    private static final String BASE_URL = "http://192.168.100.85:8888";
+    private static final String BASE_URL = "http://192.168.16.234:8888";
+//    private static final String BASE_URL = "http://192.168.100.85:8888";
     private static final String ELIGIBILITY_ENDPOINT = "/api/payer/claimconnect/insuredperson/eligiblity";
 
     @Autowired
@@ -126,25 +127,21 @@ public class CheckEligibilityServiceImpl implements CheckEligibilityService {
     private void registerInsuredIndividuals(List<CheckEligibilityResponse> responses) {
         for (CheckEligibilityResponse response : responses) {
             try {
-                // Check if insured already exists
                 Insured existingInsured = insuredRepository.findByInsuredUuid(response.getInsuredUuid());
                 if (existingInsured != null) {
                     logger.info("Insured already exists with UUID: {}", response.getInsuredUuid());
                     continue;
                 }
 
-                // Create new insured entity
                 Insured insured = new Insured();
                 modelMapper.map(response, insured);
 
-                // Set additional fields
                 insured.setPhone(response.getInsuredPhone());
                 insured.setAddress(response.getAddress1());
                 insured.setCity(response.getAddress2());
                 insured.setState(response.getState());
                 insured.setCountry(response.getCountry());
 
-                // Direct date assignment (since both use java.util.Date)
                 insured.setBirthDate(response.getBirthDate());
 
                 // Set policy dates if available
@@ -155,7 +152,6 @@ public class CheckEligibilityServiceImpl implements CheckEligibilityService {
 //                    insured.setPolicyEndDate(response.getEndDate());
 //                }
 
-                // Handle payer association
                 Payer payer = payerRepository.findByPayerName(response.getPayerName());
                 if (payer == null) {
                     payer = createNewPayer(response);
@@ -165,7 +161,6 @@ public class CheckEligibilityServiceImpl implements CheckEligibilityService {
                 insured.setPayer(payer);
                 insured.setPayerUuid(payer.getPayerUuid());
 
-                // Save the insured
                 insuredRepository.save(insured);
                 logger.info("Successfully registered insured: {} {}",
                         response.getFirstName(), response.getInsuredUuid());
