@@ -454,7 +454,7 @@ public class ContractServiceImpl implements ContractService {
                         .contractHeaderUuid(savedContract.getContractHeaderUuid())
                         .servicelist(service)
                         .serviceUuid(service.getServiceUuid())
-                        .negotiatedPrice(BigDecimal.valueOf(service.getPrice()))
+                        .negotiatedPrice(BigDecimal.valueOf(service.getNegotiatedPrice()))
                         .status(Status.ACTIVE)
                         .build();
                 contractDetailRepository.save(contractDetail);

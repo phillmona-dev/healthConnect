@@ -67,4 +67,7 @@ public interface ServicelistRepository extends JpaRepository<Servicelist, Long> 
 
     @Query("SELECT MAX(CAST(SUBSTRING(s.generatedServiceId, 4) AS long)) FROM Servicelist s WHERE s.provider.id = :providerId")
     Long findMaxGeneratedIdSequenceNumber(@Param("providerId") Long providerId);
+
+    Servicelist findByGeneratedServiceIdAndProviderProviderUuid(String serviceId, String providerUuid);
+
 }

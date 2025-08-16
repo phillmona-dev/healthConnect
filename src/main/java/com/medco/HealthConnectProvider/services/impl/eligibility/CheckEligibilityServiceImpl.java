@@ -27,8 +27,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,7 +37,7 @@ public class CheckEligibilityServiceImpl implements CheckEligibilityService {
     private static final Logger logger = LoggerFactory.getLogger(CheckEligibilityServiceImpl.class);
 
     //private static final String BASE_URL = "http://192.168.16.234:8888";
-    private static final String BASE_URL = "http://192.168.100.85:8888";
+//    private static final String BASE_URL = "http://192.168.100.85:8888";
     private static final String ELIGIBILITY_ENDPOINT = "/api/payer/claimconnect/insuredperson/eligiblity";
 
     @Autowired
@@ -47,6 +45,8 @@ public class CheckEligibilityServiceImpl implements CheckEligibilityService {
 
     @Value("${api.key}")
     private String apiKey;
+    @Value("${awash.api.base-url}")
+    private String BASE_URL;
 
     @Autowired
     private InsuredRepository insuredRepository;
@@ -63,18 +63,15 @@ public class CheckEligibilityServiceImpl implements CheckEligibilityService {
                 contractUuid, institutionUuid, search);
 
         try {
-            // 1. Get authenticated user details
             UserPrincipal userPrincipal = SecurityUtils.getAuthenticatedUser();
             String providerUuid = userPrincipal.getProviderUuid();
             logger.debug("[AUTH] Authenticated Provider UUID: {}", providerUuid);
 
-            // 2. Prepare headers
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-API-Key", apiKey);
             headers.setContentType(MediaType.APPLICATION_JSON);
             logger.debug("[HEADERS] Prepared headers: {}", headers);
 
-            // 3. Build URL with detailed logging
             UriComponentsBuilder builder = UriComponentsBuilder
                     .fromHttpUrl(BASE_URL + ELIGIBILITY_ENDPOINT + "/" + providerUuid)
                     .queryParam("contractUuid", contractUuid)
@@ -87,7 +84,6 @@ public class CheckEligibilityServiceImpl implements CheckEligibilityService {
             String url = builder.toUriString();
             logger.info("[URL] Final request URL: {}", url);
 
-            // 4. Make the request
             logger.debug("[REQUEST] Sending GET request to downstream service");
             ResponseEntity<List<CheckEligibilityResponse>> response = restTemplate.exchange(
                     url,
@@ -96,7 +92,6 @@ public class CheckEligibilityServiceImpl implements CheckEligibilityService {
                     new ParameterizedTypeReference<List<CheckEligibilityResponse>>() {}
             );
 
-            // 5. Log response details
             logger.debug("[RESPONSE] Received status: {}", response.getStatusCode());
             logger.debug("[RESPONSE] Headers: {}", response.getHeaders());
 
@@ -181,4 +176,5 @@ public class CheckEligibilityServiceImpl implements CheckEligibilityService {
         payer.setStatus(Status.ACTIVE);
         return payer;
     }
+
 }

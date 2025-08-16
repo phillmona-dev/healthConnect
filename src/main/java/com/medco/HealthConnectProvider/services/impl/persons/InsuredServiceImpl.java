@@ -615,7 +615,7 @@ public class InsuredServiceImpl implements InsuredService {
             insuredList.addAll(insuredByEmployeeId);
             return mapToInsuredSearchResponses(insuredList);
         }
-//
+
 //        insured = insuredRepository.findByInsuranceId(identifier);
 //        if (insured != null) {
 //            insuredList.add(insured);
@@ -632,6 +632,7 @@ public class InsuredServiceImpl implements InsuredService {
                 identifier, identifier, identifier);
 
         return mapToInsuredSearchResponses(insuredList);
+
     }
 
     private List<InsuredSearchResponse> mapToInsuredSearchResponses(List<Insured> insuredList) {

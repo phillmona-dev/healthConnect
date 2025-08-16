@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class EligibleServiceDto {
-    private String eligibleServiceUuid;
+    private String serviceId;
     private String itemCode;
     private String item;
     private String subCategory;

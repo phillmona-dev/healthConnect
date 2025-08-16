@@ -28,6 +28,4 @@ public class PagedResponse<T> {
         this.last = last;
     }
 
-    public PagedResponse(List<UserResponse> content, int number, int size, long totalElements, int totalPages, boolean b, boolean b1) {
-    }
 }

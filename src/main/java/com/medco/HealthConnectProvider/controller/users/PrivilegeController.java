@@ -53,7 +53,6 @@ public class PrivilegeController {
         return ResponseEntity.ok(response);
     }
 
-
     @PutMapping("/{privilegeUuid}")
     @Operation(summary = "Update privilege", description = "Updates an existing privilege by UUID")
     public ResponseEntity<?> updatePrivilege(@PathVariable String privilegeUuid, @Valid @RequestBody PrivilegeRequest request){

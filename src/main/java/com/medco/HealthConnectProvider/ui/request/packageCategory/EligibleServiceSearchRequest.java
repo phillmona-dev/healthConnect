@@ -1,5 +1,7 @@
 package com.medco.HealthConnectProvider.ui.request.packageCategory;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,54 +17,52 @@ import java.util.List;
 @AllArgsConstructor
 public class EligibleServiceSearchRequest {
 
-    // Basic search
-    private String searchKey; // Search in service name, code, description
-    
-    // Category filtering
+    private String searchKey;
+
     @NotBlank(message = "Category name is required")
-    private String categoryName; // Category name to filter by (required)
-    private String categoryCode; // Category code to filter by
-    private String categoryUuid; // Category UUID to filter by
-    
-    // Contract filtering
+    private String categoryName;
+    private String categoryCode;
+    private String categoryUuid;
+
     @NotBlank(message = "Contract UUID is required")
-    private String contractUuid; // Contract UUID (required)
-    private String contractName; // Contract name filter
-    
-    // Service filtering
+    private String contractUuid;
+    private String contractName;
+
     private String serviceName;
     private String serviceCode;
-    private String serviceCategory; // Service category (e.g., "Surgery", "Consultation")
+    private String serviceCategory;
     private String serviceSubCategory;
-    private List<String> serviceCodes; // Multiple service codes
-    
-    // Price filtering
+    private List<String> serviceCodes;
+
     private BigDecimal minPrice;
     private BigDecimal maxPrice;
     private String priceType; // "SERVICE_PRICE", "CONTRACT_PRICE"
-    
-    // Status filtering
-    private String status; // "ACTIVE", "INACTIVE"
-    private Boolean consumesFromLimit; // true/false/null (all)
-    private Boolean isActive; // true/false/null (all)
-    
-    // Provider filtering
+
+    private String status;
+    private Boolean consumesFromLimit;
+    private Boolean isActive;
+
     private String providerUuid;
     private String providerName;
-    
-    // Sorting
+
     private String sortBy; // "serviceName", "serviceCode", "price", "mappedAt"
-    private String sortDirection; // "ASC", "DESC"
-    
-    // Pagination
+    private String sortDirection;
+
     @Builder.Default
-    private int page = 0;
-    
+    @Min(value = 1, message = "Page number must be at least 1")
+    private int page = 1;
+
     @Builder.Default
-    private int size = 20;
-    
-    // Advanced filters
-    private Boolean hasMultipleCategories; // Services mapped to multiple categories
-    private List<String> excludeServiceCodes; // Exclude specific service codes
+    @Min(value = 1, message = "Page size must be at least 1")
+    @Max(value = 100, message = "Page size cannot exceed 100")
+    private int size = 25;
+
+    private Boolean hasMultipleCategories;
+    private List<String> excludeServiceCodes;
     private String dateRange; // "TODAY", "WEEK", "MONTH", "YEAR" for mapping date
+
+    public int getPageForQuery() {
+        return page - 1;
+    }
+
 }

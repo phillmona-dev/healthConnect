@@ -19,6 +19,10 @@ public class DispensingRecordRequest {
     private String primaryDiagnosis;
     private String secondaryDiagnosis;
 
+    private Boolean isInsurance;
+    private String packageUuid;
+    private String dispensingDate;
+
     private List<DispensingItemRequest> medicationItems;
 
     @Setter
@@ -27,6 +31,7 @@ public class DispensingRecordRequest {
     @NoArgsConstructor
     public static class DispensingItemRequest {
         private String contractDetailUuid;
+        private String serviceId;
         private String itemType; // "SERVICE" or "DRUG"
         private String remark;
         private double price;

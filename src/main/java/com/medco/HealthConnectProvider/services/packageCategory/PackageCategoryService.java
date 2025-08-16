@@ -28,7 +28,7 @@ public interface PackageCategoryService {
     /**
      * Get all package categories for a payer with pagination and search (from logged in user context)
      */
-    PagedResponse<PackageCategoryResponse> getPackageCategories(String searchKey, String status, int page, int size);
+    PagedResponse<PackageCategoryResponse> getPackageCategories(String searchKey, String status,String payerUuid, int page, int size);
 
     /**
      * Get all active package categories for a payer (for dropdowns, from logged in user context)

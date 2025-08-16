@@ -51,9 +51,7 @@ public interface PharmacyIntegrationService {
 
     ResponseEntity<DispensingResponse> recordMedicationDispensing(@Valid KenemaPharmacyDispensingRequest request);
 
-
     ResponseEntity<?> addDrugDispensingRecord(DrugDispensingRecordRequest request);
-
 
     ResponseEntity<DispensingDetailResponse> getDispensingDetail(String dispensingUuid);
 

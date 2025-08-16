@@ -92,46 +92,38 @@ public class ServiceCategoryMappingController {
             description = "Fetch contract details (eligible services) for a selected category and contract. " +
                     "The searchKey parameter searches across service name, code, description, category name, and contract name.")
     public PagedResponse<EligibleServiceResponse> getEligibleServicesForCategory(
-            // Required parameters
             @Parameter(description = "Contract UUID") @RequestParam String contractUuid,
             @Parameter(description = "Category name") @RequestParam String categoryName,
 
-            // Unified search parameter
             @Parameter(description = "Search key (searches service name, code, description, category name, contract name)")
             @RequestParam(required = false) String searchKey,
 
-            // Specific filters (when more precise filtering is needed)
             @Parameter(description = "Service code (exact match)") @RequestParam(required = false) String serviceCode,
             @Parameter(description = "Service category") @RequestParam(required = false) String serviceCategory,
             @Parameter(description = "Service sub-category") @RequestParam(required = false) String serviceSubCategory,
             @Parameter(description = "List of service codes (comma separated)") @RequestParam(required = false) List<String> serviceCodes,
             @Parameter(description = "List of service codes to exclude (comma separated)") @RequestParam(required = false) List<String> excludeServiceCodes,
 
-            // Price filters
             @Parameter(description = "Minimum price") @RequestParam(required = false) BigDecimal minPrice,
             @Parameter(description = "Maximum price") @RequestParam(required = false) BigDecimal maxPrice,
             @Parameter(description = "Price type (SERVICE_PRICE, CONTRACT_PRICE)") @RequestParam(required = false) String priceType,
 
-            // Status filters
             @Parameter(description = "Service status") @RequestParam(required = false) String status,
             @Parameter(description = "Consumes from limit") @RequestParam(required = false) Boolean consumesFromLimit,
 
-            // Date filter
             @Parameter(description = "Date range (TODAY, WEEK, MONTH, YEAR)") @RequestParam(required = false) String dateRange,
 
-            // Pagination and sorting
             @Parameter(description = "Page number (1-based)") @RequestParam(defaultValue = "1") int page,
-            @Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "25") int size,
             @Parameter(description = "Sort field") @RequestParam(required = false) String sortBy,
             @Parameter(description = "Sort direction (ASC, DESC)") @RequestParam(required = false) String sortDirection) {
 
-        // Build the search request from parameters
         EligibleServiceSearchRequest search = EligibleServiceSearchRequest.builder()
-                .page(page-1)
+                .page(page)
                 .size(size)
                 .contractUuid(contractUuid)
                 .categoryName(categoryName)
-                .searchKey(searchKey) // This will search across multiple fields
+                .searchKey(searchKey)
                 .serviceCode(serviceCode)
                 .serviceCategory(serviceCategory)
                 .serviceSubCategory(serviceSubCategory)

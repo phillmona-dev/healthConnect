@@ -89,7 +89,6 @@ public class PackageCategoryUsage extends Audit implements Serializable {
         }
     }
 
-    // Business logic methods
     public BigDecimal getRemainingAmount() {
         return categoryLimit.getLimitValue().subtract(usedAmount);
     }

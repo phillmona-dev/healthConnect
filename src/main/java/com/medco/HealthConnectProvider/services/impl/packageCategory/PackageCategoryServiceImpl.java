@@ -130,11 +130,11 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
 
     @Override
     @Transactional(readOnly = true)
-    public PagedResponse<PackageCategoryResponse> getPackageCategories(String searchKey, String status, int page, int size) {
-        String payerUuid = SecurityUtils.getAuthenticatedUser().getPayerUuid();
-        if (payerUuid == null || payerUuid.isEmpty()) {
-            throw new BadRequestException("User must be associated with a payer to view package categories");
-        }
+    public PagedResponse<PackageCategoryResponse> getPackageCategories(String searchKey, String status,String payerUuid, int page, int size) {
+//        String payerUuid = SecurityUtils.getAuthenticatedUser().getPayerUuid();
+//        if (payerUuid == null || payerUuid.isEmpty()) {
+//            throw new BadRequestException("User must be associated with a payer to view package categories");
+//        }
 
         Payer payer = payerRepository.findByPayerUuid(payerUuid);
         if (payer == null) {
@@ -269,17 +269,14 @@ public class PackageCategoryServiceImpl implements PackageCategoryService {
 
     @Override
     public List<ExternalPackageCategoryResponse> getEligiblePackages(String insuredUuid) {
-        // Log the start of the operation with the insured UUID
         log.info("[Package Service] Starting to fetch eligible packages for insured: {}", insuredUuid);
         log.debug("[Package Service] Building request for external API...");
 
-        // Build the URL
-        String url = String.format("%s/insured-eligible-packages-dropdown/%s",
+        String url = String.format("%s/api/payer/claimconnect/package/insured-eligible-packages-dropdown/%s",
                 externalApiConfig.getExternalApiBaseUrl(),
                 insuredUuid);
         log.debug("[Package Service] Constructed API URL: {}", url);
 
-        // Prepare headers
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-API-Key", externalApiConfig.getApiKey());
         headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));

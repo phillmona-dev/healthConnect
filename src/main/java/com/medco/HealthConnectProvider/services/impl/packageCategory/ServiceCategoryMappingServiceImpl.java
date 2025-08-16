@@ -39,9 +39,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -62,7 +60,7 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
         log.info("Mapping service {} to {} categories", request.getContractDetailUuid(), request.getCategoryUuids().size());
 
         ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(request.getContractDetailUuid());
-        if (contractDetail == null){
+        if (contractDetail == null) {
             throw new ResourceNotFoundException("Contract detail not found with UUID: " + request.getContractDetailUuid());
         }
 
@@ -73,7 +71,7 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
                     .orElseThrow(() -> new ResourceNotFoundException("Package category not found with UUID: " + categoryUuid));
 
             if (mappingRepository.existsByContractDetailAndPackageCategory(contractDetail, category)) {
-                log.warn("Mapping already exists for service {} and category {}", 
+                log.warn("Mapping already exists for service {} and category {}",
                         request.getContractDetailUuid(), categoryUuid);
                 continue;
             }
@@ -101,7 +99,7 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
         log.info("Removing service {} from category {}", contractDetailUuid, categoryUuid);
 
         ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(contractDetailUuid);
-        if (contractDetail == null){
+        if (contractDetail == null) {
             throw new ResourceNotFoundException("Contract detail not found with UUID: " + contractDetailUuid);
         }
 
@@ -299,14 +297,19 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
     @Override
     @Transactional(readOnly = true)
     public PagedResponse<EligibleServiceResponse> getEligibleServicesForCategory(EligibleServiceSearchRequest request) {
-
-        log.info("Fetching eligible services for category with search criteria");
+        log.info("Fetching eligible services for category with search criteria - Page: {}, Size: {}",
+                request.getPage(), request.getSize());
 
         Specification<ServiceCategoryMapping> spec = createSpecification(request);
-
-        Pageable pageable = createPageable(request);
+        Pageable pageable = PageRequest.of(
+                request.getPageForQuery(),
+                request.getSize(),
+                createSort(request.getSortBy(), request.getSortDirection())
+        );
 
         Page<ServiceCategoryMapping> mappingPage = mappingRepository.findAll(spec, pageable);
+        log.debug("Found {} eligible services out of {} total",
+                mappingPage.getNumberOfElements(), mappingPage.getTotalElements());
 
         List<EligibleServiceResponse> responses = mappingPage.getContent().stream()
                 .map(this::mapToEligibleServiceResponse)
@@ -314,13 +317,34 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
 
         return new PagedResponse<>(
                 responses,
-                mappingPage.getNumber() + 1,
+                request.getPage(),
                 mappingPage.getSize(),
                 mappingPage.getTotalElements(),
                 mappingPage.getTotalPages(),
                 mappingPage.isLast()
         );
+    }
 
+
+    private Sort createSort(String sortBy, String sortDirection) {
+        String actualSortField = Optional.ofNullable(sortBy)
+                .orElse("createdAt");
+
+        Map<String, String> fieldMappings = Map.of(
+                "serviceName", "contractDetail.servicelist.serviceName",
+                "serviceCode", "contractDetail.servicelist.serviceCode",
+                "price", "contractDetail.negotiatedPrice",
+                "mappedAt", "createdAt",
+                "categoryName", "packageCategory.categoryName"
+        );
+
+        String sortField = fieldMappings.getOrDefault(actualSortField, actualSortField);
+
+        Sort.Direction direction = Optional.ofNullable(sortDirection)
+                .map(dir -> "DESC".equalsIgnoreCase(dir) ? Sort.Direction.DESC : Sort.Direction.ASC)
+                .orElse(Sort.Direction.ASC);
+
+        return Sort.by(direction, sortField);
     }
 
     @Override
@@ -332,14 +356,11 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
             Integer page,
             Integer limit) {
 
-        // Build URL with parameters
-        UriComponentsBuilder builder = UriComponentsBuilder
-                .fromHttpUrl(externalApiConfig.getExternalApiBaseUrl())
-                .path("/packageEligibleServices/{contractUuid}")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(externalApiConfig.getExternalApiBaseUrl())
+                .path("/api/payer/claimconnect/package/packageEligibleServices/{contractUuid}")
                 .queryParam("packageUuid", packageUuid)
                 .queryParam("insuredUuid", insuredUuid);
 
-        // Add optional parameters
         if (search != null && !search.isEmpty()) {
             builder.queryParam("search", search);
         }
@@ -419,10 +440,8 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
                         criteriaBuilder.like(criteriaBuilder.lower(serviceJoin.get("serviceDescription")), searchPattern),
                         criteriaBuilder.like(criteriaBuilder.lower(serviceJoin.get("serviceCategory")), searchPattern),
                         criteriaBuilder.like(criteriaBuilder.lower(serviceJoin.get("serviceSubCategory")), searchPattern),
-
                         criteriaBuilder.like(criteriaBuilder.lower(categoryJoin.get("categoryName")), searchPattern),
                         criteriaBuilder.like(criteriaBuilder.lower(categoryJoin.get("categoryCode")), searchPattern),
-
                         criteriaBuilder.like(criteriaBuilder.lower(contractJoin.get("contractName")), searchPattern)
                 );
                 predicates.add(searchPredicate);
@@ -494,29 +513,6 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
             predicates.add(criteriaBuilder.equal(root.get("isDeleted"), false));
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
-        };
-    }
-
-    private Pageable createPageable(EligibleServiceSearchRequest request) {
-        String sortBy = request.getSortBy() != null ? request.getSortBy() : "serviceName";
-        String sortDirection = request.getSortDirection() != null ? request.getSortDirection() : "ASC";
-
-        String actualSortField = mapSortField(sortBy);
-        Sort.Direction direction = "DESC".equalsIgnoreCase(sortDirection) ?
-                Sort.Direction.DESC : Sort.Direction.ASC;
-
-        Sort sort = Sort.by(direction, actualSortField);
-        return PageRequest.of(request.getPage(), request.getSize(), sort);
-    }
-
-    private String mapSortField(String sortBy) {
-        return switch (sortBy.toLowerCase()) {
-            case "servicename" -> "contractDetail.servicelist.serviceName";
-            case "servicecode" -> "contractDetail.servicelist.serviceCode";
-            case "price" -> "contractDetail.negotiatedPrice";
-            case "mappedat" -> "createdAt";
-            case "categoryname" -> "packageCategory.categoryName";
-            default -> "contractDetail.servicelist.serviceName";
         };
     }
 
