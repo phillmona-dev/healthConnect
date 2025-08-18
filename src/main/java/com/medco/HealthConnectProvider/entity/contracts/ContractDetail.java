@@ -58,8 +58,8 @@ public class ContractDetail extends Audit implements Serializable {
     @Column(nullable = true)
     private String serviceUuid;
 
-    @Column(precision = 19, scale = 2)
-    private BigDecimal negotiatedPrice;
+    @Column(precision = 19)
+    private Double negotiatedPrice;
 
     @Enumerated(EnumType.STRING)
     private Status status;
@@ -116,17 +116,6 @@ public class ContractDetail extends Audit implements Serializable {
         employeeDependantGroups.remove(group);
         group.getContractDetails().remove(this);
     }
-
-//    // Helper methods for ProvidedService
-//    public void addProvidedService(ProvidedService providedService) {
-//        providedServices.add(providedService);
-//        providedService.setContractDetail(this);
-//    }
-
-//    public void removeProvidedService(ProvidedService providedService) {
-//        providedServices.remove(providedService);
-//        providedService.setContractDetail(null);
-//    }
 
     @OneToMany(mappedBy = "contractDetail", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonManagedReference(value = "contract-detail-groups")

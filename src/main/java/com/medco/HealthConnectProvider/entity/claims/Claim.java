@@ -63,7 +63,6 @@ public class Claim extends Audit {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal totalAmount;
 
-//    @Column(nullable = false)
     private String claimType;
 
     @Column(nullable = false)
@@ -118,16 +117,8 @@ public class Claim extends Audit {
     @Column( precision = 10, scale = 2)
     private BigDecimal deductibleAmount;
 
-//    @Column( precision = 10, scale = 2)
-//    private BigDecimal coinsuranceAmount;
-//
-//    @Column(nullable = false, precision = 10, scale = 2)
-//    private BigDecimal payerAmount;
-
-//    @Column(nullable = false)
     private String diagnosisCodes;
 
-//    @Column(nullable = false)
     private String procedureCodes;
 
     @Column(length = 1000)
@@ -156,11 +147,9 @@ public class Claim extends Audit {
     private List<ClaimPayment> payments = new ArrayList<>();
 
 
-//    @Column(nullable = false)
     @UpdateTimestamp
     private LocalDateTime lastUpdated;
 
-    // Helper methods for bidirectional relationship management
     public void addAttachment(ClaimAttachment attachment) {
         attachments.add(attachment);
         attachment.setClaim(this);
@@ -202,17 +191,6 @@ public class Claim extends Audit {
         payment.setClaim(null);
     }
 
-//    public void addProvidedService(ProvidedService service) {
-//        providedServices.add(service);
-//        service.setClaim(this);
-//        service.setClaimUuid(this.claimUuid);
-//    }
-//
-//    public void removeProvidedService(ProvidedService service) {
-//        providedServices.remove(service);
-//        service.setClaim(null);
-//        service.setClaimUuid(null);
-//    }
 
     @Override
     public boolean equals(Object o) {

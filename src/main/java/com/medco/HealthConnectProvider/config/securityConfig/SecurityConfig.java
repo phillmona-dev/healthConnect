@@ -30,7 +30,6 @@ public class SecurityConfig {
     private final UserDetails userDetailsService;
     private final JwtUnAuthorizedHandler unAuthorizedHandler;
 
-
     public SecurityConfig(JwtAuthenticationFilter authenticationFilter, UserDetails userDetailsService, JwtUnAuthorizedHandler unAuthorizedHandler) {
         this.authenticationFilter = authenticationFilter;
         this.userDetailsService = userDetailsService;

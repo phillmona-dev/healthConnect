@@ -28,6 +28,8 @@ import com.medco.HealthConnectProvider.utils.paginationUtils.Pagination;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
@@ -165,13 +167,13 @@ public class ServicelistServiceImpl implements ServicelistService {
 
         return ResponseEntity.ok(response);
     }
-
     @Transactional
     @Override
     public ResponseEntity<InputStreamResource> exportServicesToExcel(String providerUuid, List<String> categories) throws IOException {
         Logger logger = LoggerFactory.getLogger(this.getClass());
         logger.info("Starting export of services to Excel for provider UUID: {}", providerUuid);
 
+        // Fetch provider
         Provider provider = providerRepository.findByProviderUuid(providerUuid);
         if (provider == null) {
             logger.error("Provider not found for UUID: {}", providerUuid);
@@ -179,22 +181,35 @@ public class ServicelistServiceImpl implements ServicelistService {
         }
         logger.info("Provider found: {}", provider.getProviderName());
 
+        // Fetch services
         List<Servicelist> services = categories == null || categories.isEmpty()
                 ? servicelistRepository.findAllByProviderWithEagerFetch(provider)
                 : servicelistRepository.findByProviderAndServiceCategoryInWithEagerFetch(provider, categories);
         logger.info("Retrieved {} services", services.size());
 
+        // Create workbook and sheet
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("Services");
 
+        // Create styles - no locked styles needed
         CellStyle headerStyle = createHeaderStyle(workbook);
-        CellStyle readOnlyStyle = createReadOnlyStyle(workbook);
         CellStyle dataStyle = createDataStyle(workbook);
         CellStyle categoryStyle = createCategoryStyle(workbook);
 
-        createHeaderRow(sheet, headerStyle);
-        logger.info("Created header row in Excel sheet");
+        // Create header row - all cells unlocked
+        Row headerRow = sheet.createRow(0);
+        String[] headers = {
+                "Service ID", "Service Code", "Service Name", "Category", "Sub Category",
+                "Description", "Negotiated Price"
+        };
 
+        for (int i = 0; i < headers.length; i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(headers[i]);
+            cell.setCellStyle(headerStyle);
+        }
+
+        // Populate data rows - all cells unlocked
         int rowNum = 1;
         String currentCategory = null;
         for (Servicelist service : services) {
@@ -209,10 +224,12 @@ public class ServicelistServiceImpl implements ServicelistService {
 
             Row row = sheet.createRow(rowNum++);
 
+            // Service ID (editable)
             Cell serviceIdCell = row.createCell(0);
             serviceIdCell.setCellValue(service.getGeneratedServiceId());
-            serviceIdCell.setCellStyle(readOnlyStyle);
+            serviceIdCell.setCellStyle(dataStyle);
 
+            // Other columns (editable)
             setCellValue(row, 1, service.getServiceCode(), "Service Code", dataStyle);
             setCellValue(row, 2, service.getServiceName(), "Service Name", dataStyle);
             setCellValue(row, 3, service.getServiceCategory(), "Category", dataStyle);
@@ -221,24 +238,11 @@ public class ServicelistServiceImpl implements ServicelistService {
             setCellValue(row, 6, service.getNegotiatedPrice(), "Negotiated Price", dataStyle);
         }
 
+        // Auto-size columns
         autoSizeColumns(sheet);
-        logger.info("Finished populating Excel sheet with {} rows", rowNum - 1);
 
-        sheet.protectSheet("");
-
-        CTSheetProtection protection = ((XSSFSheet) sheet).getCTWorksheet().getSheetProtection();
-        protection.setSelectLockedCells(true);
-        protection.setSelectUnlockedCells(true);
-        protection.setSort(true);
-        protection.setAutoFilter(true);
-        protection.setFormatCells(true);
-        protection.setFormatColumns(true);
-        protection.setFormatRows(true);
-        protection.setInsertColumns(false);
-        protection.setInsertRows(false);
-        protection.setInsertHyperlinks(false);
-        protection.setDeleteColumns(false);
-        protection.setDeleteRows(false);
+        // No sheet protection needed
+        // sheet.protectSheet(""); // Removed
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         workbook.write(outputStream);
@@ -266,16 +270,16 @@ public class ServicelistServiceImpl implements ServicelistService {
 
     }
 
-    private CellStyle createCategoryStyle(Workbook workbook) {
-        CellStyle categoryStyle = workbook.createCellStyle();
-        categoryStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-        categoryStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        categoryStyle.setAlignment(HorizontalAlignment.CENTER);
-        Font categoryFont = workbook.createFont();
-        categoryFont.setBold(true);
-        categoryStyle.setFont(categoryFont);
-        return categoryStyle;
-    }
+//    private CellStyle createCategoryStyle(Workbook workbook) {
+//        CellStyle categoryStyle = workbook.createCellStyle();
+//        categoryStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+//        categoryStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+//        categoryStyle.setAlignment(HorizontalAlignment.CENTER);
+//        Font categoryFont = workbook.createFont();
+//        categoryFont.setBold(true);
+//        categoryStyle.setFont(categoryFont);
+//        return categoryStyle;
+//    }
 
     @Override
     public ResponseEntity<InputStreamResource> exportDrugsToExcel(String providerUuid) throws IOException {
@@ -391,7 +395,7 @@ public class ServicelistServiceImpl implements ServicelistService {
         }
     }
 
-    private void createHeaderRow(Sheet sheet, CellStyle headerStyle) {
+    private void createHeaderRow(Sheet sheet, CellStyle lockedHeaderStyle, CellStyle unlockedHeaderStyle) {
         Row headerRow = sheet.createRow(0);
         String[] headers = {
                 "Service ID", "Service Code", "Service Name", "Category", "Sub Category",
@@ -401,46 +405,64 @@ public class ServicelistServiceImpl implements ServicelistService {
         for (int i = 0; i < headers.length; i++) {
             Cell cell = headerRow.createCell(i);
             cell.setCellValue(headers[i]);
-            cell.setCellStyle(headerStyle);
+            cell.setCellStyle(i == 0 ? lockedHeaderStyle : unlockedHeaderStyle);
         }
     }
 
     private CellStyle createHeaderStyle(Workbook workbook) {
-        CellStyle headerStyle = workbook.createCellStyle();
+        CellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
-        headerStyle.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex());
-        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setColor(IndexedColors.DARK_GREEN.getIndex());
+        style.setFont(font);
 
-        Font headerFont = workbook.createFont();
-        headerFont.setBold(true);
-        headerFont.setColor(IndexedColors.DARK_GREEN.getIndex());
-        headerStyle.setFont(headerFont);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
 
-        headerStyle.setAlignment(HorizontalAlignment.CENTER);
-        headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-
-        headerStyle.setBorderBottom(BorderStyle.THIN);
-        headerStyle.setBorderTop(BorderStyle.THIN);
-        headerStyle.setBorderLeft(BorderStyle.THIN);
-        headerStyle.setBorderRight(BorderStyle.THIN);
-
-        // Lock header cells
-        headerStyle.setLocked(true);
-
-        return headerStyle;
-    }
-
-    private CellStyle createReadOnlyStyle(Workbook workbook) {
-        CellStyle readOnlyStyle = workbook.createCellStyle();
-        readOnlyStyle.setLocked(true);
-        return readOnlyStyle;
+        return style;
     }
 
     private CellStyle createDataStyle(Workbook workbook) {
-        CellStyle dataStyle = workbook.createCellStyle();
-        dataStyle.setWrapText(true);
-        dataStyle.setLocked(false);
-        return dataStyle;
+        CellStyle style = workbook.createCellStyle();
+        style.setWrapText(true);
+        return style;
+    }
+
+    private CellStyle createCategoryStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+
+        // Create and configure font
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setColor(IndexedColors.BLACK.getIndex()); // Changed to black for better contrast
+
+        // Set alignment to center (both horizontal and vertical)
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+
+        // Set light gray background color
+        style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex()); // Light gray
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+        // Add borders for better visual separation
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        style.setLeftBorderColor(IndexedColors.GREY_40_PERCENT.getIndex());
+        style.setRightBorderColor(IndexedColors.GREY_40_PERCENT.getIndex());
+        style.setTopBorderColor(IndexedColors.GREY_40_PERCENT.getIndex());
+        style.setBottomBorderColor(IndexedColors.GREY_40_PERCENT.getIndex());
+        style.setFont(font);
+
+        return style;
     }
 
     private void setCellValue(Row row, int colNum, Object value, String fieldName, CellStyle style) {
@@ -459,15 +481,12 @@ public class ServicelistServiceImpl implements ServicelistService {
                 } else {
                     cell.setCellValue(value.toString());
                 }
-                logger.trace("Set {} to: {}", fieldName, value);
             } else {
                 cell.setCellValue("");
-                logger.warn("{} is null for this service", fieldName);
             }
             cell.setCellStyle(style);
         } catch (Exception e) {
-            logger.error("Error setting value for {} at column {}: {}",
-                    fieldName, colNum, e.getMessage());
+            logger.error("Error setting value for {} at column {}", fieldName, colNum, e);
             throw e;
         }
     }
@@ -742,8 +761,8 @@ public class ServicelistServiceImpl implements ServicelistService {
         setFieldIfPresent(headerMap, row, "Service Description", servicelist::setServiceDescription);
         setFieldIfPresent(headerMap, row, "Service Category", servicelist::setServiceCategory);
         setFieldIfPresent(headerMap, row, "Service Sub Category", servicelist::setServiceSubCategory);
-        setFieldIfPresent(headerMap, row, "Default Price", value -> servicelist.setDefaultPrice(new BigDecimal(value)));
-        setFieldIfPresent(headerMap, row, "Negotiated Price", value -> servicelist.setNegotiatedPrice(Integer.parseInt(value)));
+        setFieldIfPresent(headerMap, row, "Default Price", value -> servicelist.setDefaultPrice(Double.parseDouble(value)));
+        setFieldIfPresent(headerMap, row, "Negotiated Price", value -> servicelist.setNegotiatedPrice((double) Integer.parseInt(value)));
         setFieldIfPresent(headerMap, row, "Status", value -> servicelist.setStatus(Status.valueOf(value.toUpperCase())));
         setFieldIfPresent(headerMap, row, "Price", value -> servicelist.setPrice(Double.parseDouble(value)));
         setFieldIfPresent(headerMap, row, "Unit of Measure", servicelist::setUnitOfMeasure);

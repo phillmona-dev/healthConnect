@@ -410,7 +410,7 @@ public class InsuredServiceImpl implements InsuredService {
             throw new ResourceNotFoundException("Payer", "payerUuid", payerUuid);
         }
 
-        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("first_name").ascending());
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("firstName").ascending());
 
         String normalizedSearch = StringUtils.hasText(search) ? search.trim().toLowerCase() : null;
 

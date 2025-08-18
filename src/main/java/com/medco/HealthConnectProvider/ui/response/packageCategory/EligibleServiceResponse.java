@@ -22,8 +22,8 @@ public class EligibleServiceResponse {
     private String serviceDescription;
     private String serviceCategory;
     private String serviceSubCategory;
-    private BigDecimal servicePrice;
-    private BigDecimal contractPrice;
+    private Double servicePrice;
+    private Double contractPrice;
     private String priceType;
     private boolean consumesFromLimit;
     private String mappingNotes;

@@ -19,8 +19,8 @@ public class ContractDetailResponse {
     private String serviceCode;
     private String serviceCategory;
     private String serviceSubCategory;
-    private BigDecimal negotiatedPrice;
-    private BigDecimal defaultPrice;
+    private Double negotiatedPrice;
+    private Double defaultPrice;
     private String status;
     private List<EmployeeGroupResponse> assignedGroups = new ArrayList<>();
 }

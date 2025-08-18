@@ -80,7 +80,7 @@ public class ContractResponse {
         private String serviceCode;
         private String drugUuid;
         private String drugName;
-        private BigDecimal price;
+        private Double price;
         private Double negotiatedPrice;
         private List<String> assignedGroups;
         private String description;

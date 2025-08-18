@@ -2,21 +2,26 @@ package com.medco.HealthConnectProvider.services.impl.packageCategory;
 
 import com.medco.HealthConnectProvider.config.ExternalApiConfig;
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
+import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.packageCategory.PackageCategory;
 import com.medco.HealthConnectProvider.entity.packageCategory.ServiceCategoryMapping;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.contract.ContractDetailRepository;
+import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
 import com.medco.HealthConnectProvider.repository.packageCategory.PackageCategoryRepository;
 import com.medco.HealthConnectProvider.repository.packageCategory.ServiceCategoryMappingRepository;
+import com.medco.HealthConnectProvider.repository.service.ServicelistRepository;
 import com.medco.HealthConnectProvider.services.packageCategory.ServiceCategoryMappingService;
 import com.medco.HealthConnectProvider.ui.request.packageCategory.BulkServiceCategoryAssignmentRequest;
 import com.medco.HealthConnectProvider.ui.request.packageCategory.EligibleServiceSearchRequest;
 import com.medco.HealthConnectProvider.ui.request.packageCategory.ServiceCategoryMappingRequest;
 import com.medco.HealthConnectProvider.ui.response.packageCategory.BulkServiceCategoryAssignmentResponse;
+import com.medco.HealthConnectProvider.ui.response.packageCategory.EligibleServiceDto;
 import com.medco.HealthConnectProvider.ui.response.packageCategory.EligibleServiceResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.packageCategory.ExternalPackageEligibleServicesResponse;
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -54,6 +59,9 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
 
     private final ExternalApiConfig externalApiConfig;
     private final RestTemplate restTemplate;
+
+    private final ContractRepository contractHeaderRepository;
+    private final ServicelistRepository servicelistRepository;
 
     @Override
     public ResponseEntity<String> mapServiceToCategories(ServiceCategoryMappingRequest request) {
@@ -356,6 +364,7 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
             Integer page,
             Integer limit) {
 
+        // 1. Fetch from external API (existing code)
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(externalApiConfig.getExternalApiBaseUrl())
                 .path("/api/payer/claimconnect/package/packageEligibleServices/{contractUuid}")
                 .queryParam("packageUuid", packageUuid)
@@ -375,7 +384,6 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
 
         log.info("[External API] Fetching eligible services - Contract: {}, Package: {}, Insured: {}",
                 contractUuid, packageUuid, insuredUuid);
-        log.debug("[External API] Constructed URL: {}", url);
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-API-Key", externalApiConfig.getApiKey());
@@ -384,32 +392,62 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         try {
-            long startTime = System.currentTimeMillis();
             ResponseEntity<ExternalPackageEligibleServicesResponse> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
                     entity,
                     ExternalPackageEligibleServicesResponse.class);
-            long duration = System.currentTimeMillis() - startTime;
-
-            log.debug("[External API] Response received in {} ms", duration);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 ExternalPackageEligibleServicesResponse responseBody = response.getBody();
-                log.info("[External API] Successfully fetched package '{}' with {} eligible services",
-                        responseBody.getPackageName(),
-                        responseBody.getPackageEligibleServices() != null ?
-                                responseBody.getPackageEligibleServices().size() : 0);
+
+                // 2. Persist eligible services to contract_details
+                if (responseBody.getPackageEligibleServices() != null && !responseBody.getPackageEligibleServices().isEmpty()) {
+                    persistEligibleServices(contractUuid, responseBody.getPackageEligibleServices());
+                }
+
                 return responseBody;
             }
-
-            log.error("[External API] Failed to fetch eligible services. Status: {}", response.getStatusCode());
             throw new RuntimeException("External API returned status: " + response.getStatusCode());
 
         } catch (RestClientException e) {
-            log.error("[External API] Error fetching eligible services: {}", e.getMessage());
             throw new RuntimeException("Error calling external API", e);
         }
+    }
+
+
+    @Transactional
+    public void persistEligibleServices(String contractHeaderUuid, List<EligibleServiceDto> eligibleServices) {
+        ContractHeader contractHeader = contractHeaderRepository.findByContractHeaderUuid(contractHeaderUuid);
+        if (contractHeader == null){
+            throw new ResourceNotFoundException("ContractHeader", "contractHeaderUuid", contractHeaderUuid);
+        }
+
+        eligibleServices.forEach(eligibleService -> {
+            if (contractDetailRepository.existsByContractDetailUuid(eligibleService.getEligibleServiceUuid())) {
+                log.debug("ContractDetail already exists for eligibleServiceUuid: {}", eligibleService.getEligibleServiceUuid());
+                return;
+            }
+
+            ContractDetail contractDetail = new ContractDetail();
+            contractDetail.setContractDetailUuid(eligibleService.getEligibleServiceUuid());
+            contractDetail.setContractHeaderUuid(contractHeaderUuid);
+            contractDetail.setNegotiatedPrice(eligibleService.getPrice());
+            contractDetail.setStatus(Status.ACTIVE);
+            contractDetail.setContractHeader(contractHeader);
+
+            servicelistRepository.findByGeneratedServiceId(eligibleService.getServiceId())
+                    .ifPresentOrElse(
+                            service -> {
+                                contractDetail.setServicelist(service);
+                                contractDetail.setServiceUuid(service.getServiceUuid());
+                                contractDetail.setItemType("SERVICE");
+                                contractDetailRepository.save(contractDetail);
+                                log.info("Persisted ContractDetail for service: {}", service.getGeneratedServiceId());
+                            },
+                            () -> log.warn("Service not found with generatedServiceId: {}", eligibleService.getServiceId())
+                    );
+        });
     }
 
     private Specification<ServiceCategoryMapping> createSpecification(EligibleServiceSearchRequest request) {

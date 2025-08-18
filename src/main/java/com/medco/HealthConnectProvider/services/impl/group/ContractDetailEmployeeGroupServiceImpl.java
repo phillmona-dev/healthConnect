@@ -22,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -218,7 +219,7 @@ public class ContractDetailEmployeeGroupServiceImpl implements ContractDetailEmp
         if (association.getContractDetail() != null) {
             response.setServiceName(association.getContractDetail().getServicelist().getServiceName());
             response.setServiceCode(association.getContractDetail().getServicelist().getServiceCode());
-            response.setServicePrice(association.getContractDetail().getNegotiatedPrice());
+            response.setServicePrice(BigDecimal.valueOf(association.getContractDetail().getNegotiatedPrice()));
             response.setContractName(association.getContractDetail().getContractHeader().getContractName());
             response.setContractCode(association.getContractDetail().getContractHeader().getContractCode());
         }

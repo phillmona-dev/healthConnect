@@ -33,7 +33,7 @@ public class Drug {
     private String drugName;
     private String category;
     private String subCategory;
-    private BigDecimal price;
+    private Double price;
     private String dosage;
     private String manufacturer;
 

@@ -102,4 +102,5 @@ public interface ContractDetailRepository extends JpaRepository<ContractDetail, 
 
     Optional<ContractDetail> findByContractHeaderAndDrug(ContractHeader contractHeader, Drug drug);
 
+    boolean existsByContractDetailUuid(String eligibleServiceUuid);
 }

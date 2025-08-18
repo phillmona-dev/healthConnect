@@ -11,4 +11,5 @@ public interface EligibilityService {
     ResponseEntity<EligibilityResponse> checkEligibilityForInsured(String providerUuid, InsuredSearchResponse insured, String serviceUuid);
 
     ResponseEntity<?> checkEligibility(String identifier);
+
 }

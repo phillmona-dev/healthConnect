@@ -279,7 +279,7 @@ public class DrugServiceImpl implements DrugService {
         drug.setDrugName(getCellValueAsString(row.getCell(1)));
         drug.setCategory(getCellValueAsString(row.getCell(2)));
         drug.setSubCategory(getCellValueAsString(row.getCell(3)));
-        drug.setPrice(new BigDecimal(getCellValueAsString(row.getCell(4))));
+        drug.setPrice(parseDoubleFromString(getCellValueAsString(row.getCell(4))));
         drug.setDosage(getCellValueAsString(row.getCell(5)));
         drug.setManufacturer(getCellValueAsString(row.getCell(6)));
         drug.setStatus(Status.valueOf(getCellValueAsString(row.getCell(7)).toUpperCase()));
@@ -291,6 +291,17 @@ public class DrugServiceImpl implements DrugService {
         drug.setSideEffect(getCellValueAsString(row.getCell(13)));
         drug.setDescription(getCellValueAsString(row.getCell(14)));
         return drug;
+    }
+
+    private Double parseDoubleFromString(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private String getCellValueAsString(Cell cell) {

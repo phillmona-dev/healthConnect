@@ -454,7 +454,7 @@ public class ContractServiceImpl implements ContractService {
                         .contractHeaderUuid(savedContract.getContractHeaderUuid())
                         .servicelist(service)
                         .serviceUuid(service.getServiceUuid())
-                        .negotiatedPrice(BigDecimal.valueOf(service.getNegotiatedPrice()))
+                        .negotiatedPrice(service.getNegotiatedPrice())
                         .status(Status.ACTIVE)
                         .build();
                 contractDetailRepository.save(contractDetail);
@@ -1302,7 +1302,7 @@ public class ContractServiceImpl implements ContractService {
             summary.setServiceUuid(detail.getServiceUuid());
             summary.setServiceName(detail.getServicelist().getServiceName());
             summary.setItemType("SERVICE");
-            summary.setPrice(BigDecimal.valueOf(detail.getServicelist().getNegotiatedPrice()));
+            summary.setPrice(detail.getServicelist().getNegotiatedPrice());
             summary.setDescription(detail.getServicelist().getServiceDescription());
             summary.setServiceCode(detail.getServicelist().getServiceCode());
         } else if (detail.getDrug() != null) {

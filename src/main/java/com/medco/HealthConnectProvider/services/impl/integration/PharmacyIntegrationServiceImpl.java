@@ -10,6 +10,7 @@ import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordEd
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingDetailResponse;
 import com.medco.HealthConnectProvider.utils.enums.*;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.dto.MedicationDispensingDTO;
@@ -1148,69 +1149,41 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             if (provider == null) {
                 throw new ResourceNotFoundException("Provider", "uuid", userDetails.getProviderUuid());
             }
-            log.info("Provider found: {}", provider.getProviderUuid());
 
             Insured insured = insuredRepository.findByInsuredUuid(request.getInsuredUuid());
             if (insured == null) {
                 throw new ResourceNotFoundException("Insured", "uuid", request.getInsuredUuid());
             }
-            log.info("Insured found: {}", insured.getInsuredUuid());
 
             Payer payer = insured.getPayer();
-            log.info("Payer: {}", payer.getPayerUuid());
 
             ContractHeader contract = contractHeaderRepository.findByContractHeaderUuid(request.getContractHeaderUuid());
             if (contract == null) {
                 throw new ResourceNotFoundException("Contract", "uuid", request.getContractHeaderUuid());
             }
-            log.info("Contract found: {}", contract.getContractHeaderUuid());
-
             if (contract.getStatus() != Status.ACTIVE) {
                 throw new BadRequestException("The specified contract is not active");
             }
 
             MedicationDispensing dispensingRecord = createDispensingRecord(request, provider, insured, payer);
-            log.info("Dispensing record created: {}", dispensingRecord.getDispensingUuid());
 
-            // Skip service validation if serviceId is provided in any medication item
-            List<Servicelist> services = new ArrayList<>();
-            if (shouldValidateServices(request.getMedicationItems())) {
-                services = validateServices(provider.getProviderUuid(), request.getMedicationItems(), contract);
-                log.info("Services validated. Count: {}", services.size());
-            } else {
-                log.info("Skipping service validation - serviceId provided in request");
-            }
+            List<Servicelist> services = validateServices(provider.getProviderUuid(), request.getMedicationItems(), contract);
+            log.info("Services validated. Count: {}", services.size());
 
-            List<MedicationDispensingItem> dispensingItems = createDispensingItems(dispensingRecord, services, request.getMedicationItems(), payer, contract, request);
-            log.info("Dispensing items created. Count: {}", dispensingItems.size());
-
-            // Debug: Check if items are properly created
-            if (dispensingItems.isEmpty()) {
-                log.error("No dispensing items were created! This will cause issues with external processing.");
-            } else {
-                log.info("Dispensing items details:");
-                for (int i = 0; i < dispensingItems.size(); i++) {
-                    MedicationDispensingItem item = dispensingItems.get(i);
-                    log.info("Item {}: UUID={}, Name={}, Quantity={}, Price={}",
-                            i + 1, item.getItemUuid(), item.getMedicationName(),
-                            item.getQuantity(), item.getTotalPrice());
-                }
-            }
+            List<MedicationDispensingItem> dispensingItems = createDispensingItems(
+                    dispensingRecord,
+                    services,
+                    request.getMedicationItems(),
+                    payer,
+                    contract,
+                    request
+            );
 
             updateDispensingRecordTotals(dispensingRecord, dispensingItems);
-            log.info("Dispensing record totals updated. Total amount: {}", dispensingRecord.getTotalAmount());
-
             MedicationDispensing savedRecord = dispensingRepository.save(dispensingRecord);
-            log.info("Dispensing record saved to database. ID: {}", savedRecord.getId());
+            dispensingItemRepository.saveAll(dispensingItems);
 
-            // Save dispensing items to database
-            List<MedicationDispensingItem> savedItems = dispensingItemRepository.saveAll(dispensingItems);
-            log.info("Dispensing items saved to database. Count: {}", savedItems.size());
-
-            log.info("Number of items in saved record: {}", savedRecord.getItems().size());
-
-            // Post-processing: Handle insurance vs non-insurance logic
-            handlePostDispensingProcessing(request, savedRecord, savedItems);
+            handlePostDispensingProcessing(request, savedRecord, dispensingItems);
 
             return ResponseEntity.ok(new DispensingRecordResponse(savedRecord));
 
@@ -1232,15 +1205,12 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         try {
             if (Boolean.TRUE.equals(request.getIsInsurance())) {
-                // Send to external insurance system
                 handleInsuranceProcessing(request, savedRecord, dispensingItems);
             } else {
-                // Handle package usage reduction for non-insurance payers
                 handleNonInsuranceProcessing(savedRecord, dispensingItems);
             }
         } catch (Exception e) {
             log.error("Error in post-dispensing processing", e);
-            // Don't throw exception to avoid breaking the main flow
         }
     }
 
@@ -1254,14 +1224,12 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         log.info("Processing insurance dispensing for external system");
         log.info("Dispensing items count: {}", dispensingItems != null ? dispensingItems.size() : "null");
 
-        // Validate dispensing items
         if (dispensingItems == null || dispensingItems.isEmpty()) {
             log.error("Cannot process insurance - dispensing items list is empty or null");
             return;
         }
 
         try {
-            // Get serviceId from request or derive from contractDetailUuid
             String serviceId = getServiceId(request, dispensingItems);
 
             if (serviceId != null) {
@@ -1298,15 +1266,14 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
             for (MedicationDispensingItem item : dispensingItems) {
                 if (item.getContractDetail() != null) {
-                    // Record service consumption for package usage
                     packageUsageService.recordServiceConsumption(
                             insuredUuid,
                             item.getContractDetail().getContractDetailUuid(),
                             BigDecimal.valueOf(item.getTotalPrice()),
                             item.getQuantity(),
                             savedRecord.getCreatedAt(),
-                            null, // No claim UUID for dispensing
-                            savedRecord.getDispensingUuid(), // Use dispensing UUID as provided service UUID
+                            null,
+                            savedRecord.getDispensingUuid(),
                             "Medication dispensing consumption"
                     );
 
@@ -1326,7 +1293,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
      */
     private String getServiceId(DispensingRecordRequest request, List<MedicationDispensingItem> dispensingItems) {
 
-        // Try to get serviceId from the first medication item request
         if (request.getMedicationItems() != null && !request.getMedicationItems().isEmpty()) {
             DispensingRecordRequest.DispensingItemRequest firstItemRequest = request.getMedicationItems().get(0);
 
@@ -1336,7 +1302,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             }
         }
 
-        // If not provided in request, try to get from first dispensing item's contract detail
         if (!dispensingItems.isEmpty()) {
             MedicationDispensingItem firstItem = dispensingItems.get(0);
             if (firstItem.getContractDetail() != null &&
@@ -1374,12 +1339,10 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                                          ContractHeader contract,
                                          String fallbackServiceId) {
 
-        // Priority 1: Use contractDetailUuid if provided
         if (item.getContractDetailUuid() != null && !item.getContractDetailUuid().isEmpty()) {
             return item.getContractDetailUuid();
         }
 
-        // Priority 2: Use serviceId from item if provided
         String serviceIdToUse;
         if (item.getServiceId() != null && !item.getServiceId().isEmpty()) {
             serviceIdToUse = item.getServiceId();
@@ -1400,7 +1363,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                     .orElse(null);
 
             if (service != null) {
-                // Find contract detail for this service in the given contract
                 ContractDetail contractDetail = contractDetailRepository.findAll().stream()
                         .filter(cd -> cd.getContractHeader().getId().equals(contract.getId()) &&
                                 cd.getServicelist() != null &&
@@ -1437,34 +1399,31 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Transactional
     public ResponseEntity<DispensingResponse> recordMedicationDispensing(KenemaPharmacyDispensingRequest request) {
 
-        log.info("Recording medication dispensing from Kenema pharmacy: {}", request.getIdentifier());
+        log.info("Recording medication dispensing for insured UUID: {}", request.getInsuredUuid());
+
+        if (StringUtils.isBlank(request.getInsuredUuid())) {
+            throw new BadRequestException("insuredUuid is required");
+        }
 
         Provider provider = providerRepository.findByProviderNameContainingIgnoreCase("kenema")
                 .stream()
                 .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("provider", "provider name containing 'kenema'", request.getProviderName()));
-        log.info("Provider found: {}", provider.getProviderName());
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Provider",
+                        "name containing 'kenema'",
+                        request.getProviderName()
+                ));
+        log.info("Kenema provider found: {}", provider.getProviderName());
 
-        List<InsuredSearchResponse> insuredResponses = insuredService.searchInsuredPersons(request.getIdentifier());
-        log.info("Insured search responses: {}", insuredResponses);
-
-        if (insuredResponses.isEmpty()) {
-            throw new ResourceNotFoundException("Insured", "provided identifiers", "Not found");
-        }
-
-        if (insuredResponses.size() > 1) {
-            throw new BadRequestException("Multiple insured persons found. Please provide a more specific identifier.");
-        }
-
-        InsuredSearchResponse insuredResponse = insuredResponses.get(0);
-        log.info("Selected insured response: {}", insuredResponse);
-
-        Insured insured = insuredRepository.findByInsuredUuid(insuredResponse.getInsuredUuid());
-        log.info("Insured person found: {}", insured != null ? insured.getInsuredUuid() : "null");
-
+        Insured insured = insuredRepository.findByInsuredUuid(request.getInsuredUuid());
         if (insured == null) {
-            throw new ResourceNotFoundException("Insured", "insuredUuid", insuredResponse.getInsuredUuid());
+            throw new ResourceNotFoundException(
+                    "Insured",
+                    "insuredUuid",
+                    request.getInsuredUuid()
+            );
         }
+        log.info("Found insured: {} {}", insured.getFirstName(), insured.getFatherName());
 
         EligibilityResponse eligibilityResponse = checkEligibility(insured, provider.getProviderUuid());
         log.info("Eligibility check response: {}", eligibilityResponse);
@@ -1481,7 +1440,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         List<MedicationDispensingItem> savedItems = dispensingItemRepository.saveAll(items);
         log.info("Dispensing items saved: {}", savedItems.size());
 
-        // Handle package management and external API integration
         handleKenemaPackageAndExternalIntegration(request, savedItems, savedDispensing);
 
         DispensingResponse response = createDispensingResponse(savedDispensing);
@@ -1496,14 +1454,12 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
      * Gets additional fields from your system instead of external request
      */
     private void handleKenemaPackageAndExternalIntegration(KenemaPharmacyDispensingRequest request,
-                                                          List<MedicationDispensingItem> dispensingItems,
-                                                          MedicationDispensing dispensing) {
+                                                           List<MedicationDispensingItem> dispensingItems,
+                                                           MedicationDispensing dispensing) {
 
         log.info("Handling external integration for Kenema dispensing: {}", dispensing.getDispensingUuid());
 
         KenemaIntegrationConfig config = resolveKenemaIntegrationConfig(request, dispensing);
-
-        // Check if insurance integration is required
         if (config.isInsurance()) {
             log.info("Processing insurance payer - sending to external system");
             handleKenemaExternalInsuranceIntegration(request, dispensingItems, dispensing, config);
@@ -1517,29 +1473,27 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
      * Handle external insurance system integration for Kenema dispensing
      */
     private void handleKenemaExternalInsuranceIntegration(KenemaPharmacyDispensingRequest request,
-                                                         List<MedicationDispensingItem> dispensingItems,
-                                                         MedicationDispensing dispensing,
-                                                         KenemaIntegrationConfig config) {
+                                                          List<MedicationDispensingItem> dispensingItems,
+                                                          MedicationDispensing dispensing,
+                                                          KenemaIntegrationConfig config) {
 
         try {
-            // Validate required fields for external integration
             if (config.getContractHeaderUuid() == null || config.getContractHeaderUuid().isEmpty()) {
                 log.error("ContractHeaderUuid is required for insurance integration");
                 throw new IllegalArgumentException("ContractHeaderUuid is required for insurance payers");
             }
 
-            // Get serviceId from config or derive from dispensing items
             String serviceId = getServiceIdForKenemaIntegration(config, dispensingItems);
 
             if (serviceId != null) {
                 log.info("Sending Kenema dispensing to external insurance system with serviceId: {}", serviceId);
 
                 externalInsuranceService.sendDispensingToExternalSystem(
-                    dispensingItems,
-                    config.getPackageUuid(),
-                    serviceId,
-                    dispensing.getDispensingUuid(),
-                    config.getContractHeaderUuid()
+                        dispensingItems,
+                        config.getPackageUuid(),
+                        serviceId,
+                        dispensing.getDispensingUuid(),
+                        config.getContractHeaderUuid()
                 );
 
                 log.info("Successfully sent Kenema dispensing to external insurance system");
@@ -1559,9 +1513,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
      * This method should be customized to get the required fields from your system
      */
     private KenemaIntegrationConfig resolveKenemaIntegrationConfig(KenemaPharmacyDispensingRequest request,
-                                                                  MedicationDispensing dispensing) {
-
-        log.info("Resolving Kenema integration configuration for identifier: {}", request.getIdentifier());
+                                                                   MedicationDispensing dispensing) {
 
         // TODO: Implement logic to get these fields from your system
         // This is where you would query your database/configuration to get:
@@ -1606,18 +1558,16 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
      * Get serviceId for Kenema integration from config or dispensing items
      */
     private String getServiceIdForKenemaIntegration(KenemaIntegrationConfig config,
-                                                   List<MedicationDispensingItem> dispensingItems) {
+                                                    List<MedicationDispensingItem> dispensingItems) {
 
-        // Priority 1: Use serviceId from config
         if (config.getServiceId() != null && !config.getServiceId().isEmpty()) {
             return config.getServiceId();
         }
 
-        // Priority 2: Get from first dispensing item's contract detail
         if (!dispensingItems.isEmpty()) {
             MedicationDispensingItem firstItem = dispensingItems.get(0);
             if (firstItem.getContractDetail() != null &&
-                firstItem.getContractDetail().getServicelist() != null) {
+                    firstItem.getContractDetail().getServicelist() != null) {
                 return firstItem.getContractDetail().getServicelist().getGeneratedServiceId();
             }
         }
@@ -1625,11 +1575,11 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return null;
     }
 
-    private boolean isInsurancePayer(Payer payer){
-       if (payer == null){
-           return false;
-       }
-       return payer.isInsurance();
+    private boolean isInsurancePayer(Payer payer) {
+        if (payer == null) {
+            return false;
+        }
+        return payer.isInsurance();
     }
 
     /**
@@ -1659,24 +1609,23 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             return true; // Validate if no items
         }
 
-        // Check if any item has serviceId provided
         boolean hasServiceId = medicationItems.stream()
                 .anyMatch(item -> item.getServiceId() != null && !item.getServiceId().trim().isEmpty());
 
         if (hasServiceId) {
             log.info("ServiceId found in medication items - skipping service validation");
-            return false; // Skip validation
+            return false;
         }
 
         log.info("No serviceId found in medication items - performing service validation");
-        return true; // Perform validation
+        return true;
     }
 
     /**
      * Resolve service from item request when service validation is skipped
      */
     private Servicelist resolveServiceFromItemRequest(DispensingRecordRequest.DispensingItemRequest itemRequest,
-                                                     String providerUuid) {
+                                                      String providerUuid) {
 
         // Priority 1: Use serviceId if provided
         if (itemRequest.getServiceId() != null && !itemRequest.getServiceId().trim().isEmpty()) {
@@ -1690,7 +1639,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 return service;
             } else {
                 log.error("Service not found for serviceId: {} and provider: {}",
-                         itemRequest.getServiceId(), providerUuid);
+                        itemRequest.getServiceId(), providerUuid);
                 return null;
             }
         }
@@ -1707,7 +1656,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 return contractDetail.getServicelist();
             } else {
                 log.error("Contract detail not found or has no service for contractDetailUuid: {}",
-                         itemRequest.getContractDetailUuid());
+                        itemRequest.getContractDetailUuid());
                 return null;
             }
         }
@@ -1748,34 +1697,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return null;
     }
 
-    private Insured findInsuredPerson(KenemaPharmacyDispensingRequest request) {
-        if (request.getIdentifier() == null || request.getIdentifier().isEmpty()) {
-            throw new BadRequestException("Identifier is required to find the insured person");
-        }
-
-        String identifier = request.getIdentifier();
-        List<Insured> insuredList;
-
-        insuredList = (List<Insured>) insuredRepository.findByInsuranceId(identifier);
-        if (insuredList != null && !insuredList.isEmpty())
-            return selectInsured(insuredList, "insurance ID", identifier);
-
-        insuredList = (List<Insured>) insuredRepository.findByEmployeeId(identifier);
-        if (insuredList != null && !insuredList.isEmpty()) return selectInsured(insuredList, "employee ID", identifier);
-
-        insuredList = insuredRepository.findByIdNumber(identifier);
-        if (insuredList != null && !insuredList.isEmpty()) return selectInsured(insuredList, "ID number", identifier);
-
-        insuredList = (List<Insured>) insuredRepository.findByNationalId(identifier);
-        if (insuredList != null && !insuredList.isEmpty()) return selectInsured(insuredList, "national ID", identifier);
-
-        insuredList = (List<Insured>) insuredRepository.findByPhone(identifier);
-        if (insuredList != null && !insuredList.isEmpty())
-            return selectInsured(insuredList, "phone number", identifier);
-
-        throw new ResourceNotFoundException("Insured Person", "identifier", identifier);
-
-    }
 
     private Insured selectInsured(List<Insured> insuredList, String identifierType, String identifier) {
         if (insuredList.size() == 1) {
@@ -1845,32 +1766,41 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return response;
     }
 
-    private MedicationDispensing createDispensingRecord(KenemaPharmacyDispensingRequest request, Insured insured, Provider provider, EligibilityResponse eligibilityResponse) {
+    private MedicationDispensing createDispensingRecord(KenemaPharmacyDispensingRequest request,
+                                                        Insured insured,
+                                                        Provider provider,
+                                                        EligibilityResponse eligibilityResponse) {
 
         MedicationDispensing dispensing = new MedicationDispensing();
-
         dispensing.setInvoiceNumber(generateInvoiceNumber());
         dispensing.setDispensingUuid(UUID.randomUUID().toString());
         dispensing.setProviderUuid(provider.getProviderUuid());
         dispensing.setPayerUuid(insured.getPayer().getPayerUuid());
         dispensing.setInsuredUuid(insured.getInsuredUuid());
-        dispensing.setPharmacyTransactionId(request.getIdentifier());
         dispensing.setDispensingDate(request.getDispensedDate());
         dispensing.setPrescribingPhysicianName(request.getPhysicianFullName());
         dispensing.setBranchName(request.getProviderBranchName());
         dispensing.setRecordedAt(LocalDate.now());
         dispensing.setSource(SourceType.SYSTEM);
         dispensing.setClaimStatus("DRAFT");
+        dispensing.setStatus(MedicationStatus.DRAFT);
 
-        calculateTotals(dispensing, request, eligibilityResponse);
+        double calculatedTotal = request.getPrescriptionDetails().stream()
+                .mapToDouble(detail -> detail.getPrice() * detail.getQuantity())
+                .sum();
+
+        dispensing.setTotalAmount(calculatedTotal);
+
+        calculateTotals(dispensing, eligibilityResponse);
 
         return dispensing;
     }
 
-    private void calculateTotals(MedicationDispensing dispensing, KenemaPharmacyDispensingRequest request, EligibilityResponse eligibilityResponse) {
+    private void calculateTotals(MedicationDispensing dispensing, EligibilityResponse eligibilityResponse) {
         double totalAmount = dispensing.getTotalAmount();
 
         double coveragePercentage = 100.0;
+
         if (eligibilityResponse != null && eligibilityResponse.getRequestedService() != null) {
             coveragePercentage = 100.0 - eligibilityResponse.getRequestedService().getCoPaymentPercentage();
         }
@@ -1878,8 +1808,11 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         double insuranceCoverage = totalAmount * (coveragePercentage / 100.0);
         double patientResponsibility = totalAmount - insuranceCoverage;
 
-        dispensing.setPatientResponsibility(patientResponsibility);
         dispensing.setInsuranceCoverage(insuranceCoverage);
+        dispensing.setPatientResponsibility(patientResponsibility);
+
+        log.info("Financial Breakdown - Total: {}, Coverage: {}%, Insurance Pays: {}, Patient Pays: {}",
+                totalAmount, coveragePercentage, insuranceCoverage, patientResponsibility);
     }
 
     private List<MedicationDispensingItem> createDispensingItems(KenemaPharmacyDispensingRequest request, MedicationDispensing savedDispensing) {
@@ -1912,7 +1845,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             newDrug.setDrugName(prescriptionDetail.getMedicationName());
             newDrug.setDosage(prescriptionDetail.getDosage().toString());
             newDrug.setRoute(prescriptionDetail.getRoute());
-            newDrug.setPrice(BigDecimal.valueOf(prescriptionDetail.getPrice()));
+            newDrug.setPrice(prescriptionDetail.getPrice());
             newDrug.setStatus(Status.ACTIVE);
 
             return drugRepository.save(newDrug);
@@ -1932,7 +1865,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         dispensingItem.setRoute(item.getRoute());
         dispensingItem.setItemType(ItemType.DRUG);
 
-        // Find active contract
         List<ContractHeader> activeContracts = contractHeaderRepository.findActiveContractsBetweenProviderAndPayer(
                 savedDispensing.getProviderUuid(), savedDispensing.getPayerUuid(), Status.ACTIVE);
 
@@ -1943,7 +1875,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         ContractHeader activeContract = activeContracts.get(0);
 
-        // Try to resolve contract detail using serviceId or contractDetailUuid
         ContractDetail contractDetail = resolveKenemaContractDetail(item, activeContract, savedDispensing);
 
         dispensingItem.setContractDetail(contractDetail);
@@ -1956,8 +1887,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
      * Since external system doesn't provide serviceId or contractDetailUuid, we use drug-based approach
      */
     private ContractDetail resolveKenemaContractDetail(KenemaPharmacyDispensingRequest.PrescriptionDetail item,
-                                                      ContractHeader activeContract,
-                                                      MedicationDispensing savedDispensing) {
+                                                       ContractHeader activeContract,
+                                                       MedicationDispensing savedDispensing) {
 
         log.info("Resolving contract detail using drug-based resolution for medication: {}", item.getMedicationName());
 
@@ -1971,7 +1902,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                     newDetail.setContractHeaderUuid(activeContract.getContractHeaderUuid());
                     newDetail.setDrug(drug);
                     newDetail.setDrugUuid(drug.getDrugUuid());
-                    newDetail.setNegotiatedPrice(BigDecimal.valueOf(item.getPrice()));
+                    newDetail.setNegotiatedPrice(item.getPrice());
                     newDetail.setStatus(Status.ACTIVE);
                     newDetail.setItemType("DRUG");
                     newDetail.setContractDetailUuid(UUID.randomUUID().toString());
@@ -2083,6 +2014,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 }
 
                 log.info("Found Service by serviceId: {}", service.getServiceName());
+
             }
             // Priority 2: Fallback to contractDetailUuid if serviceId not provided
             else if (item.getContractDetailUuid() != null && !item.getContractDetailUuid().trim().isEmpty()) {
@@ -2155,7 +2087,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 if (service == null) {
                     log.error("Could not resolve service for item request {}", i + 1);
                     log.error("Item request details - ServiceId: {}, ContractDetailUuid: {}, ItemType: {}",
-                             itemRequest.getServiceId(), itemRequest.getContractDetailUuid(), itemRequest.getItemType());
+                            itemRequest.getServiceId(), itemRequest.getContractDetailUuid(), itemRequest.getItemType());
                     uncoveredItems.add("Item " + (i + 1) + ": Could not resolve service");
                     continue;
                 }
@@ -2190,7 +2122,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 item.setDispensing(dispensingRecord);
                 item.setContractDetail(contractDetail);
                 item.setQuantity((double) itemRequest.getQuantity());
-                item.setUnitPrice(service.getPrice());
+                item.setUnitPrice(contractDetail.getNegotiatedPrice());
                 item.setTotalPrice(itemRequest.getPrice() * itemRequest.getQuantity());
                 item.setMedicationName(service.getServiceName());
                 item.setMedicationCode(service.getServiceCode());

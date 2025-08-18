@@ -19,7 +19,7 @@ public class ContractDetailRequest {
     
     @NotNull(message = "Negotiated price is required")
     @DecimalMin(value = "0.0", inclusive = true, message = "Price must be greater than or equal to 0")
-    private BigDecimal negotiatedPrice;
+    private Double negotiatedPrice;
     
     private List<String> employeeGroupUuids;
 }

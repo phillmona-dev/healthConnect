@@ -42,7 +42,7 @@ public class ContractRequest {
         private String itemUuid;
         private String serviceName;
         private String itemType;
-        private BigDecimal negotiatedPrice;
+        private Double negotiatedPrice;
         private String packageCategory;
     }
 }

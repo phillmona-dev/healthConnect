@@ -13,7 +13,7 @@ import java.util.List;
 @NoArgsConstructor
 public class KenemaPharmacyDispensingRequest {
     private String cbhid;
-    private String identifier;
+    private String insuredUuid;
     private String mrn;
     private String providerBranchName;
     private LocalDate dispensedDate;

@@ -8,6 +8,7 @@ import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
+import com.medco.HealthConnectProvider.entity.services.Servicelist;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.contract.ContractDetailRepository;
@@ -39,6 +40,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -296,7 +298,7 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
 
     @Override
     public ResponseEntity<?> addServicesToGroup(String groupUuid, List<String> services) {
-        List<Service>serviceList=servicelistRepository.findByServiceUuidIn(services);
+        List<Servicelist> serviceList=servicelistRepository.findByServiceUuidIn(services);
         EmployeeDependantGroup employeeDependantGroup=groupRepository.findByGroupUuid(groupUuid);
 //        employeeDependantGroup.set
         return null;
@@ -325,7 +327,7 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
                             .contractDetailUuid(detail.getContractDetailUuid())
                             .serviceName(detail.getServicelist().getServiceName())
                             .serviceCode(detail.getServicelist().getServiceCode())
-                            .negotiatedPrice(detail.getNegotiatedPrice())
+                            .negotiatedPrice(BigDecimal.valueOf(detail.getNegotiatedPrice()))
                             .status(detail.getStatus().toString())
                             .build();
                 })
@@ -369,7 +371,7 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
                             .contractDetailUuid(detail.getContractDetailUuid())
                             .serviceName(detail.getServicelist() != null ? detail.getServicelist().getServiceName() : null)
                             .serviceCode(detail.getServicelist() != null ? detail.getServicelist().getServiceCode() : null)
-                            .negotiatedPrice(detail.getNegotiatedPrice())
+                            .negotiatedPrice(BigDecimal.valueOf(detail.getNegotiatedPrice()))
                             .status(detail.getStatus() != null ? detail.getStatus().toString() : null)
                             .build();
                 })

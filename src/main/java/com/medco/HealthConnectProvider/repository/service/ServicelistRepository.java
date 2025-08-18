@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
@@ -48,7 +47,7 @@ public interface ServicelistRepository extends JpaRepository<Servicelist, Long> 
 
     Servicelist findByServiceUuidAndProviderProviderUuid(String serviceUuid, String providerUuid);
 
-    List<Service> findByServiceUuidIn(List<String> services);
+    List<Servicelist> findByServiceUuidIn(List<String> services);
 
     @Query("SELECT DISTINCT s.serviceCategory FROM Servicelist s WHERE s.provider = :provider AND s.isDeleted = false ORDER BY s.serviceCategory")
     List<String> findDistinctCategoriesByProvider(@Param("provider") Provider provider);
@@ -70,4 +69,5 @@ public interface ServicelistRepository extends JpaRepository<Servicelist, Long> 
 
     Servicelist findByGeneratedServiceIdAndProviderProviderUuid(String serviceId, String providerUuid);
 
+    Optional<Servicelist> findByGeneratedServiceId(String serviceId);
 }

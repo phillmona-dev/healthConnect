@@ -512,7 +512,7 @@ public class EligibilityServiceImpl implements EligibilityService {
             ContractHeader contractHeader,
             Insured insured) {
         response.setCovered(true);
-        response.setPrice(bestContractDetail.getNegotiatedPrice());
+        response.setPrice(BigDecimal.valueOf(bestContractDetail.getNegotiatedPrice()));
 
         Double coPaymentPercentage = contractHeader.getCoPaymentPercentage() != null ?
                 contractHeader.getCoPaymentPercentage() : 20.0; // Default 20%
@@ -520,7 +520,7 @@ public class EligibilityServiceImpl implements EligibilityService {
         response.setCoPaymentPercentage(coPaymentPercentage);
 
         BigDecimal price = bestContractDetail.getNegotiatedPrice() != null ?
-                bestContractDetail.getNegotiatedPrice() : BigDecimal.ZERO;
+                BigDecimal.valueOf(bestContractDetail.getNegotiatedPrice()) : BigDecimal.ZERO;
         BigDecimal coPaymentPercentageBD = BigDecimal.valueOf(coPaymentPercentage / 100.0);
         BigDecimal coPaymentAmount = price.multiply(coPaymentPercentageBD);
         response.setCoPaymentAmount(coPaymentAmount);
