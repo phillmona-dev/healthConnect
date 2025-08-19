@@ -170,17 +170,16 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
             "WHERE i.payer.payerUuid = :payerUuid " +
             "AND i.isDeleted = :isDeleted " +
             "AND (c.contractHeaderUuid != :contractUuid OR c IS NULL) " +
-            "AND (:searchKey IS NULL OR :searchKey = '' OR " +
-            "  (LOWER(i.firstName) LIKE LOWER(CONCAT('%', :searchKey, '%')) " +
-            "   OR LOWER(i.fatherName) LIKE LOWER(CONCAT('%', :searchKey, '%')) " +
-            "   OR LOWER(i.grandFatherName) LIKE LOWER(CONCAT('%', :searchKey, '%')) " +
-            "   OR LOWER(i.phone) LIKE LOWER(CONCAT('%', :searchKey, '%')) " +
-            "   OR LOWER(i.insuranceId) LIKE LOWER(CONCAT('%', :searchKey, '%'))))")
+            "AND (LOWER(i.firstName) LIKE :searchLike " +
+            "   OR LOWER(i.fatherName) LIKE :searchLike " +
+            "   OR LOWER(i.grandFatherName) LIKE :searchLike " +
+            "   OR LOWER(i.phone) LIKE :searchLike " +
+            "   OR LOWER(i.insuranceId) LIKE :searchLike)")
     Page<Insured> findByPayerAndNotInContractAndSearchKey(
             @Param("payerUuid") String payerUuid,
             @Param("contractUuid") String contractUuid,
             @Param("isDeleted") Boolean isDeleted,
-            @Param("searchKey") String searchKey,
+            @Param("searchLike") String searchLike,
             Pageable pageable);
 
     boolean existsByIdNumberAndPayerUuid(String idNumber, String payerUuid);

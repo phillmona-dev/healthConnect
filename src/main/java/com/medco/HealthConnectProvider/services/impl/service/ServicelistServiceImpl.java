@@ -28,13 +28,9 @@ import com.medco.HealthConnectProvider.utils.paginationUtils.Pagination;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.hssf.usermodel.HSSFSheet;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddress;
-import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.openxmlformats.schemas.spreadsheetml.x2006.main.CTSheetProtection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -42,7 +38,6 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -173,7 +168,6 @@ public class ServicelistServiceImpl implements ServicelistService {
         Logger logger = LoggerFactory.getLogger(this.getClass());
         logger.info("Starting export of services to Excel for provider UUID: {}", providerUuid);
 
-        // Fetch provider
         Provider provider = providerRepository.findByProviderUuid(providerUuid);
         if (provider == null) {
             logger.error("Provider not found for UUID: {}", providerUuid);
@@ -181,22 +175,18 @@ public class ServicelistServiceImpl implements ServicelistService {
         }
         logger.info("Provider found: {}", provider.getProviderName());
 
-        // Fetch services
         List<Servicelist> services = categories == null || categories.isEmpty()
                 ? servicelistRepository.findAllByProviderWithEagerFetch(provider)
                 : servicelistRepository.findByProviderAndServiceCategoryInWithEagerFetch(provider, categories);
         logger.info("Retrieved {} services", services.size());
 
-        // Create workbook and sheet
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("Services");
 
-        // Create styles - no locked styles needed
         CellStyle headerStyle = createHeaderStyle(workbook);
         CellStyle dataStyle = createDataStyle(workbook);
         CellStyle categoryStyle = createCategoryStyle(workbook);
 
-        // Create header row - all cells unlocked
         Row headerRow = sheet.createRow(0);
         String[] headers = {
                 "Service ID", "Service Code", "Service Name", "Category", "Sub Category",
@@ -209,7 +199,6 @@ public class ServicelistServiceImpl implements ServicelistService {
             cell.setCellStyle(headerStyle);
         }
 
-        // Populate data rows - all cells unlocked
         int rowNum = 1;
         String currentCategory = null;
         for (Servicelist service : services) {
@@ -224,12 +213,10 @@ public class ServicelistServiceImpl implements ServicelistService {
 
             Row row = sheet.createRow(rowNum++);
 
-            // Service ID (editable)
             Cell serviceIdCell = row.createCell(0);
             serviceIdCell.setCellValue(service.getGeneratedServiceId());
             serviceIdCell.setCellStyle(dataStyle);
 
-            // Other columns (editable)
             setCellValue(row, 1, service.getServiceCode(), "Service Code", dataStyle);
             setCellValue(row, 2, service.getServiceName(), "Service Name", dataStyle);
             setCellValue(row, 3, service.getServiceCategory(), "Category", dataStyle);
@@ -238,11 +225,7 @@ public class ServicelistServiceImpl implements ServicelistService {
             setCellValue(row, 6, service.getNegotiatedPrice(), "Negotiated Price", dataStyle);
         }
 
-        // Auto-size columns
         autoSizeColumns(sheet);
-
-        // No sheet protection needed
-        // sheet.protectSheet(""); // Removed
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         workbook.write(outputStream);
@@ -269,17 +252,6 @@ public class ServicelistServiceImpl implements ServicelistService {
         return servicelistRepository.findDistinctCategoriesByProvider(provider);
 
     }
-
-//    private CellStyle createCategoryStyle(Workbook workbook) {
-//        CellStyle categoryStyle = workbook.createCellStyle();
-//        categoryStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-//        categoryStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-//        categoryStyle.setAlignment(HorizontalAlignment.CENTER);
-//        Font categoryFont = workbook.createFont();
-//        categoryFont.setBold(true);
-//        categoryStyle.setFont(categoryFont);
-//        return categoryStyle;
-//    }
 
     @Override
     public ResponseEntity<InputStreamResource> exportDrugsToExcel(String providerUuid) throws IOException {
@@ -438,20 +410,16 @@ public class ServicelistServiceImpl implements ServicelistService {
     private CellStyle createCategoryStyle(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
 
-        // Create and configure font
         Font font = workbook.createFont();
         font.setBold(true);
-        font.setColor(IndexedColors.BLACK.getIndex()); // Changed to black for better contrast
+        font.setColor(IndexedColors.BLACK.getIndex());
 
-        // Set alignment to center (both horizontal and vertical)
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
 
-        // Set light gray background color
-        style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex()); // Light gray
+        style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
-        // Add borders for better visual separation
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderTop(BorderStyle.THIN);
         style.setBorderLeft(BorderStyle.THIN);
@@ -540,7 +508,6 @@ public class ServicelistServiceImpl implements ServicelistService {
                 .map(servicelist -> {
                     var servicelistResponse = new ServicelistResponse();
                     BeanUtils.copyProperties(servicelist, servicelistResponse);
-//                    servicelistResponse.setPrice(BigDecimal.valueOf(servicelist.getPrice()));
                     servicelistResponse.setStatus(String.valueOf(servicelist.getStatus()));
                     servicelistResponse.setProviderName(servicelist.getProvider().getProviderName());
 

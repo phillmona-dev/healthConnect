@@ -50,7 +50,7 @@ public class EmployeeDependantGroupController {
     }
 
     @GetMapping("/groups")
-//    @PreAuthorize("hasRole('View-Groups')")
+    //    @PreAuthorize("hasRole('View-Groups')")
     @Operation(summary = "List groups", description = "Retrieves a list of groups with pagination and search")
     public Page<EmployeeDependantGroupResponse> listGroups(
 
@@ -63,7 +63,7 @@ public class EmployeeDependantGroupController {
     }
 
     @GetMapping("/payerGroups/{payerUuid}")
-//    @PreAuthorize("hasRole('View-Groups')")
+    //    @PreAuthorize("hasRole('View-Groups')")
     @Operation(summary = "List groups", description = "Retrieves a list of payer groups with pagination and search")
     public PagedResponse<EmployeeDependantGroupResponse> payerGroups(
             @PathVariable(value = "payerUuid") String payerUuid,
@@ -76,7 +76,7 @@ public class EmployeeDependantGroupController {
     }
 
     @PutMapping("/{groupUuid}")
-//    @PreAuthorize("hasRole('Manage-Groups')")
+    //    @PreAuthorize("hasRole('Manage-Groups')")
     @Operation(summary = "Update group", description = "Updates an existing employee/dependant group")
     public ResponseEntity<EmployeeDependantGroupResponse> updateGroup(
             @PathVariable String groupUuid,
@@ -85,7 +85,7 @@ public class EmployeeDependantGroupController {
     }
 
     @PutMapping("addMembersToGroup/{groupUuid}")
-//    @PreAuthorize("hasRole('Manage-Groups')")
+    //    @PreAuthorize("hasRole('Manage-Groups')")
     @Operation(summary = "Update group", description = "Updates an existing employee/dependant group")
     public ResponseEntity<?> addMembersToGroup(
             @PathVariable(value = "groupUuid") String groupUuid,
@@ -94,7 +94,7 @@ public class EmployeeDependantGroupController {
     }
 
     @PutMapping("addServicesToGroup/{groupUuid}")
-//    @PreAuthorize("hasRole('Manage-Groups')")
+    //    @PreAuthorize("hasRole('Manage-Groups')")
     @Operation(summary = "Update group", description = "Updates an existing employee/dependant group")
     public ResponseEntity<?> addServicesToGroup(
             @PathVariable(value = "groupUuid") String groupUuid,

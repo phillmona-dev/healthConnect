@@ -48,12 +48,10 @@ public class DependantServiceImpl implements DependantService {
 
     private final DependantRepository dependantRepository;
     private final InsuredRepository insuredRepository;
-    private final InsuredServiceImpl insuredService;
 
-    public DependantServiceImpl(DependantRepository dependantRepository, InsuredRepository insuredRepository, InsuredServiceImpl insuredService) {
+    public DependantServiceImpl(DependantRepository dependantRepository, InsuredRepository insuredRepository) {
         this.dependantRepository = dependantRepository;
         this.insuredRepository = insuredRepository;
-        this.insuredService = insuredService;
     }
 
     @Override

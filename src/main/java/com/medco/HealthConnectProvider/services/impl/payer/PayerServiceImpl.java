@@ -165,7 +165,6 @@ public class PayerServiceImpl implements PayerService {
         }
 
         payer.setPayerUuid(UUID.randomUUID().toString());
-        //payer.setTinNumber(payerRequest.getTinNumber());
         payer.setRegistrationDate(new Date());
         payer.setStatus(payerRequest.getStatus() != null ? payerRequest.getStatus() : Status.PENDING);
 
@@ -581,16 +580,6 @@ public class PayerServiceImpl implements PayerService {
         };
     }
 
-    private String getContentType(String path) {
-        String extension = path.substring(path.lastIndexOf(".") + 1).toLowerCase();
-        return switch (extension) {
-            case "jpg", "jpeg" -> "image/jpeg";
-            case "png" -> "image/png";
-            case "gif" -> "image/gif";
-            default -> "application/octet-stream";
-        };
-    }
-
     private PayerResponse getPayerResponse(Payer payer) {
         PayerResponse response = new PayerResponse();
         BeanUtils.copyProperties(payer, response);
@@ -873,7 +862,6 @@ public class PayerServiceImpl implements PayerService {
             BeanUtils.copyProperties(payer, response);
             response.setStatus(payer.getStatus());
 
-            // Set logo
             if (payer.getLogoPath() != null && !payer.getLogoPath().isEmpty()) {
                 try {
                     String logoPath = payerLogosDirectory + "/" + payer.getLogoPath();
@@ -968,10 +956,6 @@ public class PayerServiceImpl implements PayerService {
         }
         return email;
     }
-
-//    private String generateRandomPassword() {
-//        return UUID.randomUUID().toString().substring(0, 8);
-//    }
 
     private Role createDefaultRoleForPayer(Payer payer) {
         Role role = new Role();
@@ -1096,13 +1080,6 @@ public class PayerServiceImpl implements PayerService {
         if (columnIndex == null) return null;
         Cell cell = row.getCell(columnIndex);
         return getCellValueAsString(cell);
-    }
-
-    private Long getLongCellValue(Row row, Map<String, Integer> headerMap, String headerName) {
-        Integer columnIndex = headerMap.get(headerName.toLowerCase());
-        if (columnIndex == null) return null;
-        Cell cell = row.getCell(columnIndex);
-        return getCellValueAsLong(cell);
     }
 
     private String getCellValueAsString(Cell cell) {

@@ -409,12 +409,15 @@ public class InsuredServiceImpl implements InsuredService {
             throw new ResourceNotFoundException("Payer", "payerUuid", payerUuid);
         }
 
-        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("first_name").ascending());
-        String normalizedSearch = StringUtils.hasText(search) ? search.trim().toLowerCase() : null;
+        Pageable pageable = StringUtils.hasText(contractUuid)
+                ? PageRequest.of(page - 1, size, Sort.by("firstName").ascending())
+                : PageRequest.of(page - 1, size, Sort.by("first_name").ascending());
+        String normalizedSearch = StringUtils.hasText(search) ? search.trim().toLowerCase() : "";
+        String searchLike = StringUtils.hasText(normalizedSearch) ? "%" + normalizedSearch + "%" : "%";
 
         Page<Insured> insuredPage;
         if (StringUtils.hasText(contractUuid)) {
-            insuredPage = insuredRepository.findByPayerAndNotInContractAndSearchKey(payerUuid, contractUuid, false, normalizedSearch, pageable);
+            insuredPage = insuredRepository.findByPayerAndNotInContractAndSearchKey(payerUuid, contractUuid, false, searchLike, pageable);
         } else {
             insuredPage = insuredRepository.findByPayerAndSearchKey(payerUuid, false, normalizedSearch, pageable);
         }
@@ -455,7 +458,6 @@ public class InsuredServiceImpl implements InsuredService {
         response.setPosition(insured.getPosition());
         response.setIdNumber(insured.getIdNumber());
         response.setEmployeeId(insured.getEmployeeId());
-
 
         String photoBase64 = getInsuredPhotoBase64(insured.getInsuredUuid());
         if (StringUtils.hasText(photoBase64)) {
@@ -614,12 +616,6 @@ public class InsuredServiceImpl implements InsuredService {
             return mapToInsuredSearchResponses(insuredList);
         }
 
-//        insured = insuredRepository.findByInsuranceId(identifier);
-//        if (insured != null) {
-//            insuredList.add(insured);
-//            return mapToInsuredSearchResponses(insuredList);
-//        }
-
       List<Insured>  insuredByNationalId = (List<Insured>) insuredRepository.findByNationalId(identifier);
         if (!insuredByNationalId.isEmpty()) {
             insuredList.addAll(insuredByNationalId);
@@ -647,13 +643,6 @@ public class InsuredServiceImpl implements InsuredService {
 
             response.setInsured(isPersonCurrentlyInsured(insured));
 
-//            String profilePicturePath = insured.getProfilePicturePath();
-//            log.info("Profile picture path for insured {}: {}", insured.getInsuredUuid(), profilePicturePath);
-//            String profilePictureBase64 = getProfilePictureBase64(profilePicturePath);
-//            response.setProfilePictureBase64(profilePictureBase64);
-//            log.info("Profile picture base64 for insured {}: {}", insured.getInsuredUuid(),
-//                    profilePictureBase64 != null ? "Set" : "Null");
-
             if (insured.getDependants() != null && !insured.getDependants().isEmpty()) {
                 List<DependantResponse> dependantResponses = insured.getDependants().stream()
                         .map(this::mapToDependantResponse)
@@ -665,37 +654,6 @@ public class InsuredServiceImpl implements InsuredService {
 
             return response;
         }).collect(Collectors.toList());
-    }
-
-    private String getProfilePictureBase64(String profilePicturePath) {
-        if (profilePicturePath == null || profilePicturePath.isEmpty()) {
-            log.warn("Profile picture path is null or empty for insured person");
-            return null;
-        }
-
-        try {
-
-            Path fullPath = Paths.get(payerLogosDirectory, profilePicturePath);
-            log.info("Attempting to read profile picture from: {}", fullPath);
-
-            if (!Files.exists(fullPath)) {
-                log.warn("Profile picture file does not exist: {}", fullPath);
-                return null;
-            }
-
-            byte[] fileContent = Files.readAllBytes(fullPath);
-            String base64 = Base64.getEncoder().encodeToString(fileContent);
-
-            String contentType = Files.probeContentType(fullPath);
-            if (contentType == null) {
-                contentType = "application/octet-stream";
-            }
-
-            return "data:" + contentType + ";base64," + base64;
-        } catch (IOException e) {
-            log.error("Error reading profile picture: {}", e.getMessage());
-            return null;
-        }
     }
 
     private boolean isPersonCurrentlyInsured(Insured insured) {
@@ -814,9 +772,7 @@ public class InsuredServiceImpl implements InsuredService {
         if (StringUtils.hasText(request.getCountry())) {
             insured.setCountry(request.getCountry());
         }
-//        if (StringUtils.hasText(request.getInsuranceId())) {
-//            insured.setInsuranceId(request.getInsuranceId());
-//        }
+
         if (request.getStatus() != null) {
             insured.setStatus(request.getStatus());
         }
@@ -983,7 +939,7 @@ public class InsuredServiceImpl implements InsuredService {
 
             if (insuredRequest.getDependants() != null && !insuredRequest.getDependants().isEmpty()) {
                 // Rest of the dependant processing
-                // ...
+                // TODO
             }
 
             return ResponseEntity.ok(new MessageResponse("Insured person and dependants updated successfully!"));
@@ -1135,9 +1091,7 @@ public class InsuredServiceImpl implements InsuredService {
                 person.setAddress(row.getCell(11).getStringCellValue());
                 person.setState(row.getCell(14).getStringCellValue());
                 person.setCountry(row.getCell(15).getStringCellValue());
-               // person.setInsuranceId(row.getCell(16).getStringCellValue());
 
-//				person.setPayerInstitutionContractUuid(payerInstitutionContractUuid);
                 person.setStatus(Status.ACTIVE);
                 person.setPayerUuid(institutionUuid);
 
@@ -1485,7 +1439,6 @@ public class InsuredServiceImpl implements InsuredService {
                     try {
                         return format.parse(dateStr);
                     } catch (ParseException e) {
-                        // Try next format
                     }
                 }
 
