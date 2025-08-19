@@ -61,7 +61,8 @@ public interface PayerRepository extends JpaRepository<Payer, Long>, JpaSpecific
 
     Payer findByPayerName(String payerName);
 
-    @Query("SELECT DISTINCT p FROM Payer p JOIN p.contractHeaders c WHERE c.provider.providerUuid = :providerUuid AND " +
+    @Query("SELECT DISTINCT p FROM Payer p JOIN p.contractHeaders c WHERE c.provider.providerUuid = :providerUuid " +
+            "AND c.status = 'ACTIVE' AND " +
             "(LOWER(p.payerName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(p.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(p.telephone) LIKE LOWER(CONCAT('%', :search, '%')))")
@@ -69,8 +70,10 @@ public interface PayerRepository extends JpaRepository<Payer, Long>, JpaSpecific
                                                  @Param("search") String search,
                                                  Pageable pageable);
 
-    @Query("SELECT DISTINCT p FROM Payer p JOIN p.contractHeaders c WHERE c.provider.providerUuid = :providerUuid")
-    Page<Payer> findPayersWithContractByProvider(@Param("providerUuid") String providerUuid, Pageable pageable);
+    @Query("SELECT DISTINCT p FROM Payer p JOIN p.contractHeaders c WHERE c.provider.providerUuid = :providerUuid " +
+            "AND c.status = 'ACTIVE'")
+    Page<Payer> findPayersWithContractByProvider(@Param("providerUuid") String providerUuid,
+                                                 Pageable pageable);
 
     boolean existsByPayerNameOrTelephone(String payerName, String telephone);
 

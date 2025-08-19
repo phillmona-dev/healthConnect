@@ -324,7 +324,7 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
 
     @Override
     public ResponseEntity<PagedResponse<PayerResponse>> getPayersWithContract(String providerUuid, int page, int size, String sortBy, String sortDir, String search) {
-        log.info("Fetching payers with contract for provider UUID: {}", providerUuid);
+        log.info("Fetching payers with ACTIVE contracts for provider UUID: {}", providerUuid);
 
         Provider provider = providerRepository.findByProviderUuid(providerUuid);
         if (provider == null) {
@@ -356,7 +356,8 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
                 payerPage.hasPrevious()
         );
 
-        log.info("Successfully fetched {} payers with contract for provider UUID: {}", payerResponses.size(), providerUuid);
+        log.info("Successfully fetched {} payers with ACTIVE contracts for provider UUID: {}",
+                payerResponses.size(), providerUuid);
         return ResponseEntity.ok(pagedResponse);
     }
 

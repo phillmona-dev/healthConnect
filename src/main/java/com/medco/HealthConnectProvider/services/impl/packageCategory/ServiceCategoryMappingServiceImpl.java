@@ -364,7 +364,6 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
             Integer page,
             Integer limit) {
 
-        // 1. Fetch from external API (existing code)
         UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(externalApiConfig.getExternalApiBaseUrl())
                 .path("/api/payer/claimconnect/package/packageEligibleServices/{contractUuid}")
                 .queryParam("packageUuid", packageUuid)
@@ -401,7 +400,6 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 ExternalPackageEligibleServicesResponse responseBody = response.getBody();
 
-                // 2. Persist eligible services to contract_details
                 if (responseBody.getPackageEligibleServices() != null && !responseBody.getPackageEligibleServices().isEmpty()) {
                     persistEligibleServices(contractUuid, responseBody.getPackageEligibleServices());
                 }
@@ -419,7 +417,7 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
     @Transactional
     public void persistEligibleServices(String contractHeaderUuid, List<EligibleServiceDto> eligibleServices) {
         ContractHeader contractHeader = contractHeaderRepository.findByContractHeaderUuid(contractHeaderUuid);
-        if (contractHeader == null){
+        if (contractHeader == null) {
             throw new ResourceNotFoundException("ContractHeader", "contractHeaderUuid", contractHeaderUuid);
         }
 

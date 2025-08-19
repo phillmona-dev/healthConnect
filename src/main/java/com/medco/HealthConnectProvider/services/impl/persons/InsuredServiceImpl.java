@@ -143,7 +143,6 @@ public class InsuredServiceImpl implements InsuredService {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            // Let the global exception handler deal with the exception
             throw e;
         }
     }
@@ -410,8 +409,7 @@ public class InsuredServiceImpl implements InsuredService {
             throw new ResourceNotFoundException("Payer", "payerUuid", payerUuid);
         }
 
-        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("firstName").ascending());
-
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("first_name").ascending());
         String normalizedSearch = StringUtils.hasText(search) ? search.trim().toLowerCase() : null;
 
         Page<Insured> insuredPage;

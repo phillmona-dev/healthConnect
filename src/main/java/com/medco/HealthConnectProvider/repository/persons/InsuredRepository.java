@@ -116,9 +116,6 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
     @Query("SELECT i FROM Insured i WHERE i.payer.payerUuid = :payerUuid AND i.isDeleted = false")
     Page<Insured> findByPayerUuid(@Param("payerUuid") String payerUuid, Pageable pageable);
 
-
-    Page<Insured> findByPayerPayerUuidAndIsDeleted(String payerUuid, boolean isDeleted, Pageable pageable);
-
     @Query(value = "SELECT * FROM insured i " +
             "WHERE i.payer_uuid = CAST(:payerUuid AS VARCHAR) AND i.is_deleted = CAST(:isDeleted AS BOOLEAN) " +
             "AND (COALESCE(CAST(:searchKey AS VARCHAR), '') = '' OR " +
@@ -146,11 +143,7 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
 
     Insured findByNationalId(String nationalId);
 
-    //Insured findByPhone(String phone);
-
     List<Insured> findByPhoneOrEmployeeIdOrNationalId(String phone, String employeeId, String nationalId);
-
-//    Insured findByIdNumber(String identifier);
 
     List<Insured> findByIdNumber(String idNumber);
 
@@ -173,20 +166,22 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
     );
 
     @Query("SELECT DISTINCT i FROM Insured i " +
-           "LEFT JOIN i.contracts c " +
-           "WHERE i.payer.payerUuid = :payerUuid " +
-           "AND i.isDeleted = :isDeleted " +
-           "AND (c.contractHeaderUuid != :contractUuid OR c IS NULL) " +
-           "AND (:searchKey IS NULL OR :searchKey = '' OR " +
-           "  LOWER(CONCAT(i.firstName, ' ', i.fatherName, ' ', i.grandFatherName)) LIKE LOWER(CONCAT('%', :searchKey, '%')) OR " +
-           "  LOWER(i.phone) LIKE LOWER(CONCAT('%', :searchKey, '%')) OR " +
-           "  LOWER(i.insuranceId) LIKE LOWER(CONCAT('%', :searchKey, '%')))")
+            "LEFT JOIN i.contracts c " +
+            "WHERE i.payer.payerUuid = :payerUuid " +
+            "AND i.isDeleted = :isDeleted " +
+            "AND (c.contractHeaderUuid != :contractUuid OR c IS NULL) " +
+            "AND (:searchKey IS NULL OR :searchKey = '' OR " +
+            "  (LOWER(i.firstName) LIKE LOWER(CONCAT('%', :searchKey, '%')) " +
+            "   OR LOWER(i.fatherName) LIKE LOWER(CONCAT('%', :searchKey, '%')) " +
+            "   OR LOWER(i.grandFatherName) LIKE LOWER(CONCAT('%', :searchKey, '%')) " +
+            "   OR LOWER(i.phone) LIKE LOWER(CONCAT('%', :searchKey, '%')) " +
+            "   OR LOWER(i.insuranceId) LIKE LOWER(CONCAT('%', :searchKey, '%'))))")
     Page<Insured> findByPayerAndNotInContractAndSearchKey(
-        @Param("payerUuid") String payerUuid,
-        @Param("contractUuid") String contractUuid,
-        @Param("isDeleted") Boolean isDeleted,
-        @Param("searchKey") String searchKey,
-        Pageable pageable);
+            @Param("payerUuid") String payerUuid,
+            @Param("contractUuid") String contractUuid,
+            @Param("isDeleted") Boolean isDeleted,
+            @Param("searchKey") String searchKey,
+            Pageable pageable);
 
     boolean existsByIdNumberAndPayerUuid(String idNumber, String payerUuid);
 
