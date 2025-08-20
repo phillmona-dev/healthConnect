@@ -189,19 +189,20 @@ public class EligibilityServiceImpl implements EligibilityService {
     @Override
     public ResponseEntity<?> checkEligibility(String identifier) {
 
-        List<InsuredSearchResponse> insuredList = insuredService.searchInsuredPersons(identifier);
+        MultipleInsuredResponse multiple = insuredService.searchInsuredPersons(identifier);
 
-        if (insuredList.isEmpty()) {
-
+        if (multiple == null || multiple.isEmpty()) {
             throw new ResourceNotFoundException("Insured Person", "identifier", identifier);
-
         }
 
-        if (insuredList.size() > 1) {
-            return ResponseEntity.ok(new MultipleInsuredResponse(insuredList));
+        // Customize the message based on result count for this flow
+        if (multiple.size() == 1) {
+            multiple.setMessage("One insured person found.");
+        } else {
+            multiple.setMessage("Multiple insured persons found. Please select one.");
         }
 
-        return checkEligibilityForInsured(insuredList.get(0));
+        return ResponseEntity.ok(multiple);
 
     }
 

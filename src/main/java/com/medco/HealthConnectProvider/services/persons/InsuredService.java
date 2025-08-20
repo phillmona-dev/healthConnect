@@ -61,7 +61,7 @@ public interface InsuredService {
 
     InsuredResponse updateInsuredStatus(String insuredUuid, Status newStatus);
 
-    List<InsuredSearchResponse> searchInsuredPersons(String identifier);
+    MultipleInsuredResponse searchInsuredPersons(String identifier);
 
     ResponseEntity<PagedResponse<InsuredDependantResponse>> getAllInsuredPersonsWithDependentsByPayer(String payerUuid, int page, int size, String search, String contractUuid);
 }

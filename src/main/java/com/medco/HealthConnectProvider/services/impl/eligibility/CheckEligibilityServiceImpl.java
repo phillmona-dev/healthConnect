@@ -132,20 +132,14 @@ public class CheckEligibilityServiceImpl implements CheckEligibilityService {
                 modelMapper.map(response, insured);
 
                 insured.setPhone(response.getInsuredPhone());
+                insured.setInsuredUuid(response.getInsuredUuid());
                 insured.setAddress(response.getAddress1());
                 insured.setCity(response.getAddress2());
                 insured.setState(response.getState());
                 insured.setCountry(response.getCountry());
 
-                insured.setBirthDate(response.getBirthDate());
 
-                // Set policy dates if available
-//                if (response.getBeginDate() != null) {
-//                    insured.setPolicyStartDate(response.getBeginDate());
-//                }
-//                if (response.getEndDate() != null) {
-//                    insured.setPolicyEndDate(response.getEndDate());
-//                }
+                insured.setBirthDate(response.getBirthDate());
 
                 Payer payer = payerRepository.findByPayerName(response.getPayerName());
                 if (payer == null) {

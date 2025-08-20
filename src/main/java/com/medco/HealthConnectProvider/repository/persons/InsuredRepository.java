@@ -198,4 +198,20 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
     Long countByPayerPayerUuidAndIsDeleted(String payerUuid, boolean b);
 
     boolean existsByInsuredUuid(String insuredUuid);
+
+//    @Query("SELECT i FROM Insured i WHERE " +
+//            "LOWER(i.firstName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+//            "LOWER(i.fatherName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+//            "LOWER(i.grandFatherName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
+//    List<Insured> findByFirstNameOrFatherNameOrGrandFatherNameContaining(@Param("searchTerm") String searchTerm);
+
+    @Query("SELECT i FROM Insured i WHERE " +
+            "(LOWER(i.firstName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+            "LOWER(i.fatherName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+            "LOWER(i.grandFatherName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) OR " +
+            "(LOWER(CONCAT(i.firstName, ' ', i.fatherName)) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+            "LOWER(CONCAT(i.firstName, ' ', i.grandFatherName)) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+            "LOWER(CONCAT(i.fatherName, ' ', i.grandFatherName)) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
+            "LOWER(CONCAT(i.firstName, ' ', i.fatherName, ' ', i.grandFatherName)) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+    List<Insured> findByFullNameCombinations(@Param("searchTerm") String searchTerm);
 }

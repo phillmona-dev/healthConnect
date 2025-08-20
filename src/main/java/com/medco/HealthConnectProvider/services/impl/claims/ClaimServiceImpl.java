@@ -11,6 +11,7 @@ import com.medco.HealthConnectProvider.entity.payers.Payer;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.entity.providers.Provider;
+import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.user.User;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
 import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
@@ -27,6 +28,13 @@ import com.medco.HealthConnectProvider.services.notification.NotificationService
 import com.medco.HealthConnectProvider.services.payment.PaymentService;
 import com.medco.HealthConnectProvider.services.providers.ProviderService;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimRequest;
+import com.medco.HealthConnectProvider.dto.ClaimPaySyncRequest;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.web.util.UriComponentsBuilder;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimCommentRequest;
 import com.medco.HealthConnectProvider.ui.request.claims.ClaimPaymentRequest;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
@@ -102,6 +110,14 @@ public class ClaimServiceImpl implements ClaimService {
     private final BatchRecordRepository batchRecordRepository;
     private final MedicationDispensingRepository medicationDispensingRepository;
     private final ClaimStatusUpdater claimStatusUpdater;
+
+    @Value("${external.api.external-api-base-url}")
+    private String hostDomain;
+
+    @Value("${api.key}")
+    private String apiKey;
+
+    private final RestTemplate restTemplate = new RestTemplate();
 
     public ClaimServiceImpl(ClaimRepository claimRepository, ClaimAttachmentRepository claimAttachmentRepository, ClaimCommentRepository claimCommentRepository, ClaimLogsRepository claimLogsRepository, ClaimPaymentRepository claimPaymentRepository, ContractRepository contractRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, BatchLogRepository batchLogRepository, ProviderRepository providerRepository, PayerRepository payerRepository, ProviderService providerService, PaymentService paymentService, UserRepository userRepository, NotificationService notificationService, BatchRecordRepository batchRecordRepository, MedicationDispensingRepository medicationDispensingRepository, ClaimStatusUpdater claimStatusUpdater) {
         this.claimRepository = claimRepository;
@@ -835,7 +851,7 @@ public class ClaimServiceImpl implements ClaimService {
 
     @Transactional
     @Override
-    public ResponseEntity<?> createBatchClaim(String batchCode) {
+    public ResponseEntity<?> createBatchClaim(String batchCode, String payerName) {
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
         BatchRecord batch = batchRecordRepository.findByBatchCode(batchCode)
@@ -885,6 +901,15 @@ public class ClaimServiceImpl implements ClaimService {
         batchRecordRepository.save(batch);
 
         createClaimLog(savedClaim, userDetails, ClaimStatus.DRAFT, ClaimStatus.DRAFT, "Creating new claim status");
+
+        try {
+            Payer payer = payerRepository.findByPayerUuid(savedClaim.getPayerUuid());
+            if (payer != null && payer.isInsurance()) {
+                syncClaimToExternalSystem(savedClaim, batch);
+            }
+        } catch (Exception e) {
+            System.out.println("[External Claim Sync] Failed to sync claim: " + e.getMessage());
+        }
 
         return ResponseEntity.ok("Claim created successfully");
     }
@@ -1004,5 +1029,50 @@ public class ClaimServiceImpl implements ClaimService {
         log.setChangedAt(LocalDateTime.now());
 
         batchLogRepository.save(log);
+    }
+
+    private void syncClaimToExternalSystem(Claim claim, BatchRecord batch) {
+        List<String> dispensingUuids = batch.getMedicationDispensing().stream()
+                .map(MedicationDispensing::getDispensingUuid)
+                .filter(Objects::nonNull)
+                .toList();
+
+        String contractUuid = resolveContractHeaderUuid(claim.getProviderUuid(), claim.getPayerUuid());
+
+        ClaimPaySyncRequest payload = ClaimPaySyncRequest.builder()
+                .contractUuid(contractUuid)
+                .providerUuid(claim.getProviderUuid())
+                .claimFromDate(java.sql.Date.valueOf(batch.getClaimDatingFrom()))
+                .claimToDate(java.sql.Date.valueOf(batch.getClaimDatingTo()))
+                .totalAmount(claim.getTotalAmount().doubleValue())
+                .batchCode(batch.getBatchCode())
+                .serviceProvidedUuid(dispensingUuids)
+                .build();
+
+        String url = UriComponentsBuilder.fromHttpUrl(hostDomain)
+                .path("/api/payer/claimconnect/claim/sync-claim/provider/")
+                .path(claim.getClaimUuid())
+                .toUriString();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-API-Key", apiKey);
+
+        HttpEntity<ClaimPaySyncRequest> entity = new HttpEntity<>(payload, headers);
+
+        try {
+            restTemplate.postForEntity(url, entity, String.class);
+        } catch (RestClientException ex) {
+            throw new RuntimeException("External claim sync failed: " + ex.getMessage(), ex);
+        }
+    }
+
+    private String resolveContractHeaderUuid(String providerUuid, String payerUuid) {
+        List<ContractHeader> activeContracts = contractRepository
+                .findActiveContractsBetweenProviderAndPayer(providerUuid, payerUuid, Status.ACTIVE);
+        if (activeContracts != null && !activeContracts.isEmpty()) {
+            return activeContracts.get(0).getContractHeaderUuid();
+        }
+        throw new BadRequestException("No active contract exists between this provider and payer");
     }
 }

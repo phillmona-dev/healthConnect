@@ -56,7 +56,6 @@ public class PasswordServiceImpl implements PasswordService {
     public ResponseEntity<?> forgotPassword(ForgotPasswordRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new BadRequestException("User With The Provided Email Not Found"));
-
         String token = RandomNumberGenerator.generateSixDigitNumber();
         var passwordToken = createPasswordResetTokenForUser(user, token);
 

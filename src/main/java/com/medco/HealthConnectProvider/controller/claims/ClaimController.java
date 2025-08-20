@@ -139,8 +139,9 @@ public class ClaimController {
     @Operation(summary = "Create claim from a batch",
             description = "Creates a new claim from authorized batch")
     public ResponseEntity<?> createBatchClaim(
-            @PathVariable String batchCode) {
-        return claimService.createBatchClaim(batchCode);
+            @PathVariable String batchCode,
+            @RequestParam String payerName) {
+        return claimService.createBatchClaim(batchCode, payerName);
     }
 
     @PostMapping("/reject/{batchCode}")

@@ -40,7 +40,7 @@ public interface ClaimService {
 
     ResponseEntity<?> verifyPayment(String claimUuid);
 
-    ResponseEntity<?> createBatchClaim(String batchCode);
+    ResponseEntity<?> createBatchClaim(String batchCode, String payerName);
 
 
     ResponseEntity<?> rejectOrResubmitBatch(String batchCode, @NotBlank(message = "Remark is required") @Size(max = 1000, message = "Remark must not exceed 1000 characters") String remark);

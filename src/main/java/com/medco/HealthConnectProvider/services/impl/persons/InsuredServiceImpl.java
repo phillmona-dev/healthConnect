@@ -592,7 +592,7 @@ public class InsuredServiceImpl implements InsuredService {
     }
 
     @Override
-    public List<InsuredSearchResponse> searchInsuredPersons(String identifier) {
+    public MultipleInsuredResponse searchInsuredPersons(String identifier) {
 
         log.info("Searching for insured person with identifier: {}", identifier);
 
@@ -601,31 +601,38 @@ public class InsuredServiceImpl implements InsuredService {
         List<Insured> insuredByPhone = (List<Insured>) insuredRepository.findByPhone(identifier);
         if (!insuredByPhone.isEmpty()) {
             insuredList.addAll(insuredByPhone);
-            return mapToInsuredSearchResponses(insuredList);
+            return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
+        }
+
+
+        List<Insured> insuredByName = insuredRepository.findByFullNameCombinations(identifier);
+        if (!insuredByName.isEmpty()) {
+            insuredList.addAll(insuredByName);
+            return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
         }
 
         List<Insured> insuredByIdNumber = insuredRepository.findByIdNumber(identifier);
         if (!insuredByIdNumber.isEmpty()) {
             insuredList.addAll(insuredByIdNumber);
-            return mapToInsuredSearchResponses(insuredList);
+            return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
         }
 
        List<Insured> insuredByEmployeeId = (List<Insured>) insuredRepository.findByEmployeeId(identifier);
         if (!insuredByEmployeeId.isEmpty()) {
             insuredList.addAll(insuredByEmployeeId);
-            return mapToInsuredSearchResponses(insuredList);
+            return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
         }
 
       List<Insured>  insuredByNationalId = (List<Insured>) insuredRepository.findByNationalId(identifier);
         if (!insuredByNationalId.isEmpty()) {
             insuredList.addAll(insuredByNationalId);
-            return mapToInsuredSearchResponses(insuredList);
+            return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
         }
 
         insuredList = insuredRepository.findByPhoneOrEmployeeIdOrNationalId(
                 identifier, identifier, identifier);
 
-        return mapToInsuredSearchResponses(insuredList);
+        return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
 
     }
 

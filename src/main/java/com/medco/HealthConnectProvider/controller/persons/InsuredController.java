@@ -198,8 +198,6 @@ public class InsuredController {
         return insuredService.getInsuredPersonWithPhotoBase64(insuredUuid);
     }
 
-   //new
-
     @GetMapping("/{insuredUuid}")
     @Operation(summary = "Get insured person by UUID", description = "Retrieves an insured person's details by their UUID")
     public ResponseEntity<?> getInsuredPersonByUuid(@PathVariable String insuredUuid) {
@@ -255,9 +253,9 @@ public class InsuredController {
     @GetMapping("/search")
     @Operation(summary = "Search insured persons",
             description = "Searches for insured persons based on a single identifier (phone number, employeeId, insuranceId, or nationalId)")
-    public ResponseEntity<List<InsuredSearchResponse>> searchInsuredPersons(
+    public ResponseEntity<MultipleInsuredResponse> searchInsuredPersons(
             @RequestParam String identifier) {
-        List<InsuredSearchResponse> results = insuredService.searchInsuredPersons(identifier);
+        MultipleInsuredResponse results = insuredService.searchInsuredPersons(identifier);
         return ResponseEntity.ok(results);
     }
 
