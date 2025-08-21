@@ -71,37 +71,27 @@ public class ClaimServiceImpl implements ClaimService {
     @Value("${file.upload-dir-claims}")
     private String uploadDir;
 
-
     private final ClaimRepository claimRepository;
-
 
     private final ClaimAttachmentRepository claimAttachmentRepository;
 
-
     private final ClaimCommentRepository claimCommentRepository;
-
 
     private final ClaimLogsRepository claimLogsRepository;
 
-
     private final ClaimPaymentRepository claimPaymentRepository;
-
 
     private final ContractRepository contractRepository;
 
-
     private final InsuredRepository insuredRepository;
-
 
     private final DependantRepository dependantRepository;
 
     private final BatchLogRepository batchLogRepository;
 
-
     private final ProviderRepository providerRepository;
     private final PayerRepository payerRepository;
     private final ProviderService providerService;
-
 
     private final PaymentService paymentService;
     private final UserRepository userRepository;
@@ -140,129 +130,11 @@ public class ClaimServiceImpl implements ClaimService {
         this.claimStatusUpdater = claimStatusUpdater;
     }
 
-
     @Override
     @Transactional
     public ResponseEntity<?> submitClaim(ClaimRequest claimRequest) {
-
-//         Get authenticated user
-//        UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
-//        String providerUuid = userDetails.getPayerUuid();
-//
-//        // Validate contract exists and is active
-//        ContractHeader contract = contractRepository.findByContractHeaderUuid(claimRequest.getContractUuid());
-//        if (contract == null) {
-//            throw new ResourceNotFoundException("Contract", "contractUuid", claimRequest.getContractUuid());
-//        }
-//
-//        if (contract.getStatus() != Status.ACTIVE) {
-//            throw new BadRequestException("Contract is not active. Claims can only be submitted for active contracts.");
-//        }
-//
-//        // Validate provider has access to this contract
-//        Provider provider = providerRepository.findByProviderUuid(providerUuid);
-//        if (provider == null){
-//            throw new ResourceNotFoundException("Provider", "providerUuid", providerUuid);
-//        }
-//
-//        if (!contract.getProvider().getProviderUuid().equals(providerUuid)) {
-//            throw new BadRequestException("Contract does not belong to this provider");
-//        }
-//
-//        // Validate insured person exists and belongs to the payer
-//        Insured insured = insuredRepository.findByInsuredUuid(claimRequest.getInsuredPersonUuid());
-//        if(insured == null){
-//            throw new ResourceNotFoundException("Insured Person", "insuredPersonUuid",
-//                    claimRequest.getInsuredPersonUuid());
-//        }
-//
-//        if (!insured.getPayer().getPayerUuid().equals(contract.getPayer().getPayerUuid())) {
-//            throw new BadRequestException("Insured person does not belong to the payer associated with this contract");
-//        }
-//
-//        // Validate dependant if provided
-//        Dependant dependant = null;
-//        if (claimRequest.getDependantUuid() != null && !claimRequest.getDependantUuid().isEmpty()) {
-//            dependant = dependantRepository.findByDependantUuid(claimRequest.getDependantUuid());
-//
-//            if(dependant==null){
-//                throw new ResourceNotFoundException("Dependant", "dependantUuid",
-//                        claimRequest.getDependantUuid());
-//            }
-//
-//            if (!dependant.getInsured().getInsuredUuid().equals(insured.getInsuredUuid())) {
-//                throw new BadRequestException("Dependant does not belong to the specified insured person");
-//            }
-//        }
-//
-//        // Validate provided services
-//        List<ProvidedService> providedServices = new ArrayList<>();
-//        if (claimRequest.getProvidedServiceUuids() != null && !claimRequest.getProvidedServiceUuids().isEmpty()) {
-//            for (String serviceUuid : claimRequest.getProvidedServiceUuids()) {
-//                ProvidedService service = providedServiceRepository.findByProvidedServiceUuid(serviceUuid)
-//                        .orElseThrow(() -> new ResourceNotFoundException("Provided Service", "providedServiceUuid", serviceUuid));
-//
-//                // Validate service belongs to this provider
-//                if (!service.getContractDetail().getContractHeader().getProvider().getProviderUuid().equals(providerUuid)) {
-//                    throw new BadRequestException("Provided service does not belong to this provider");
-//                }
-//
-//                // Validate service is not already claimed
-//                if (service.getClaimUuid() != null && !service.getClaimUuid().isEmpty()) {
-//                    throw new BadRequestException("Service with UUID " + serviceUuid + " is already claimed");
-//                }
-//
-//                providedServices.add(service);
-//            }
-//        }
-//
-//        Claim claim = new Claim();
-//        claim.setClaimUuid(UUID.randomUUID().toString());
-//        claim.setMrnNumber(claimRequest.getMrnNumber());
-//        claim.setVisitDate(claimRequest.getVisitDate());
-//        claim.setTotalAmount(BigDecimal.valueOf(claimRequest.getTotalAmount()));
-//        claim.setProviderComment(claimRequest.getProviderComment());
-//
-////        // Set entity relationships
-////        claim.setContract(contract);
-////        claim.setProvider(provider);
-////        claim.setPayer(contract.getPayer());
-////        claim.setInsuredPerson(insured);
-////
-////        if (dependant != null) {
-////            claim.setDependant(dependant);
-////        }
-//
-//        // Set claim status
-//        claim.setStatus(ClaimStatus.SUBMITTED);
-//        claim.setPreparedByProviderUuid(userDetails.getUserUuid());
-//        claim.setPreparedByProviderStatus("Submitted");
-//        claim.setPreparedByProviderDate(LocalDateTime.from(Instant.now()));
-//
-//        // Set default statuses
-//        claim.setApprovedByProviderStatus("Pending");
-//        claim.setApprovedByPayerStatus("Pending");
-//        claim.setPaidStatus("Pending");
-//
-//        // Save claim
-//        Claim savedClaim = claimRepository.save(claim);
-//
-//        // Update provided services with claim UUID
-//        for (ProvidedService service : providedServices) {
-//            service.setClaimUuid(savedClaim.getClaimUuid());
-//            providedServiceRepository.save(service);
-//        }
-//
-//        // Create claim log
-//      createClaimLog( claim,  userDetails,  ClaimStatus.DRAFT, ClaimStatus.DRAFT, "creating new claim status");
-//
-//        // Notify claim submission
-//        notificationService.notifyClaimSubmitted(savedClaim);
-//
-//        return ResponseEntity.ok(new MessageResponse("Claim submitted successfully with UUID: " + savedClaim.getClaimUuid()));
         return null;
     }
-
 
     @Override
     public ClaimDetailResponse getClaimByUuid(String claimUuid) {
@@ -302,9 +174,7 @@ public class ClaimServiceImpl implements ClaimService {
                 String base64Logo = Base64.getEncoder().encodeToString(logoBytes);
                 response.setProviderLogo(base64Logo);
 
-
             }
-
 
         }
         if (claim.getBatchRecord().getMedicationDispensing() != null)
@@ -317,12 +187,10 @@ public class ClaimServiceImpl implements ClaimService {
                 .map(this::mapToAttachmentResponse)
                 .collect(Collectors.toList()));
 
-
         response.setComments(claim.getComments().stream()
                 .sorted(Comparator.comparing(ClaimComment::getCommentDate).reversed())
                 .map(this::mapToCommentResponse)
                 .collect(Collectors.toList()));
-
 
         response.setLogs(claim.getLogs().stream()
                 .sorted(Comparator.comparing(ClaimLogs::getActionDate).reversed())
@@ -331,7 +199,6 @@ public class ClaimServiceImpl implements ClaimService {
 
         response.setServices(mapToServiceResponse(claim.getBatchRecord().getMedicationDispensing()));
         response.setStatus(claim.getStatus().toString());
-
 
         return response;
     }

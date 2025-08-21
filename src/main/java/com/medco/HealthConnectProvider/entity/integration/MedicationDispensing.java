@@ -104,4 +104,11 @@ public class MedicationDispensing {
     @JsonBackReference(value = "dependant-provided-services")
     private Dependant dependant;
 
+    private String attachmentFileName;
+    private String attachmentContentType;
+
+    @Lob
+    @Basic(fetch = FetchType.LAZY)
+    private byte[] attachmentData;
+
 }

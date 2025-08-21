@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.services.integration;
 
 import com.medco.HealthConnectProvider.dto.integration.ExternalInsuranceDispensingRequest;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensingItem;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -14,5 +15,6 @@ public interface ExternalInsuranceService {
                                        String packageUuid,
                                        String serviceId,
                                        String dispensingUuid,
-                                       String contractHeaderUuid);
+                                       String contractHeaderUuid,
+                                       MultipartFile attachment);
 }

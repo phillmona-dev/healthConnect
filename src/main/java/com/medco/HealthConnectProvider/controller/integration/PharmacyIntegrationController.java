@@ -28,6 +28,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -101,7 +102,7 @@ public class PharmacyIntegrationController {
         return pharmacyIntegrationService.createClaimFromDispensingRecords(providerUuid, dispensingUuids);
     }
 
-//TODO THIS API AUTHORIZES A SINGLE DISPENSING MEDICATION
+    //TODO THIS API AUTHORIZES A SINGLE DISPENSING MEDICATION
     @PostMapping("/dispensing/authorize/{dispensingUuid}")
     @Operation(summary = "Authorize single dispensing record",
             description = "Changes the status of a single dispensing record from PENDING to AUTHORIZED")
@@ -157,10 +158,17 @@ public class PharmacyIntegrationController {
         return pharmacyIntegrationService.updateServiceClaimStatus( medicationDispensingUuid,newStatus,remark);
     }
 
-    @PostMapping(value = "/dispensing-records", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/dispensing-records", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Add a new dispensing record", security = @SecurityRequirement(name = "bearerAuth"))
+    public ResponseEntity<?> addDispensingRecord(@RequestPart("request") DispensingRecordRequest request,
+                                                 @RequestPart(value = "attachment", required = false) MultipartFile attachment) {
+        return pharmacyIntegrationService.addDispensingRecord(request, attachment);
+    }
+
+    @PostMapping(value = "/dispensing-records", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Add a new dispensing record (JSON)", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<?> addDispensingRecord(@RequestBody DispensingRecordRequest request) {
-        return pharmacyIntegrationService.addDispensingRecord(request);
+        return pharmacyIntegrationService.addDispensingRecord(request, null);
     }
 
     @PutMapping("/reconcile/{claimUuid}")

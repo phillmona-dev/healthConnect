@@ -591,7 +591,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     private Dependant validateDependant(String dependantUuid) {
-        if (dependantUuid == null || dependantUuid.isEmpty()) {
+        if (dependantUuid == null || dependantUuid.trim().isEmpty() || "null".equalsIgnoreCase(dependantUuid.trim())) {
             return null;
         }
         Dependant dependant = dependantRepository.findByDependantUuid(dependantUuid);
@@ -659,7 +659,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         item.setDispensing(dispensing);
         item.setQuantity((double) itemRequest.getQuantity());
         item.setRemark(itemRequest.getRemark());
-        item.setItemType(ItemType.valueOf(itemRequest.getItemType()));
+        item.setItemType(ItemType.valueOf(itemRequest.getItemType().toUpperCase(java.util.Locale.ROOT)));
 
         ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(itemRequest.getContractDetailUuid());
         if (contractDetail == null) {
@@ -1129,9 +1129,10 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     @Override
     @Transactional
-    public ResponseEntity<?> addDispensingRecord(DispensingRecordRequest request) {
+    public ResponseEntity<?> addDispensingRecord(DispensingRecordRequest request, org.springframework.web.multipart.MultipartFile attachment) {
         try {
             log.info("Starting to add dispensing record");
+            sanitizeDispensingRequest(request);
             UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
             Provider provider = providerRepository.findByProviderUuid(userDetails.getProviderUuid());
@@ -1172,9 +1173,20 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             MedicationDispensing savedRecord = dispensingRepository.save(dispensingRecord);
             dispensingItemRepository.saveAll(dispensingItems);
 
-            handlePostDispensingProcessing(request, savedRecord, dispensingItems);
+            handlePostDispensingProcessing(request, savedRecord, dispensingItems, attachment);
 
-            return ResponseEntity.ok(new DispensingRecordResponse(savedRecord));
+            DispensingRecordResponse response = new DispensingRecordResponse(savedRecord);
+            if (attachment != null && !attachment.isEmpty()) {
+                try {
+                    response.setAttachmentFileName(attachment.getOriginalFilename());
+                    response.setAttachmentContentType(attachment.getContentType());
+                    response.setAttachmentBase64(java.util.Base64.getEncoder().encodeToString(attachment.getBytes()));
+                } catch (Exception ex) {
+                    log.warn("Failed to encode attachment for response: {}", ex.getMessage());
+                }
+            }
+
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             log.error("Error in addDispensingRecord: ", e);
@@ -1185,13 +1197,14 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     private void handlePostDispensingProcessing(DispensingRecordRequest request,
                                                 MedicationDispensing savedRecord,
-                                                List<MedicationDispensingItem> dispensingItems) {
+                                                List<MedicationDispensingItem> dispensingItems,
+                                                org.springframework.web.multipart.MultipartFile attachment) {
 
         log.info("Starting post-dispensing processing. IsInsurance: {}", request.getIsInsurance());
 
         try {
             if (Boolean.TRUE.equals(request.getIsInsurance())) {
-                handleInsuranceProcessing(request, savedRecord, dispensingItems);
+                handleInsuranceProcessing(request, savedRecord, dispensingItems, attachment);
             } else {
                 handleNonInsuranceProcessing(savedRecord, dispensingItems);
             }
@@ -1202,7 +1215,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     private void handleInsuranceProcessing(DispensingRecordRequest request,
                                            MedicationDispensing savedRecord,
-                                           List<MedicationDispensingItem> dispensingItems) {
+                                           List<MedicationDispensingItem> dispensingItems,
+                                           org.springframework.web.multipart.MultipartFile attachment) {
 
         log.info("Processing insurance dispensing for external system");
         log.info("Dispensing items count: {}", dispensingItems != null ? dispensingItems.size() : "null");
@@ -1224,7 +1238,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                         request.getPackageUuid(),
                         serviceId,
                         savedRecord.getDispensingUuid(),
-                        request.getContractHeaderUuid()
+                        request.getContractHeaderUuid(),
+                        attachment
                 );
                 log.info("Successfully sent dispensing data to external insurance system");
             } else {
@@ -1356,6 +1371,28 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return null;
     }
 
+    private void sanitizeDispensingRequest(DispensingRecordRequest request) {
+        if (request == null) return;
+        // Normalize dependantUuid
+        if (request.getDependantUuid() != null && "null".equalsIgnoreCase(request.getDependantUuid().trim())) {
+            request.setDependantUuid(null);
+        }
+        // Normalize medication items
+        if (request.getMedicationItems() != null) {
+            for (DispensingRecordRequest.DispensingItemRequest item : request.getMedicationItems()) {
+                if (item.getItemType() != null) {
+                    item.setItemType(item.getItemType().trim().toUpperCase(java.util.Locale.ROOT));
+                }
+                if (item.getServiceId() != null && "null".equalsIgnoreCase(item.getServiceId().trim())) {
+                    item.setServiceId(null);
+                }
+                if (item.getContractDetailUuid() != null && "null".equalsIgnoreCase(item.getContractDetailUuid().trim())) {
+                    item.setContractDetailUuid(null);
+                }
+            }
+        }
+    }
+
     private Provider validateProvider(String providerUuid) {
         Provider provider = providerRepository.findByProviderUuid(providerUuid);
         if (provider == null) {
@@ -1458,7 +1495,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                         config.getPackageUuid(),
                         serviceId,
                         dispensing.getDispensingUuid(),
-                        config.getContractHeaderUuid()
+                        config.getContractHeaderUuid(),
+                        null
                 );
 
                 log.info("Successfully sent Kenema dispensing to external insurance system");

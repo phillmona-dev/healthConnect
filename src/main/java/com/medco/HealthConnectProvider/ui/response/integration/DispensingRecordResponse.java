@@ -22,6 +22,11 @@ public class DispensingRecordResponse {
     private Double patientResponsibility;
     private Double insuranceCoverage;
 
+    // Optional attachment details (if an attachment was provided on request)
+    private String attachmentFileName;
+    private String attachmentContentType;
+    private String attachmentBase64; // raw base64 string (no data: prefix)
+
     public DispensingRecordResponse(MedicationDispensing savedRecord) {
         this.invoiceNumber = savedRecord.getInvoiceNumber();
         this.dispensingUuid = savedRecord.getDispensingUuid();

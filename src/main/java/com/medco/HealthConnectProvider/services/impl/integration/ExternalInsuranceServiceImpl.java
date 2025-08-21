@@ -14,6 +14,10 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.core.io.ByteArrayResource;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
@@ -26,29 +30,30 @@ public class ExternalInsuranceServiceImpl implements ExternalInsuranceService {
     private final ExternalApiConfig externalApiConfig;
     private final FailedExternalDispensingService failedDispensingService;
 
-    // External insurance system endpoint for dispensing
-    private static final String DISPENSING_ENDPOINT = "/api/payer/claimconnect/service-provided";
+    private static final String DISPENSING_ENDPOINT = "/api/payer/claimconnect/service-provided/synchronizeServiceProvided";
 
     @Override
     public void sendDispensingToExternalSystem(List<MedicationDispensingItem> dispensingItems,
                                              String packageUuid,
                                              String serviceId,
                                              String dispensingUuid,
-                                             String contractHeaderUuid) {
+                                             String contractHeaderUuid,
+                                             org.springframework.web.multipart.MultipartFile attachment) {
 
         log.info("Sending {} dispensing items to external insurance system", dispensingItems.size());
 
         try {
-            // Build the JSON payload
             ExternalDispensingRequest payload = buildExternalPayload(dispensingItems, packageUuid, serviceId, dispensingUuid);
 
-            // Send to external system
-            sendPayloadToExternalSystem(payload, dispensingItems, packageUuid, serviceId, dispensingUuid, contractHeaderUuid);
+            if (attachment != null && !attachment.isEmpty()) {
+                sendMultipartToExternalSystem(payload, attachment, dispensingItems, packageUuid, serviceId, dispensingUuid, contractHeaderUuid);
+            } else {
+                sendPayloadToExternalSystem(payload, dispensingItems, packageUuid, serviceId, dispensingUuid, contractHeaderUuid);
+            }
 
         } catch (Exception e) {
             log.error("Error sending dispensing data to external system", e);
 
-            // Log failure for all items
             String fullUrl = externalApiConfig.getExternalApiBaseUrl() + DISPENSING_ENDPOINT + "/" + contractHeaderUuid;
             for (MedicationDispensingItem item : dispensingItems) {
                 failedDispensingService.logFailedDispensing(
@@ -73,14 +78,12 @@ public class ExternalInsuranceServiceImpl implements ExternalInsuranceService {
         log.info("Sending POST request to external insurance system: {}", url);
         log.debug("Payload: {}", payload);
 
-        // Prepare headers
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-API-Key", externalApiConfig.getApiKey());
 
         HttpEntity<ExternalDispensingRequest> request = new HttpEntity<>(payload, headers);
 
-        // Make the API call
         ResponseEntity<String> response = restTemplate.exchange(
             url,
             HttpMethod.POST,
@@ -96,10 +99,77 @@ public class ExternalInsuranceServiceImpl implements ExternalInsuranceService {
             log.error("Failed to send dispensing data to external insurance system. Status: {}, Response: {}",
                      response.getStatusCode(), response.getBody());
 
-            // Log the failure for retry for all items
             for (MedicationDispensingItem item : dispensingItems) {
                 failedDispensingService.logFailedDispensing(
                     item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, errorMessage, response.getBody());
+            }
+
+            throw new RuntimeException(errorMessage);
+        }
+    }
+
+    /**
+     * Send multipart/form-data with JSON payload and file attachment to external system
+     */
+    private void sendMultipartToExternalSystem(ExternalDispensingRequest payload,
+                                               org.springframework.web.multipart.MultipartFile attachment,
+                                               List<MedicationDispensingItem> dispensingItems,
+                                               String packageUuid,
+                                               String serviceId,
+                                               String dispensingUuid,
+                                               String contractHeaderUuid) throws Exception {
+
+        String url = externalApiConfig.getExternalApiBaseUrl() + DISPENSING_ENDPOINT + "/" + contractHeaderUuid;
+        log.info("Sending MULTIPART POST request to external insurance system: {} with attachment: {} ({} bytes)",
+                url, attachment.getOriginalFilename(), attachment.getSize());
+
+        ObjectMapper mapper = new ObjectMapper();
+        String payloadJson = mapper.writeValueAsString(payload);
+
+        HttpHeaders jsonHeaders = new HttpHeaders();
+        jsonHeaders.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> jsonPart = new HttpEntity<>(payloadJson, jsonHeaders);
+
+        HttpHeaders fileHeaders = new HttpHeaders();
+        fileHeaders.setContentType(attachment.getContentType() != null ? MediaType.parseMediaType(attachment.getContentType()) : MediaType.APPLICATION_OCTET_STREAM);
+        fileHeaders.setContentDispositionFormData("attachment", attachment.getOriginalFilename());
+
+        ByteArrayResource fileResource = new ByteArrayResource(attachment.getBytes()) {
+            @Override
+            public String getFilename() {
+                return attachment.getOriginalFilename();
+            }
+        };
+        HttpEntity<ByteArrayResource> filePart = new HttpEntity<>(fileResource, fileHeaders);
+
+        MultiValueMap<String, Object> multipartBody = new LinkedMultiValueMap<>();
+        multipartBody.add("payload", jsonPart);
+        multipartBody.add("attachment", filePart);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+        headers.set("X-API-Key", externalApiConfig.getApiKey());
+
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(multipartBody, headers);
+
+        ResponseEntity<String> response = restTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                requestEntity,
+                String.class
+        );
+
+        if (response.getStatusCode().is2xxSuccessful()) {
+            log.info("Successfully sent multipart dispensing data to external insurance system. Response: {}",
+                    response.getBody());
+        } else {
+            String errorMessage = String.format("HTTP %s: %s", response.getStatusCode(), response.getBody());
+            log.error("Failed to send multipart dispensing data to external insurance system. Status: {}, Response: {}",
+                    response.getStatusCode(), response.getBody());
+
+            for (MedicationDispensingItem item : dispensingItems) {
+                failedDispensingService.logFailedDispensing(
+                        item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, errorMessage, response.getBody());
             }
 
             throw new RuntimeException(errorMessage);
@@ -118,19 +188,15 @@ public class ExternalInsuranceServiceImpl implements ExternalInsuranceService {
             throw new IllegalArgumentException("Dispensing items list cannot be empty");
         }
 
-        // Get the first item to extract common information
         MedicationDispensingItem firstItem = dispensingItems.get(0);
 
-        // Calculate total price
         Double totalPrice = dispensingItems.stream()
                 .mapToDouble(item -> item.getTotalPrice() != null ? item.getTotalPrice() : 0.0)
                 .sum();
 
-        // Determine insured and dependent UUIDs
         String insuredUuid = getInsuredUuid(firstItem);
         String dependentUuid = getDependentUuid(firstItem);
 
-        // Build items list
         List<ExternalDispensingRequest.ExternalDispensingItem> externalItems = dispensingItems.stream()
                 .map(item -> buildExternalItem(item, packageUuid, dispensingUuid))
                 .collect(java.util.stream.Collectors.toList());

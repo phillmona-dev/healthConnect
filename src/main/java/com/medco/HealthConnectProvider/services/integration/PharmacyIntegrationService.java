@@ -17,6 +17,7 @@ import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -46,7 +47,7 @@ public interface PharmacyIntegrationService {
     
     ResponseEntity<?> updateDispensingRecordsStatus(String providerUuid, String newStatus, String[] dispensingUuids);
 
-    ResponseEntity<?> addDispensingRecord(DispensingRecordRequest request);
+    ResponseEntity<?> addDispensingRecord(DispensingRecordRequest request, MultipartFile attachment);
 
     ResponseEntity<DispensingResponse> recordMedicationDispensing(@Valid KenemaPharmacyDispensingRequest request);
 
