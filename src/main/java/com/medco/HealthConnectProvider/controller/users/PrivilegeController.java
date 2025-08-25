@@ -60,8 +60,6 @@ public class PrivilegeController {
 
     }
 
-
-
     @DeleteMapping("/{privilegeUuid}")
     @Operation(summary = "Delete privilege", description = "Deletes a privilege by UUID")
     public ResponseEntity<?> deletePrivilege(@PathVariable String privilegeUuid){

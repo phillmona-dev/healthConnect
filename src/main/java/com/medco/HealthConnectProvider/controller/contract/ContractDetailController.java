@@ -52,7 +52,7 @@ public class ContractDetailController {
 
     @GetMapping("/{contractUuid}/services")
     @Operation(summary = "Get contract details", description = "Gets all services and their details for a contract")
-//    @PreAuthorize("hasRole('View-Contract-Details')")
+    //    @PreAuthorize("hasRole('View-Contract-Details')")
     public List<ContractDetailResponse> getContractDetails(
             @PathVariable String contractUuid,
             @RequestParam(value = "page", defaultValue = "1") int page,
@@ -63,14 +63,14 @@ public class ContractDetailController {
 
     @PostMapping("/{contractUuid}/submit")
     @Operation(summary = "Submit contract for approval", description = "Submits a contract for approval")
-//    @PreAuthorize("hasRole('Submit-Contract')")
+    //    @PreAuthorize("hasRole('Submit-Contract')")
     public ResponseEntity<?> submitContractForApproval(@PathVariable String contractUuid) {
         return contractService.submitContractForApproval(contractUuid);
     }
 
     @PostMapping("/{contractUuid}/review")
     @Operation(summary = "Review contract", description = "Approves or rejects a contract")
-//    @PreAuthorize("hasRole('Review-Contract')")
+    //    @PreAuthorize("hasRole('Review-Contract')")
     public ResponseEntity<?> reviewContract(
             @PathVariable String contractUuid,
             @RequestParam boolean approved,

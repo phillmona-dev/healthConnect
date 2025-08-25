@@ -72,7 +72,6 @@ public class PackageCategory extends Audit implements Serializable {
         }
     }
 
-    // Helper methods for bidirectional relationships
     public void addCategoryLimit(PackageCategoryLimit limit) {
         categoryLimits.add(limit);
         limit.setPackageCategory(this);

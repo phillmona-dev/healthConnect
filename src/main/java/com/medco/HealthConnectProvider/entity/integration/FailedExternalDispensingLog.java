@@ -107,7 +107,7 @@ public class FailedExternalDispensingLog extends Audit implements Serializable {
             firstFailedAt = LocalDateTime.now();
         }
         if (nextRetryAt == null) {
-            nextRetryAt = LocalDateTime.now().plusHours(1); // Default retry in 1 hour
+            nextRetryAt = LocalDateTime.now().plusHours(1);
         }
     }
 }

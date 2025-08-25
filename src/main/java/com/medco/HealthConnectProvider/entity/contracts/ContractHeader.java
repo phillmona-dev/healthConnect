@@ -137,7 +137,6 @@ public class ContractHeader extends Audit implements Serializable {
         employee.getContracts().remove(this);
     }
 
-    // Helper methods to maintain bidirectional relationship with ContractDetail
     public void addContractDetail(ContractDetail contractDetail) {
         contractDetails.add(contractDetail);
         contractDetail.setContractHeader(this);

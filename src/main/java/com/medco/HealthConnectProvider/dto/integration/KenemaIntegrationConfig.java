@@ -5,10 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Configuration for Kenema pharmacy integration
- * Contains additional fields resolved from your system
- */
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -19,9 +16,8 @@ public class KenemaIntegrationConfig {
     private boolean isInsurance;
     private String packageUuid;
     private String dependantUuid;
-    private String serviceId; // Default serviceId for medications if not specified per item
+    private String serviceId;
     
-    // Additional fields for processing
     private String payerUuid;
-    private String payerType; // To determine if it's insurance or not
+    private String payerType;
 }

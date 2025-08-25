@@ -33,7 +33,6 @@ public class UserPrincipal implements UserDetails {
     private String profilePicture;
     private Collection<? extends GrantedAuthority> authorities;
 
-
     public UserPrincipal(String userUuid, String email, String password, String title, String firstName, String fatherName, String grandFatherName, String gender, String mobilePhone, Status userStatus, String payerUuid,String providerUuid, String profilePicture, Collection<? extends GrantedAuthority> authorities) {
         this.userUuid = userUuid;
         this.email = email;

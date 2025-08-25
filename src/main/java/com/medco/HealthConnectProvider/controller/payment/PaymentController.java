@@ -56,7 +56,6 @@ public class PaymentController {
 
 
         try{
-            // Verify the signature
             String hash = calculateHMAC(payload, SECRET_KEY);
             if (hash.equals(chapaSignature)) {
 

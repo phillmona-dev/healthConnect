@@ -29,7 +29,6 @@ public class ExternalInsuranceServiceImpl implements ExternalInsuranceService {
     private final RestTemplate restTemplate;
     private final ExternalApiConfig externalApiConfig;
     private final FailedExternalDispensingService failedDispensingService;
-
     private static final String DISPENSING_ENDPOINT = "/api/payer/claimconnect/service-provided/synchronizeServiceProvided";
 
     @Override
@@ -226,6 +225,7 @@ public class ExternalInsuranceServiceImpl implements ExternalInsuranceService {
 
         log.warn("No insured UUID found for dispensing item: {}", item.getId());
         return null;
+
     }
 
     /**

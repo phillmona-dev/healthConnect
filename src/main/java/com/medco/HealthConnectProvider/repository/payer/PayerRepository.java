@@ -65,7 +65,8 @@ public interface PayerRepository extends JpaRepository<Payer, Long>, JpaSpecific
             "AND c.status = 'ACTIVE' AND " +
             "(LOWER(p.payerName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "LOWER(p.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-            "LOWER(p.telephone) LIKE LOWER(CONCAT('%', :search, '%')))")
+            "LOWER(p.telephone) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+            "LOWER(c.contractName) LIKE LOWER(CONCAT('%', :search, '%')))")
     Page<Payer> findPayersWithContractByProvider(@Param("providerUuid") String providerUuid,
                                                  @Param("search") String search,
                                                  Pageable pageable);

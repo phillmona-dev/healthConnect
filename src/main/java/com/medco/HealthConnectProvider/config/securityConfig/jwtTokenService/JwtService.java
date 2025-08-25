@@ -36,11 +36,9 @@ public class JwtService {
                 .signWith(key(), SignatureAlgorithm.HS256).compact();
     }
 
-
     private Key key() {
         return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecretKey));
     }
-
 
     public String getUserNameFromJwtToken(String token) {
         return Jwts.parserBuilder()

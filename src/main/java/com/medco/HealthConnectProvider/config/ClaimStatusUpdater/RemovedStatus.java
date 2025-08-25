@@ -4,7 +4,6 @@ import com.medco.HealthConnectProvider.entity.claims.BatchRecord;
 import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.entity.claims.ClaimLogs;
 import com.medco.HealthConnectProvider.exception.BadRequestException;
-import com.medco.HealthConnectProvider.exception.ResourceNotFoundException;
 import com.medco.HealthConnectProvider.repository.claims.BatchRecordRepository;
 import com.medco.HealthConnectProvider.repository.claims.ClaimRepository;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
@@ -46,12 +45,10 @@ public class RemovedStatus implements UpdateClaimStatus {
         if (batchRecord != null) {
             boolean isRejected = false;
 
-            // Check the status of the associated claim
             if (batchRecord.getClaim() != null && batchRecord.getClaim().getStatus() == ClaimStatus.REJECTED) {
                 isRejected = true;
             }
 
-            // If not already rejected, check the status of associated medication dispensings
             if (!isRejected && batchRecord.getMedicationDispensing() != null) {
                 isRejected = batchRecord.getMedicationDispensing().stream()
                         .anyMatch(md -> "REJECTED".equalsIgnoreCase(md.getClaimStatus()));

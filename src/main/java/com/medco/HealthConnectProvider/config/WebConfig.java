@@ -30,7 +30,6 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
-        // Add support for application/octet-stream to JSON converter
         for (HttpMessageConverter<?> converter : converters) {
             if (converter instanceof MappingJackson2HttpMessageConverter) {
                 List<MediaType> mediaTypes = new ArrayList<>(converter.getSupportedMediaTypes());

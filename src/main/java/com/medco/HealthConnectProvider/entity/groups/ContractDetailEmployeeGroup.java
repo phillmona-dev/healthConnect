@@ -37,13 +37,11 @@ public class ContractDetailEmployeeGroup extends Audit implements Serializable {
     @Builder.Default
     private boolean isDeleted = false;
 
-    // Many-to-One relationship with ContractDetail
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contract_detail_id")
     @JsonBackReference(value = "contract-detail-groups")
     private ContractDetail contractDetail;
 
-    // Many-to-One relationship with EmployeeDependantGroup
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_dependant_group_id")
     @JsonBackReference(value = "employee-group-contracts")

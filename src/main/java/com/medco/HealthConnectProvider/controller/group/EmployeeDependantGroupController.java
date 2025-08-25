@@ -103,7 +103,7 @@ public class EmployeeDependantGroupController {
     }
 
     @DeleteMapping("/{groupUuid}")
-//    @PreAuthorize("hasRole('Manage-Groups')")
+    //    @PreAuthorize("hasRole('Manage-Groups')")
     @Operation(summary = "Delete group", description = "Soft deletes an employee/dependant group")
     public ResponseEntity<?> deleteGroup(@PathVariable String groupUuid) {
         return groupService.deleteGroup(groupUuid);

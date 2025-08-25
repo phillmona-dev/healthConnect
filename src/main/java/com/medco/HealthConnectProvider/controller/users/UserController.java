@@ -12,7 +12,6 @@ import com.medco.HealthConnectProvider.ui.response.auth.RefreshTokenResponse;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.user.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -28,7 +27,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-
 
 @RestController
 @RequestMapping("/api/v1/healthConnect/users")

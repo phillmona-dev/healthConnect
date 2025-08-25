@@ -10,9 +10,7 @@ The Kenema Pharmacy Integration API allows recording medication dispensing from 
 
 **Description:** Record medication dispensing from Kenema pharmacy system with automatic insurance integration
 
-## Request Format (Unchanged)
-
-The request format remains exactly as provided by the external Kenema system:
+## Request Format 
 
 ```json
 {
@@ -55,7 +53,7 @@ The request format remains exactly as provided by the external Kenema system:
 
 ## Integration Configuration Resolution
 
-The system automatically resolves the following fields from your internal system:
+The system automatically resolves the following fields from the internal system:
 
 - **`contractHeaderUuid`**: Resolved from provider-payer contract lookup
 - **`isInsurance`**: Determined based on payer type/name analysis
@@ -141,7 +139,7 @@ Content-Type: application/json
 
 {
   "cbhid": "CBH123456",
-  "identifier": "INS001234567",
+  "insuredUuid": "INS001234567",
   "mrn": "MRN789012",
   "providerBranchName": "Kenema Main Branch",
   "dispensedDate": "2024-01-15",
@@ -182,7 +180,7 @@ Content-Type: application/json
 
 {
   "cbhid": "CBH123456",
-  "identifier": "EMP001234567",
+  "insuredUuid": "EMP001234567",
   "mrn": "MRN789012",
   "dispensedDate": "2024-01-15",
   "totalPrice": 200.00,
@@ -212,7 +210,7 @@ Content-Type: application/json
 ```bash
 POST /api/v1/healthConnect/kenema/dispensing
 {
-  "identifier": "INS001234567",
+  "insuredUuid": "INS001234567",
   "dispensedDate": "2024-01-15",
   "totalPrice": 300.00,
   "prescriptionDetails": [

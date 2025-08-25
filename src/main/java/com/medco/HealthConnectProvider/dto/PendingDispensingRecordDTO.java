@@ -3,11 +3,9 @@ package com.medco.HealthConnectProvider.dto;
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
 import com.medco.HealthConnectProvider.utils.enums.MedicationStatus;
 import com.medco.HealthConnectProvider.utils.enums.SourceType;
-import com.medco.HealthConnectProvider.utils.enums.Status;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Setter

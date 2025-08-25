@@ -10,7 +10,6 @@ import com.medco.HealthConnectProvider.shared.Audit;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.persistence.*;
 import lombok.*;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 

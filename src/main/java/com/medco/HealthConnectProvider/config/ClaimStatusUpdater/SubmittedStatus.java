@@ -43,13 +43,10 @@ public class SubmittedStatus implements UpdateClaimStatus {
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
         ClaimStatus previousStatus = claim.getStatus();
 
-        // Validate status transition
         validateStatusTransition(claim, ClaimStatus.SUBMITTED);
 
-        // Update claim status
         claim.setStatus(ClaimStatus.SUBMITTED);
 
-        // Update specific status fields based on the new status
         updateStatusSpecificFields(claim, ClaimStatus.SUBMITTED, userDetails);
         List<MedicationDispensing> medicationDispensingList=new ArrayList<>();
         for (MedicationDispensing medicationDispensing:claim.getBatchRecord().getMedicationDispensing()){
@@ -58,22 +55,17 @@ public class SubmittedStatus implements UpdateClaimStatus {
         }
         medicationDispensingRepository.saveAll(medicationDispensingList);
 
-        // Save updated claim
         claimRepository.save(claim);
 
-        // Create claim log
         createClaimLog(claim, userDetails, previousStatus, ClaimStatus.SUBMITTED, comment);
 
         return ResponseEntity.ok(new MessageResponse("Claim status updated successfully to " + ClaimStatus.SUBMITTED));
 //        return ResponseEntity.ok("you have "+newStatus+" the the claim.");
 
     }
-    // Helper methods for claim processing
     private void validateStatusTransition(Claim claim, ClaimStatus newStatus) {
         String currentStatus = String.valueOf(claim.getStatus());
 
-
-        // Define valid transitions
         if (currentStatus.equals(ClaimStatus.SUBMITTED.toString())) {
             if (newStatus != ClaimStatus.UNDER_REVIEW && newStatus != ClaimStatus.REJECTED && newStatus != ClaimStatus.CANCELLED) {
                 throw new BadRequestException("Invalid status transition from " + currentStatus + " to " + newStatus);
@@ -105,20 +97,16 @@ public class SubmittedStatus implements UpdateClaimStatus {
                 claim.setPreparedByProviderDate(LocalDateTime.now());
                 break;
             case UNDER_REVIEW:
-                // Already handled in reviewClaim method
                 break;
             case APPROVED:
-                // Already handled in reviewClaim method
                 break;
             case PAYMENT_REQUESTED:
                 claim.setCancelledDate(LocalDateTime.now());
                 claim.setPaymentRequestedByUuid(userDetails.getUserUuid());
                 break;
             case PAID:
-                // Handled in processPayment method
                 break;
             case REJECTED:
-                // Already handled in reviewClaim method
                 break;
             case CANCELLED:
                 claim.setCancelledDate(LocalDateTime.from(Instant.now()));

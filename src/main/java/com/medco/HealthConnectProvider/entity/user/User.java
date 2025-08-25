@@ -71,15 +71,7 @@ public class User extends UserDateAudit {
     private String emailVerificationToken;
     private String profilePicture;
 
-    //    @Lob @Basic(fetch= FetchType.LAZY)
-    //    @Column(name = "Profile", columnDefinition = "LONGBLOB")
-    //    private byte[] imageData;
-
-    // In your User entity class
-
-
     @Lob
-//    @Column(name = "profile")
     private byte[] imageData;
 
     @Column(columnDefinition = "boolean default false")

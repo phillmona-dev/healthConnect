@@ -423,6 +423,7 @@ public class ClaimServiceImpl implements ClaimService {
             comment.setCommentByRole(userDetails.getAuthorities().iterator().next().getAuthority());
 
             claimCommentRepository.save(comment);
+
         }
 
         return ResponseEntity.ok(new MessageResponse("Claim " + (approved ? "approved" : "rejected") + " successfully"));

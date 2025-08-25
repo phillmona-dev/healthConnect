@@ -1,7 +1,6 @@
 package com.medco.HealthConnectProvider.entity.persons;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.utils.enums.Relationship;
@@ -76,11 +75,6 @@ public class Dependant implements Serializable {
     @JoinColumn(name = "insured_uuid", nullable = false)
     private Insured insured;
 
-//    @OneToMany(mappedBy = "dependant", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-//    @JsonManagedReference(value = "dependant-provided-services")
-//    @Builder.Default
-//    private List<ProvidedService> providedServices = new ArrayList<>();
-//
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id")
     @JsonBackReference(value = "employee-dependant-groups")
@@ -88,18 +82,5 @@ public class Dependant implements Serializable {
 
     @ManyToMany(mappedBy = "dependants")
     private Set<ContractHeader> contracts = new HashSet<>();
-
-//    // Helper methods
-//    public void addProvidedService(ProvidedService providedService) {
-//        providedServices.add(providedService);
-//        providedService.setDependant(this);
-//    }
-//
-//    public void removeProvidedService(ProvidedService providedService) {
-//        providedServices.remove(providedService);
-//        providedService.setDependant(null);
-//    }
-
-
 
 }

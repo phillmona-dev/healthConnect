@@ -10,6 +10,7 @@ and ensures patients stay within their allocated limits for different types of h
 ## Business Requirements
 
 ### Core Functionality
+
 - **Payers** can configure custom package categories (from logged-in user context)
 - **Per-person limits** are set at the contract level for each category
 - **Contract details** include category assignments for services

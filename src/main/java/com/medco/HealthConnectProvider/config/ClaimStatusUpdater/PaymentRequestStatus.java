@@ -14,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -36,17 +35,10 @@ public class PaymentRequestStatus implements UpdateClaimStatus {
 
         UserPrincipal userDetails = SecurityUtils.getAuthenticatedUser();
 
-//        // Check if user has access to this claim
-//        if (userDetails.getProviderUuid() == null || !claim.getProviderUuid().equals(userDetails.getPayerUuid())) {
-//            throw new BadRequestException("Only provider users can request payment for claims");
-//        }
-
-        // Check if claim is in approved status
         if (!claim.getStatus().equals(ClaimStatus.APPROVED)) {
             throw new BadRequestException("Only approved claims can be submitted for payment");
         }
 
-        // Update claim status
         ClaimStatus previousStatus = claim.getStatus();
         claim.setStatus(ClaimStatus.PAYMENT_REQUESTED);
         claim.setPaymentRequestedDate(LocalDateTime.now());
@@ -54,7 +46,6 @@ public class PaymentRequestStatus implements UpdateClaimStatus {
 
         claimRepository.save(claim);
 
-        // Create log entry
         createClaimLog(claim, userDetails, previousStatus, ClaimStatus.PAYMENT_REQUESTED,
                 "Payment requested by provider");
 

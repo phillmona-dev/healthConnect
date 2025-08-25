@@ -41,12 +41,10 @@ public class RejectedStatus implements UpdateClaimStatus {
         if (batchRecord != null) {
             boolean isRejected = false;
 
-            // Check the status of the associated claim
             if (batchRecord.getClaim() != null && batchRecord.getClaim().getStatus() == ClaimStatus.REJECTED) {
                 isRejected = true;
             }
 
-            // If not already rejected, check the status of associated medication dispensings
             if (!isRejected && batchRecord.getMedicationDispensing() != null) {
                 isRejected = batchRecord.getMedicationDispensing().stream()
                         .anyMatch(md -> "REJECTED".equalsIgnoreCase(md.getClaimStatus()));

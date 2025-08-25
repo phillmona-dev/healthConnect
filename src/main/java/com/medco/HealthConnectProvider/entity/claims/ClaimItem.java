@@ -60,9 +60,7 @@ public class ClaimItem extends Audit {
 
     private String notes;
 
-    // Optional reference to a provided service if this item is linked to one
     private String providedServiceUuid;
 
-    // Optional reference to a medication dispensing item if this is a pharmacy claim
     private String dispensingItemUuid;
 }

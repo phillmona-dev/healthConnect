@@ -82,7 +82,6 @@ public class PackageCategoryLimit extends Audit implements Serializable {
         }
     }
 
-    // Helper methods for bidirectional relationships
     public void addUsageRecord(PackageCategoryUsage usage) {
         usageRecords.add(usage);
         usage.setCategoryLimit(this);
@@ -93,7 +92,6 @@ public class PackageCategoryLimit extends Audit implements Serializable {
         usage.setCategoryLimit(null);
     }
 
-    // Business logic methods
     public BigDecimal getRemainingLimit() {
         BigDecimal totalUsed = usageRecords.stream()
                 .filter(usage -> !usage.isDeleted())

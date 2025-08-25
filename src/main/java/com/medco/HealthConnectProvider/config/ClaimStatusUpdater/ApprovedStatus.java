@@ -62,15 +62,13 @@ public class ApprovedStatus implements UpdateClaimStatus{
         createClaimLog(claim, userDetails, previousStatus, newStatus, comment);
 
         return ResponseEntity.ok(new MessageResponse("Claim status updated successfully to " + newStatus));
-//        return ResponseEntity.ok("you have "+newStatus+" the the claim.");
+        //        return ResponseEntity.ok("you have "+newStatus+" the the claim.");
 
     }
 
-    // Helper methods for claim processing
     private void validateStatusTransition(Claim claim, ClaimStatus newStatus) {
         String currentStatus = String.valueOf(claim.getStatus());
 
-        // Define valid transitions
         if (currentStatus.equals(newStatus.toString())) {
             if (newStatus != ClaimStatus.UNDER_REVIEW && newStatus != ClaimStatus.REJECTED && newStatus != ClaimStatus.CANCELLED) {
                 throw new BadRequestException("Invalid status transition from " + currentStatus + " to " + newStatus);
@@ -103,20 +101,16 @@ public class ApprovedStatus implements UpdateClaimStatus{
                 claim.setPreparedByProviderDate(LocalDateTime.now());
                 break;
             case UNDER_REVIEW:
-                // Already handled in reviewClaim method
                 break;
             case APPROVED:
-                // Already handled in reviewClaim method
                 break;
             case PAYMENT_REQUESTED:
                 claim.setCancelledDate(LocalDateTime.now());
                 claim.setPaymentRequestedByUuid(userDetails.getUserUuid());
                 break;
             case PAID:
-                // Handled in processPayment method
                 break;
             case REJECTED:
-                // Already handled in reviewClaim method
                 break;
             case CANCELLED:
                 claim.setCancelledDate(LocalDateTime.from(Instant.now()));

@@ -93,13 +93,11 @@ public class EmployeeDependantGroup extends Audit implements Serializable {
 
     @PrePersist
     public void prePersist() {
-        // Synchronize UUIDs if needed
         if (payerUuid == null && payer != null) {
             payerUuid = payer.getPayerUuid();
         }
     }
 
-    // Helper methods for ContractDetailEmployeeGroup
     public void addContractDetailEmployeeGroup(ContractDetailEmployeeGroup group) {
         contractDetailEmployeeGroups.add(group);
         group.setEmployeeDependantGroup(this);
