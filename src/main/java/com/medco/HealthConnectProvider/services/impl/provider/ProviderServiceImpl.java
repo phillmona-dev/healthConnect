@@ -156,10 +156,9 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
         Provider savedProvider = providerRepository.save(provider);
         log.info("Provider created with UUID: {}, status: {}", savedProvider.getProviderUuid(), savedProvider.getStatus());
 
-        // Create role with "PR_" prefix
         Role role = new Role();
         String providerNameForRole = providerRequest.getProviderName();
-        if (providerNameForRole.length() > 35) {  // Reduced to 35 to accommodate "PR_" prefix
+        if (providerNameForRole.length() > 35) {
             providerNameForRole = providerNameForRole.substring(0, 35);
         }
         role.setRoleName("PR_" + providerNameForRole + "_Manager");

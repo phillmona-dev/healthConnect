@@ -22,6 +22,12 @@ import java.util.*;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
+@Table(indexes = {
+        @Index(name = "idx_dependant_insured_uuid", columnList = "insured_uuid"),
+        @Index(name = "idx_dependant_insured_deleted", columnList = "insured_uuid, isDeleted"),
+        @Index(name = "idx_dependant_uuid", columnList = "dependantUuid"),
+        @Index(name = "idx_dependant_phone", columnList = "phone")
+})
 public class Dependant implements Serializable {
 
     @Serial
@@ -61,7 +67,6 @@ public class Dependant implements Serializable {
 
     @Enumerated(EnumType.STRING)
     private Status status;
-
 
     @Column(nullable = false)
     private boolean isDeleted = false;

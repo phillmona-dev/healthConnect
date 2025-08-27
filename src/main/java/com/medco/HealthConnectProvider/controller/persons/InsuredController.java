@@ -258,5 +258,4 @@ public class InsuredController {
         MultipleInsuredResponse results = insuredService.searchInsuredPersons(identifier);
         return ResponseEntity.ok(results);
     }
-
 }

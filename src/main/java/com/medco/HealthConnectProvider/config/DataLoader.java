@@ -45,7 +45,7 @@ public class DataLoader implements CommandLineRunner {
                 "CREATE_ROLE", "READ_ROLE", "UPDATE_ROLE", "DELETE_ROLE",
                 "CREATE_PRIVILEGE", "READ_PRIVILEGE", "UPDATE_PRIVILEGE", "DELETE_PRIVILEGE","VIEW_USER",
                 "Delete Groups","Update Groups","Create Groups","Delete Employees","Update Employees","Create Employees","Delete Drugs",
-                "Update Drugs","Create Drugs","Delete Services","Update Services","Create Services","CREATE_SERVICE"
+                "Update Drugs","Create Drugs","Delete Services","Update Services","Create Services","CREATE_SERVICE", "Mange_kenema"
 
         );
 

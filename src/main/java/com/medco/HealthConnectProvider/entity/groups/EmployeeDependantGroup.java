@@ -90,7 +90,6 @@ public class EmployeeDependantGroup extends Audit implements Serializable {
     @Builder.Default
     private Set<Dependant> dependants = new HashSet<>();
 
-
     @PrePersist
     public void prePersist() {
         if (payerUuid == null && payer != null) {

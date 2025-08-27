@@ -83,5 +83,4 @@ public class InstitutionServiceImpl implements InstitutionService {
             return List.of();
         }
     }
-
 }

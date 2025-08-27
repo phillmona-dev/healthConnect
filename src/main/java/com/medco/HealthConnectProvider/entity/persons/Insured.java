@@ -25,7 +25,14 @@ import java.util.*;
 @NoArgsConstructor
 @Table(indexes = {
         @Index(name = "idx_insured_payer_uuid", columnList = "payerUuid"),
-        @Index(name = "idx_insured_search_fields", columnList = "firstName, fatherName, grandFatherName, phone, insuranceId")
+        @Index(name = "idx_insured_payer_deleted", columnList = "payerUuid, isDeleted"),
+        @Index(name = "idx_insured_search_fields", columnList = "firstName, fatherName, grandFatherName, phone, insuranceId"),
+        @Index(name = "idx_insured_payer_search", columnList = "payerUuid, firstName, fatherName, grandFatherName"),
+        @Index(name = "idx_insured_phone", columnList = "phone"),
+        @Index(name = "idx_insured_email", columnList = "email"),
+        @Index(name = "idx_insured_employee_id", columnList = "employeeId"),
+        @Index(name = "idx_insured_national_id", columnList = "nationalId"),
+        @Index(name = "idx_insured_id_number", columnList = "idNumber")
 })
 public class Insured implements Serializable {
 

@@ -409,9 +409,7 @@ public class InsuredServiceImpl implements InsuredService {
             throw new ResourceNotFoundException("Payer", "payerUuid", payerUuid);
         }
 
-        Pageable pageable = StringUtils.hasText(contractUuid)
-                ? PageRequest.of(page - 1, size, Sort.by("firstName").ascending())
-                : PageRequest.of(page - 1, size, Sort.by("first_name").ascending());
+        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("firstName").ascending());
         String normalizedSearch = StringUtils.hasText(search) ? search.trim().toLowerCase() : "";
         String searchLike = StringUtils.hasText(normalizedSearch) ? "%" + normalizedSearch + "%" : "%";
 
@@ -419,7 +417,7 @@ public class InsuredServiceImpl implements InsuredService {
         if (StringUtils.hasText(contractUuid)) {
             insuredPage = insuredRepository.findByPayerAndNotInContractAndSearchKey(payerUuid, contractUuid, false, searchLike, pageable);
         } else {
-            insuredPage = insuredRepository.findByPayerAndSearchKey(payerUuid, false, normalizedSearch, pageable);
+            insuredPage = insuredRepository.findByPayerAndSearchKeyWithDependants(payerUuid, false, normalizedSearch, pageable);
         }
 
         List<InsuredDependantResponse> insuredDependantResponses = insuredPage.getContent().stream()
@@ -468,8 +466,9 @@ public class InsuredServiceImpl implements InsuredService {
             response.setProfilePictureBase64("");
         }
 
-        List<DependantInsuredResponse> dependantResponses = dependantRepository.findByInsuredAndIsDeletedFalse(insured)
-                .stream()
+        // Use already fetched dependants from JOIN FETCH to avoid N+1 problem
+        List<DependantInsuredResponse> dependantResponses = insured.getDependants().stream()
+                .filter(dependant -> !dependant.isDeleted())
                 .map(this::mapToDependantInsuredResponse)
                 .collect(Collectors.toList());
         response.setDependants(dependantResponses);

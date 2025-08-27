@@ -137,6 +137,22 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
             @Param("searchKey") String searchKey,
             Pageable pageable);
 
+    @Query("SELECT DISTINCT i FROM Insured i " +
+            "LEFT JOIN FETCH i.dependants d " +
+            "WHERE i.payer.payerUuid = :payerUuid " +
+            "AND i.isDeleted = :isDeleted " +
+            "AND (d IS NULL OR d.isDeleted = false) " +
+            "AND (COALESCE(:searchKey, '') = '' OR " +
+            "  LOWER(CONCAT(i.firstName, ' ', i.fatherName, ' ', i.grandFatherName)) LIKE LOWER(CONCAT('%', :searchKey, '%')) OR " +
+            "  LOWER(i.phone) LIKE LOWER(CONCAT('%', :searchKey, '%')) OR " +
+            "  LOWER(i.email) LIKE LOWER(CONCAT('%', :searchKey, '%')) OR " +
+            "  LOWER(i.insuranceId) LIKE LOWER(CONCAT('%', :searchKey, '%')))")
+    Page<Insured> findByPayerAndSearchKeyWithDependants(
+            @Param("payerUuid") String payerUuid,
+            @Param("isDeleted") Boolean isDeleted,
+            @Param("searchKey") String searchKey,
+            Pageable pageable);
+
     Insured findByInsuranceId(String insuranceId);
 
     Insured findByEmployeeId(String employeeId);
