@@ -11,6 +11,8 @@ import com.medco.HealthConnectProvider.utils.enums.Status;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,17 +26,33 @@ import java.util.List;
 @Tag(name = "Provider Management", description = "APIs for managing healthcare providers")
 public class ProviderController {
 
+    private static final Logger logger = LoggerFactory.getLogger(ProviderController.class);
     private final ProviderService providerService;
 
     public ProviderController(ProviderService providerService) {
         this.providerService = providerService;
     }
 
+//    @PostMapping(value = "/createProvider", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+//    @Operation(summary = "Create provider", description = "Creates a new healthcare provider with logo")
+//    public ResponseEntity<ProviderResponse> createProvider(
+//            @RequestPart("provider") @Valid ProviderRequest providerRequest,
+//            @RequestPart(value = "logo", required = false) MultipartFile logo) {
+//        return providerService.createProvider(providerRequest, logo);
+//    }
+
     @PostMapping(value = "/createProvider", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Create provider", description = "Creates a new healthcare provider with logo")
     public ResponseEntity<ProviderResponse> createProvider(
             @RequestPart("provider") @Valid ProviderRequest providerRequest,
             @RequestPart(value = "logo", required = false) MultipartFile logo) {
+
+        logger.info("Received provider: {}", providerRequest.toString());
+        if (logo != null) {
+            logger.info("Received logo: {} ({} bytes)", logo.getOriginalFilename(), logo.getSize());
+        } else {
+            logger.info("No logo received");
+        }
+
         return providerService.createProvider(providerRequest, logo);
     }
 

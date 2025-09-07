@@ -703,7 +703,7 @@ public class ContractServiceImpl implements ContractService {
         HttpEntity<String> request = new HttpEntity<>(requestBody.toString(), headers);
         ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
 
-//		TODO AUTHENTICATION , ERROR HANDLING
+        //TODO AUTHENTICATION , ERROR HANDLING
         if (response == null)
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new MessageResponse("Error: Contract approval and synchronization failed"));
 
@@ -720,7 +720,7 @@ public class ContractServiceImpl implements ContractService {
     @Override
     public List<ContractListPayerResponse> getProvidersContractLists(String providerUuid, String searchKey, int page,
                                                                      int limit, Status status) {
-//		return contractListRepository.findProvidersContracs(providerUuid, searchKey, page, limit, status);
+    //return contractListRepository.findProvidersContracs(providerUuid, searchKey, page, limit, status);
         return null;
     }
 

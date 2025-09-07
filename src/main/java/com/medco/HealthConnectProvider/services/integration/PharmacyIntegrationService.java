@@ -6,14 +6,17 @@ import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordEditR
 import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordEditRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
+import com.medco.HealthConnectProvider.ui.request.integration.CreateCbhiInsuredRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.MedicationDispensingRequest;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
+import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
 
 import com.medco.HealthConnectProvider.utils.enums.ClaimStatus;
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -67,6 +70,22 @@ public interface PharmacyIntegrationService {
                                                                                    LocalDate endDate, String payerUuid, int page, int size, String sortBy, String sortDirection);
 
     ResponseEntity<?> removeDispensingFromBatch(String dispensingUuid);
+
+    ResponseEntity<?> createCbhiInsured(CreateCbhiInsuredRequest request);
+
+    ResponseEntity<PagedResponse<PayerResponse>> getPayersForIntegration(
+            String searchKey,
+            Status status,
+            String category,
+            String payerName,
+            Long tinNumber,
+            Boolean isInsurance,
+            Boolean isCbhi,
+            int page,
+            int size,
+            String sortBy,
+            String sortDirection
+    );
 
 //    ResponseEntity<?> createBatchClaim(String batchCode);
 }

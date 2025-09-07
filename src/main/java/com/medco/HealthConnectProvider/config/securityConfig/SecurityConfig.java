@@ -68,10 +68,14 @@ public class SecurityConfig {
                                 "/api/v1/healthConnect/users/password/resetPassword",
                                 "/api/v1/healthConnect/integration/pharmacy/check",
                                 "/api/v1/healthConnect/integration/pharmacy/dispensing",
+                                "/api/v1/healthConnect/integration/pharmacy/payers",
+                                "/api/v1/healthConnect/integration/pharmacy/insured",
                                 "/api/v1/healthConnect/provider/list/forHcPayer",
                                 "/api/v1/healthConnect/payer-provider-contract/hcPayer/create-active-contract",
                                 "/api/v1/healthConnect/users/role/*",
                                 "/api/v1/healthConnect/users/privilege/*",
+                                "/api/v1/healthConnect/provider/createProvider",
+
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"

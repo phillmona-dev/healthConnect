@@ -1,6 +1,6 @@
 package com.medco.HealthConnectProvider.ui.request.integration;
 
-
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -11,7 +11,8 @@ import java.util.List;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class KenemaPharmacyDispensingRequest {
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class  KenemaPharmacyDispensingRequest {
     private String cbhid;
     private String insuredUuid;
     private String mrn;
@@ -20,12 +21,14 @@ public class KenemaPharmacyDispensingRequest {
     private String physicianFullName;
     private String providerType;
     private String providerName;
+    private String payerName;
     private Double totalPrice;
     private List<PrescriptionDetail> prescriptionDetails;
 
     @Data
     @Setter
     @Getter
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class PrescriptionDetail {
 
         private String description;

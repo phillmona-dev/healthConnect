@@ -187,5 +187,4 @@ public class PayerController {
         PagedResponse<PayerResponse> response = payerService.getPayersWithoutActiveContract(page, limit, sortBy, sortDir);
         return ResponseEntity.ok(response);
     }
-
 }

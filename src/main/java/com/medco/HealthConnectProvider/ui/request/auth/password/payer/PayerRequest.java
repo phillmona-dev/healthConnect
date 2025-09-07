@@ -48,12 +48,13 @@ public class PayerRequest {
     @Size(max = 15)
     private String referralType;
 
-
     @Size(max = 100)
     private String referredBy;
 
     private Status status;
 
     private boolean dependantCoverage;
+
+    private boolean isCbhi;
 
 }

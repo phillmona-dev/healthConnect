@@ -86,7 +86,7 @@ public class DataLoader implements CommandLineRunner {
             for (Privilege privilege : superAdminPrivileges) {
                 superAdminRole.getPrivileges().add(privilege);
                 if (privilege.getRoles() == null) {
-                    privilege.setRoles(new HashSet<>());
+                    privilege.setRoles(new ArrayList<>());
                 }
                 privilege.getRoles().add(superAdminRole);
             }
@@ -106,7 +106,7 @@ public class DataLoader implements CommandLineRunner {
             for (Privilege privilege : superAdminPrivileges) {
                 superAdminRole.getPrivileges().add(privilege);
                 if (privilege.getRoles() == null) {
-                    privilege.setRoles(new HashSet<>());
+                    privilege.setRoles(new ArrayList<>());
                 }
                 privilege.getRoles().add(superAdminRole);
             }

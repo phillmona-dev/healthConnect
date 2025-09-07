@@ -4,6 +4,7 @@ import com.medco.HealthConnectProvider.entity.drug.Drug;
 import com.medco.HealthConnectProvider.entity.groups.ContractDetailEmployeeGroup;
 import com.medco.HealthConnectProvider.entity.groups.EmployeeDependantGroup;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensingItem;
+import org.springframework.context.annotation.DependsOn;
 
 import com.medco.HealthConnectProvider.entity.services.Servicelist;
 import com.medco.HealthConnectProvider.shared.Audit;
@@ -37,7 +38,12 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Table(name = "contract_details")
+@Table(name = "contract_details", indexes = {
+        @Index(name = "idx_contract_detail_uuid", columnList = "contract_detail_uuid", unique = true),
+        @Index(name = "idx_contract_header_uuid", columnList = "contract_header_uuid"),
+        @Index(name = "idx_service_uuid", columnList = "service_uuid"),
+        @Index(name = "idx_drug_uuid", columnList = "drug_uuid")
+})
 @Where(clause = "is_deleted = false")
 public class ContractDetail extends Audit implements Serializable {
 

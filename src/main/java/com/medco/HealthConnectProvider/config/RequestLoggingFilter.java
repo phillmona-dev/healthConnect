@@ -12,6 +12,7 @@ import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 @Component
 public class RequestLoggingFilter extends OncePerRequestFilter {
@@ -21,11 +22,26 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(request);
 
+        // Skip body logging for multipart requests (files)
+        String contentType = request.getContentType();
+        if (contentType != null && contentType.startsWith("multipart/form-data")) {
+            // Optionally log headers or parameters instead
+            Map<String, String[]> params = request.getParameterMap();
+            logger.info("Multipart request parameters: {}", params);
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // For non-multipart requests, wrap and log safely
+        ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(request);
         filterChain.doFilter(wrappedRequest, response);
 
-        String requestBody = new String(wrappedRequest.getContentAsByteArray(), StandardCharsets.UTF_8);
-        logger.info("Raw request body: {}", requestBody);
+        byte[] content = wrappedRequest.getContentAsByteArray();
+        if (content.length > 0) {
+            String requestBody = new String(content, StandardCharsets.UTF_8);
+            logger.info("Raw request body: {}", requestBody);
+        }
     }
 }
+

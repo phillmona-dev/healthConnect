@@ -28,13 +28,14 @@ import java.util.UUID;
         @Index(name = "idx_category_limit_period", columnList = "period_type, reset_date")
 })
 @Where(clause = "is_deleted = false")
+@SequenceGenerator(name = "package_category_limit_seq", sequenceName = "package_category_limit_seq", allocationSize = 1)
 public class PackageCategoryLimit extends Audit implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "package_category_limit_seq")
     private Long id;
 
     @Column(unique = true, nullable = false)

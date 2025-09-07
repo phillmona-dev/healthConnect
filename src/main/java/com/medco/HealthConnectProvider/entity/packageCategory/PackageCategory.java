@@ -25,13 +25,14 @@ import java.util.UUID;
         @Index(name = "idx_package_category_status", columnList = "status")
 })
 @Where(clause = "is_deleted = false")
+@SequenceGenerator(name = "package_category_seq", sequenceName = "package_category_seq", allocationSize = 1)
 public class PackageCategory extends Audit implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "package_category_seq")
     private Long id;
 
     @Column(unique = true, nullable = false)
@@ -61,7 +62,7 @@ public class PackageCategory extends Audit implements Serializable {
     @Builder.Default
     private List<PackageCategoryLimit> categoryLimits = new ArrayList<>();
 
-    @OneToMany(mappedBy = "packageCategory", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "packageCategory", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<ServiceCategoryMapping> serviceCategoryMappings = new ArrayList<>();
 

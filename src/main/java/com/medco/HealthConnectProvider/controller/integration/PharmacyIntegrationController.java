@@ -10,10 +10,13 @@ import com.medco.HealthConnectProvider.services.integration.PharmacyIntegrationS
 import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordEditRequest;
 import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordEditRequest;
+import com.medco.HealthConnectProvider.ui.request.integration.CreateCbhiInsuredRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
+import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
+import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -284,6 +287,37 @@ public class PharmacyIntegrationController {
             @PathVariable String dispensingUuid
     ) {
         return pharmacyIntegrationService.removeDispensingFromBatch(dispensingUuid);
+    }
+
+    @RequiresApiKey
+    @PostMapping("/insured")
+    @Operation(summary = "Create CBHI insured member",
+            description = "Creates a new CBHI insured member for integration with Kenema pharmacy management system")
+    public ResponseEntity<?> createCbhiInsured(@Valid @RequestBody CreateCbhiInsuredRequest request) {
+        logger.info("Received request to create CBHI insured: {}", request);
+        return pharmacyIntegrationService.createCbhiInsured(request);
+    }
+
+    @RequiresApiKey
+    @GetMapping("/payers")
+    @Operation(summary = "Search payers for integration",
+            description = "Retrieves a paginated list of payers with advanced search and filters for external system integration")
+    public ResponseEntity<PagedResponse<PayerResponse>> getPayersForIntegration(
+            @RequestParam(value = "search", required = false) String searchKey,
+            @RequestParam(value = "status", required = false) Status status,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "payerName", required = false) String payerName,
+            @RequestParam(value = "tinNumber", required = false) Long tinNumber,
+            @RequestParam(value = "isInsurance", required = false) Boolean isInsurance,
+            @RequestParam(value = "isCbhi", required = false) Boolean isCbhi,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "25") int size,
+            @RequestParam(value = "sortBy", defaultValue = "payerName") String sortBy,
+            @RequestParam(value = "sortDirection", defaultValue = "asc") String sortDirection
+    ) {
+        return pharmacyIntegrationService.getPayersForIntegration(
+                searchKey, status, category, payerName, tinNumber, isInsurance, isCbhi, page, size, sortBy, sortDirection
+        );
     }
 
 }

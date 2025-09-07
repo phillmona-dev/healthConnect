@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="drop-non-core-tables-1" author="Filmon" runOnChange="true">
+        <comment>Drop non-core tables - Part 1: Foreign key dependent tables first</comment>
+
+        <!-- Drop tables with foreign key dependencies first using SQL with IF EXISTS -->
+        <sql>DROP TABLE IF EXISTS claim_attachments CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS claim_comments CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS claim_logs CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS claim_payments CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS claim_items CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS medication_dispensing_items CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS failed_external_dispensing_logs CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS contract_detail_employee_groups CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS package_category_limits CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS package_category_usage CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS service_category_mappings CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS benefit_balances CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS dependants CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS provided_services CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS password_reset_tokens CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS refresh_tokens CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS profile_pictures CASCADE;</sql>
+    </changeSet>
+
+    <changeSet id="drop-non-core-tables-2" author="filmon" runOnChange="true">
+        <comment>Drop non-core tables - Part 2: Main tables</comment>
+
+        <!-- Drop main tables using SQL with IF EXISTS -->
+        <sql>DROP TABLE IF EXISTS claims CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS batch_records CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS batch_logs CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS medication_dispensing CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS contract_details CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS contract_headers CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS drugs CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS employee_dependant_groups CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS dependant_groups CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS employee_insured_groups CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS package_categories CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS payment_transactions CASCADE;</sql>
+        <sql>DROP TABLE IF EXISTS servicelists CASCADE;</sql>
+    </changeSet>
+
+    <changeSet id="drop-sequences" author="filmon" runOnChange="true">
+        <comment>Drop sequences for non-core tables</comment>
+
+        <!-- Drop sequences -->
+        <sql>DROP SEQUENCE IF EXISTS package_category_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS claim_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS batch_record_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS contract_header_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS contract_detail_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS drug_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS servicelist_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS medication_dispensing_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS medication_dispensing_item_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS employee_dependant_group_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS dependant_group_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS employee_insured_group_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS payment_transaction_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS provided_service_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS benefit_balance_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS dependant_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS package_category_limit_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS package_category_usage_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS service_category_mapping_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS failed_external_dispensing_log_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS contract_detail_employee_group_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS claim_attachment_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS claim_comment_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS claim_log_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS claim_payment_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS claim_item_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS batch_log_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS password_reset_token_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS refresh_token_seq CASCADE;</sql>
+        <sql>DROP SEQUENCE IF EXISTS profile_picture_seq CASCADE;</sql>
+    </changeSet>
+
+    <changeSet id="cleanup-indexes" author="filmon" runOnChange="true">
+        <comment>Drop any remaining indexes on non-core tables</comment>
+
+        <!-- Drop indexes that might still exist -->
+        <sql>DROP INDEX IF EXISTS idx_claim_payer_status CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_claim_provider_status CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_claim_payer_provider_status CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_contract_header_payer_provider CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_contract_detail_header_service CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_medication_dispensing_insured CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_medication_dispensing_provider CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_medication_dispensing_payer CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_dependant_insured CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_dependant_search CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_servicelist_provider CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_servicelist_code CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_drug_provider CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_drug_code CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_package_category_provider CASCADE;</sql>
+        <sql>DROP INDEX IF EXISTS idx_package_category_code CASCADE;</sql>
+    </changeSet>
+
+</databaseChangeLog>

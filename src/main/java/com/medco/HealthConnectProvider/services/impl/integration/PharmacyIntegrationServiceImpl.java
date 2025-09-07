@@ -45,6 +45,7 @@ import com.medco.HealthConnectProvider.services.integration.PharmacyIntegrationS
 import com.medco.HealthConnectProvider.services.persons.InsuredService;
 import com.medco.HealthConnectProvider.ui.BatchCodeInfo;
 import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
+import com.medco.HealthConnectProvider.ui.request.integration.CreateCbhiInsuredRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.MedicationDispensingRequest;
@@ -74,6 +75,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
+import com.medco.HealthConnectProvider.utils.SortUtils;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityManager;
@@ -87,6 +90,7 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -1373,11 +1377,9 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     private void sanitizeDispensingRequest(DispensingRecordRequest request) {
         if (request == null) return;
-        // Normalize dependantUuid
         if (request.getDependantUuid() != null && "null".equalsIgnoreCase(request.getDependantUuid().trim())) {
             request.setDependantUuid(null);
         }
-        // Normalize medication items
         if (request.getMedicationItems() != null) {
             for (DispensingRecordRequest.DispensingItemRequest item : request.getMedicationItems()) {
                 if (item.getItemType() != null) {
@@ -1432,8 +1434,15 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
         log.info("Found insured: {} {}", insured.getFirstName(), insured.getFatherName());
 
-        EligibilityResponse eligibilityResponse = checkEligibility(insured, provider.getProviderUuid());
-        log.info("Eligibility check response: {}", eligibilityResponse);
+        // Check if payer is CBHI to bypass eligibility
+        Payer requestPayer = payerRepository.findByPayerName(request.getPayerName());
+        EligibilityResponse eligibilityResponse = null;
+        if (requestPayer == null || !requestPayer.isCbhi()) {
+            eligibilityResponse = checkEligibility(insured, provider.getProviderUuid());
+            log.info("Eligibility check response: {}", eligibilityResponse);
+        } else {
+            log.info("Bypassing eligibility check for CBHI payer: {}", requestPayer.getPayerName());
+        }
 
         MedicationDispensing dispensing = createDispensingRecord(request, insured, provider, eligibilityResponse);
         log.info("Dispensing record created: {}", dispensing);
@@ -1971,7 +1980,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         for (DispensingRecordRequest.DispensingItemRequest item : items) {
             Servicelist service;
 
-            // Priority 1: Use serviceId if provided
             if (item.getServiceId() != null && !item.getServiceId().trim().isEmpty()) {
                 log.info("Validating item with serviceId: {}", item.getServiceId());
 
@@ -1983,7 +1991,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                     throw new ResourceNotFoundException("Service", "serviceId", item.getServiceId());
                 }
 
-                // Validate that this service is covered in the contract
                 boolean isServiceInContract = activeContract.getContractDetails().stream()
                         .anyMatch(cd -> cd.getServiceUuid().equals(service.getServiceUuid()));
 
@@ -1996,7 +2003,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 log.info("Found Service by serviceId: {}", service.getServiceName());
 
             }
-            // Priority 2: Fallback to contractDetailUuid if serviceId not provided
             else if (item.getContractDetailUuid() != null && !item.getContractDetailUuid().trim().isEmpty()) {
                 log.info("Validating item with contractDetailUuid: {}", item.getContractDetailUuid());
 
@@ -2020,7 +2026,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
                 log.info("Found Service by contractDetailUuid: {}", service.getServiceName());
             }
-            // Error: Neither serviceId nor contractDetailUuid provided
             else {
                 service = null;
                 log.error("Neither serviceId nor contractDetailUuid provided for item");
@@ -2535,6 +2540,133 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         log.setPreviousStatus(previousStatus.toString());
         claimLogsRepository.save(log);
 
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<?> createCbhiInsured(CreateCbhiInsuredRequest request) {
+        log.info("Creating CBHI insured member: {}", request.getFirstName());
+
+        Payer payer = payerRepository.findByPayerUuid(request.getPayerUuid());
+        if (payer == null) {
+            throw new ResourceNotFoundException("Payer", "payerUuid", request.getPayerUuid());
+        }
+
+        Insured insured = new Insured();
+//        if (request.getInsuredUuid() != null && !request.getInsuredUuid().isEmpty()) {
+//            insured.setInsuredUuid(request.getInsuredUuid());
+//        }
+
+        insured.setFirstName(request.getFirstName());
+        insured.setFatherName(request.getFatherName());
+        insured.setGrandFatherName(request.getGrandFatherName());
+        insured.setPhone(request.getPhone());
+        insured.setEmail(request.getEmail());
+        insured.setNationalId(request.getNationalId());
+        insured.setIdNumber(request.getIdNumber());
+        insured.setInsuranceId(request.getInsuranceId());
+        insured.setBirthDate(Date.from(request.getBirthDate().atStartOfDay(ZoneId.systemDefault()).toInstant()));
+        insured.setGender(request.getGender());
+        insured.setAddress(request.getAddress());
+        insured.setCity(request.getCity());
+        insured.setState(request.getState());
+        insured.setCountry(request.getCountry());
+        insured.setStatus(Status.ACTIVE);
+        insured.setPayer(payer);
+        insured.setPayerUuid(payer.getPayerUuid());
+
+        Insured savedInsured = insuredRepository.save(insured);
+        log.info("insured member created successfully: {}", savedInsured.getInsuredUuid());
+
+        return ResponseEntity.ok(new MessageResponse("insured member created successfully with UUID: " + savedInsured.getInsuredUuid()));
+    }
+
+    @Override
+    public ResponseEntity<PagedResponse<PayerResponse>> getPayersForIntegration(
+            String searchKey,
+            Status status,
+            String category,
+            String payerName,
+            Long tinNumber,
+            Boolean isInsurance,
+            Boolean isCbhi,
+            int page,
+            int size,
+            String sortBy,
+            String sortDirection
+    ) {
+        try {
+            String validatedSortBy = SortUtils.validatePayerSortField(sortBy);
+            String validatedSortDir = SortUtils.validateSortDirection(sortDirection);
+
+            Sort sort = validatedSortDir.equalsIgnoreCase("asc") ?
+                    Sort.by(validatedSortBy).ascending() :
+                    Sort.by(validatedSortBy).descending();
+
+            Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size, sort);
+
+            Specification<Payer> spec = (root, query, cb) -> {
+                List<Predicate> predicates = new ArrayList<>();
+                predicates.add(cb.equal(root.get("isDeleted"), false));
+
+                if (searchKey != null && !searchKey.isEmpty()) {
+                    String like = "%" + searchKey.toLowerCase() + "%";
+                    predicates.add(cb.or(
+                            cb.like(cb.lower(root.get("payerName")), like),
+                            cb.like(cb.lower(root.get("email")), like),
+                            cb.like(cb.lower(root.get("telephone")), like),
+                            cb.like(cb.lower(root.get("payerInsuranceNumber")), like)
+                    ));
+                }
+                if (status != null) {
+                    predicates.add(cb.equal(root.get("status"), status));
+                }
+                if (category != null && !category.isEmpty()) {
+                    predicates.add(cb.equal(cb.lower(root.get("category")), category.toLowerCase()));
+                }
+                if (payerName != null && !payerName.isEmpty()) {
+                    predicates.add(cb.like(cb.lower(root.get("payerName")), "%" + payerName.toLowerCase() + "%"));
+                }
+                if (tinNumber != null) {
+                    predicates.add(cb.equal(root.get("tinNumber"), String.valueOf(tinNumber)));
+                }
+                if (isInsurance != null) {
+                    predicates.add(cb.equal(root.get("isInsurance"), isInsurance));
+                }
+                if (isCbhi != null) {
+                    predicates.add(cb.equal(root.get("isCbhi"), isCbhi));
+                }
+
+                return cb.and(predicates.toArray(new Predicate[0]));
+            };
+
+            Page<Payer> payerPage = payerRepository.findAll(spec, pageable);
+
+            List<PayerResponse> responses = payerPage.getContent().stream().map(payer -> {
+                PayerResponse pr = new PayerResponse();
+                BeanUtils.copyProperties(payer, pr);
+                pr.setStatus(payer.getStatus());
+                try {
+                    Long contractCount = contractHeaderRepository.countByPayerPayerUuidAndIsDeleted(payer.getPayerUuid(), false);
+                    pr.setTotalContracts(contractCount);
+                } catch (Exception ignored) {}
+                return pr;
+            }).collect(Collectors.toList());
+
+            PagedResponse<PayerResponse> pagedResponse = new PagedResponse<>(
+                    responses,
+                    payerPage.getNumber() + 1,
+                    payerPage.getSize(),
+                    payerPage.getTotalElements(),
+                    payerPage.getTotalPages(),
+                    payerPage.isLast()
+            );
+
+            return ResponseEntity.ok(pagedResponse);
+        } catch (Exception e) {
+            log.error("Error searching payers for integration", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
 }
