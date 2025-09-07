@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="add-is-cbhi-column-to-payers" author="filmon">
+        <comment>Add is_cbhi column to payers table for CBHI identification</comment>
+        
+        <!-- Add the is_cbhi column with default value using SQL -->
+        <sql>
+            ALTER TABLE payers ADD COLUMN IF NOT EXISTS is_cbhi BOOLEAN DEFAULT false NOT NULL;
+        </sql>
+        
+        <!-- Add index for better query performance -->
+        <sql>
+            CREATE INDEX IF NOT EXISTS idx_payers_is_cbhi ON payers(is_cbhi);
+        </sql>
+        
+        <!-- Update payers that contain CBHI-related keywords -->
+        <sql>
+            UPDATE payers 
+            SET is_cbhi = true 
+            WHERE LOWER(payer_name) LIKE '%cbhi%' 
+               OR LOWER(payer_name) LIKE '%community%health%insurance%'
+               OR LOWER(description) LIKE '%cbhi%';
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

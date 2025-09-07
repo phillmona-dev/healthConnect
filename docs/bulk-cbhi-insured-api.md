@@ -1,7 +1,7 @@
 # Bulk CBHI Insured Creation API
 
 ## Overview
-This API endpoint allows you to create multiple CBHI insured members under a single payer in one request. This is useful for bulk enrollment scenarios where multiple insured members need to be registered for the same payer.
+This API endpoint allows you to create multiple insured members under a single payer in one request. This is useful for bulk enrollment scenarios where multiple insured members need to be registered for the same payer.
 
 ## Endpoint Details
 
@@ -120,8 +120,8 @@ curl -X POST "http://localhost:8080/api/v1/pharmacy-integration/insured/bulk" \
 
 ### Postman Example
 1. Set method to `POST`
-2. Set URL to `http://localhost:8080/api/v1/pharmacy-integration/insured/bulk`
-3. Add header: `X-API-Key: your-api-key-here`
+2. Set URL to `http://localhost:3012/api/v1/pharmacy-integration/insured/bulk`
+3. Add header: `X-API-Key: api-key-here`
 4. Set body to raw JSON and paste the request JSON
 
 ## Validation Rules

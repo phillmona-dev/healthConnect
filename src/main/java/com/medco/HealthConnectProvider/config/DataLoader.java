@@ -76,7 +76,6 @@ public class DataLoader implements CommandLineRunner {
         } catch (Exception e) {
             System.err.println("Error loading privileges: " + e.getMessage());
             e.printStackTrace();
-            // Don't rethrow - allow application to continue
         }
     }
 
@@ -114,14 +113,12 @@ public class DataLoader implements CommandLineRunner {
             roleRepository.save(superAdminRole);
             System.out.println("Created ROLE_SUPER_ADMIN with specified privileges");
         } else {
-            // Role exists, check if it already has the required privileges
             List<String> superAdminPrivilegeNames = Arrays.asList(
                     "CREATE_USER", "READ_USER", "UPDATE_USER", "DELETE_USER",
                     "CREATE_ROLE", "READ_ROLE", "UPDATE_ROLE", "DELETE_ROLE",
                     "CREATE_PRIVILEGE", "READ_PRIVILEGE", "UPDATE_PRIVILEGE", "DELETE_PRIVILEGE", "VIEW_USER"
             );
 
-            // Check if role already has all required privileges
             List<String> existingPrivilegeNames = superAdminRole.getPrivileges().stream()
                     .map(Privilege::getPrivilegeName)
                     .toList();
@@ -132,7 +129,6 @@ public class DataLoader implements CommandLineRunner {
                 System.out.println("ROLE_SUPER_ADMIN exists but missing some privileges, updating...");
                 List<Privilege> superAdminPrivileges = privilegeRepository.findByPrivilegeNameIn(superAdminPrivilegeNames);
 
-                // Only add missing privileges
                 for (Privilege privilege : superAdminPrivileges) {
                     if (!superAdminRole.getPrivileges().contains(privilege)) {
                         superAdminRole.getPrivileges().add(privilege);
@@ -153,7 +149,6 @@ public class DataLoader implements CommandLineRunner {
         } catch (Exception e) {
             System.err.println("Error loading roles: " + e.getMessage());
             e.printStackTrace();
-            // Don't rethrow - allow application to continue
         }
     }
 
@@ -189,7 +184,6 @@ public class DataLoader implements CommandLineRunner {
         } catch (Exception e) {
             System.err.println("Error loading users: " + e.getMessage());
             e.printStackTrace();
-            // Don't rethrow - allow application to continue
         }
     }
 }
