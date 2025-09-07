@@ -7,5 +7,6 @@
     <include file="db/changelog/10-drop-non-core-tables.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/11-recreate-non-core-tables.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/12-add-is-cbhi-column-simple.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/13-simple-medication-dispensing-fix.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
