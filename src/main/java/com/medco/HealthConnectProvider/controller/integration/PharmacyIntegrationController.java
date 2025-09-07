@@ -11,11 +11,13 @@ import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordEditR
 import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordEditRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.CreateCbhiInsuredRequest;
+import com.medco.HealthConnectProvider.ui.request.integration.CreateBulkCbhiInsuredRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
+import com.medco.HealthConnectProvider.ui.response.integration.BulkCbhiInsuredResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
@@ -291,11 +293,21 @@ public class PharmacyIntegrationController {
 
     @RequiresApiKey
     @PostMapping("/insured")
-    @Operation(summary = "Create CBHI insured member",
-            description = "Creates a new CBHI insured member for integration with Kenema pharmacy management system")
+    @Operation(summary = "Create insured member",
+            description = "Creates a new insured member for integration with Kenema pharmacy management system")
     public ResponseEntity<?> createCbhiInsured(@Valid @RequestBody CreateCbhiInsuredRequest request) {
-        logger.info("Received request to create CBHI insured: {}", request);
+        logger.info("Received request to create insured: {}", request);
         return pharmacyIntegrationService.createCbhiInsured(request);
+    }
+
+    @RequiresApiKey
+    @PostMapping("/insured/bulk")
+    @Operation(summary = "Create multiple insured members",
+            description = "Creates multiple insured members under a single payer for integration with Kenema pharmacy management system")
+    public ResponseEntity<BulkCbhiInsuredResponse> createBulkCbhiInsured(@Valid @RequestBody CreateBulkCbhiInsuredRequest request) {
+        logger.info("Received request to create bulk insured for payer: {}, count: {}",
+                request.getPayerUuid(), request.getInsuredMembers().size());
+        return pharmacyIntegrationService.createBulkCbhiInsured(request);
     }
 
     @RequiresApiKey

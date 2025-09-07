@@ -19,6 +19,8 @@ import java.util.*;
 @Component
 public class DataLoader implements CommandLineRunner {
 
+    private static final boolean ENABLE_DATA_LOADER = true; // Set to false to disable
+
     @Autowired
     private UserRepository userRepository;
 
@@ -34,13 +36,21 @@ public class DataLoader implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
+        if (!ENABLE_DATA_LOADER) {
+            System.out.println("DataLoader is disabled. Skipping data initialization.");
+            return;
+        }
+
+        System.out.println("DataLoader is enabled. Starting data initialization...");
         loadPrivileges();
         loadRoles();
         loadUsers();
+        System.out.println("DataLoader completed successfully.");
     }
 
     private void loadPrivileges() {
-        List<String> privilegeNames = Arrays.asList(
+        try {
+            List<String> privilegeNames = Arrays.asList(
                 "CREATE_USER", "READ_USER", "UPDATE_USER", "DELETE_USER",
                 "CREATE_ROLE", "READ_ROLE", "UPDATE_ROLE", "DELETE_ROLE",
                 "CREATE_PRIVILEGE", "READ_PRIVILEGE", "UPDATE_PRIVILEGE", "DELETE_PRIVILEGE","VIEW_USER",
@@ -63,12 +73,18 @@ public class DataLoader implements CommandLineRunner {
                 System.out.println("Privilege already exists: " + name);
             }
         }
+        } catch (Exception e) {
+            System.err.println("Error loading privileges: " + e.getMessage());
+            e.printStackTrace();
+            // Don't rethrow - allow application to continue
+        }
     }
 
     @Transactional
     private void loadRoles() {
-        Role superAdminRole = roleRepository.findByRoleName("ROLE_SUPER_ADMIN");
-        if (superAdminRole == null) {
+        try {
+            Role superAdminRole = roleRepository.findByRoleName("ROLE_SUPER_ADMIN");
+            if (superAdminRole == null) {
             superAdminRole = new Role();
             superAdminRole.setRoleName("ROLE_SUPER_ADMIN");
             superAdminRole.setRoleUuid(UUID.randomUUID().toString());
@@ -84,39 +100,66 @@ public class DataLoader implements CommandLineRunner {
             superAdminRole.setPrivileges(new ArrayList<>());
 
             for (Privilege privilege : superAdminPrivileges) {
-                superAdminRole.getPrivileges().add(privilege);
+                if (!superAdminRole.getPrivileges().contains(privilege)) {
+                    superAdminRole.getPrivileges().add(privilege);
+                }
                 if (privilege.getRoles() == null) {
                     privilege.setRoles(new ArrayList<>());
                 }
-                privilege.getRoles().add(superAdminRole);
+                if (!privilege.getRoles().contains(superAdminRole)) {
+                    privilege.getRoles().add(superAdminRole);
+                }
             }
 
             roleRepository.save(superAdminRole);
             System.out.println("Created ROLE_SUPER_ADMIN with specified privileges");
         } else {
+            // Role exists, check if it already has the required privileges
             List<String> superAdminPrivilegeNames = Arrays.asList(
                     "CREATE_USER", "READ_USER", "UPDATE_USER", "DELETE_USER",
                     "CREATE_ROLE", "READ_ROLE", "UPDATE_ROLE", "DELETE_ROLE",
                     "CREATE_PRIVILEGE", "READ_PRIVILEGE", "UPDATE_PRIVILEGE", "DELETE_PRIVILEGE", "VIEW_USER"
             );
-            List<Privilege> superAdminPrivileges = privilegeRepository.findByPrivilegeNameIn(superAdminPrivilegeNames);
 
-            superAdminRole.getPrivileges().clear();
+            // Check if role already has all required privileges
+            List<String> existingPrivilegeNames = superAdminRole.getPrivileges().stream()
+                    .map(Privilege::getPrivilegeName)
+                    .toList();
 
-            for (Privilege privilege : superAdminPrivileges) {
-                superAdminRole.getPrivileges().add(privilege);
-                if (privilege.getRoles() == null) {
-                    privilege.setRoles(new ArrayList<>());
+            boolean hasAllPrivileges = existingPrivilegeNames.containsAll(superAdminPrivilegeNames);
+
+            if (!hasAllPrivileges) {
+                System.out.println("ROLE_SUPER_ADMIN exists but missing some privileges, updating...");
+                List<Privilege> superAdminPrivileges = privilegeRepository.findByPrivilegeNameIn(superAdminPrivilegeNames);
+
+                // Only add missing privileges
+                for (Privilege privilege : superAdminPrivileges) {
+                    if (!superAdminRole.getPrivileges().contains(privilege)) {
+                        superAdminRole.getPrivileges().add(privilege);
+                        if (privilege.getRoles() == null) {
+                            privilege.setRoles(new ArrayList<>());
+                        }
+                        if (!privilege.getRoles().contains(superAdminRole)) {
+                            privilege.getRoles().add(superAdminRole);
+                        }
+                    }
                 }
-                privilege.getRoles().add(superAdminRole);
+                roleRepository.save(superAdminRole);
+                System.out.println("Updated ROLE_SUPER_ADMIN with missing privileges");
+            } else {
+                System.out.println("ROLE_SUPER_ADMIN already has all required privileges");
             }
-            roleRepository.save(superAdminRole);
-            System.out.println("Updated ROLE_SUPER_ADMIN with specified privileges");
+        }
+        } catch (Exception e) {
+            System.err.println("Error loading roles: " + e.getMessage());
+            e.printStackTrace();
+            // Don't rethrow - allow application to continue
         }
     }
 
     private void loadUsers() {
-        Optional<User> existingSuperAdmin = userRepository.findByEmail("superadmin@gmail.com");
+        try {
+            Optional<User> existingSuperAdmin = userRepository.findByEmail("superadmin@gmail.com");
         if (existingSuperAdmin.isEmpty()) {
             User superAdmin = new User();
             superAdmin.setUserUuid(UUID.randomUUID().toString());
@@ -142,6 +185,11 @@ public class DataLoader implements CommandLineRunner {
             System.out.println("Super Admin user created successfully.");
         } else {
             System.out.println("Super Admin user already exists.");
+        }
+        } catch (Exception e) {
+            System.err.println("Error loading users: " + e.getMessage());
+            e.printStackTrace();
+            // Don't rethrow - allow application to continue
         }
     }
 }

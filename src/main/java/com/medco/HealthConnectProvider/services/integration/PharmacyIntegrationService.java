@@ -7,10 +7,12 @@ import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordReque
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordEditRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.CreateCbhiInsuredRequest;
+import com.medco.HealthConnectProvider.ui.request.integration.CreateBulkCbhiInsuredRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.MedicationDispensingRequest;
 import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
+import com.medco.HealthConnectProvider.ui.response.integration.BulkCbhiInsuredResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingDetailResponse;
 import com.medco.HealthConnectProvider.ui.response.integration.DispensingResponse;
@@ -72,6 +74,8 @@ public interface PharmacyIntegrationService {
     ResponseEntity<?> removeDispensingFromBatch(String dispensingUuid);
 
     ResponseEntity<?> createCbhiInsured(CreateCbhiInsuredRequest request);
+
+    ResponseEntity<BulkCbhiInsuredResponse> createBulkCbhiInsured(CreateBulkCbhiInsuredRequest request);
 
     ResponseEntity<PagedResponse<PayerResponse>> getPayersForIntegration(
             String searchKey,

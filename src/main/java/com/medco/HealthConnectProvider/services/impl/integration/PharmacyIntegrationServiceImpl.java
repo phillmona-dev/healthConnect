@@ -46,6 +46,7 @@ import com.medco.HealthConnectProvider.services.persons.InsuredService;
 import com.medco.HealthConnectProvider.ui.BatchCodeInfo;
 import com.medco.HealthConnectProvider.ui.request.drug.DrugDispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.CreateCbhiInsuredRequest;
+import com.medco.HealthConnectProvider.ui.request.integration.CreateBulkCbhiInsuredRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.MedicationDispensingRequest;
@@ -77,6 +78,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import com.medco.HealthConnectProvider.ui.response.payer.PayerResponse;
 import com.medco.HealthConnectProvider.utils.SortUtils;
+import com.medco.HealthConnectProvider.ui.response.integration.BulkCbhiInsuredResponse;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityManager;
@@ -1434,7 +1436,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
         log.info("Found insured: {} {}", insured.getFirstName(), insured.getFatherName());
 
-        // Check if payer is CBHI to bypass eligibility
         Payer requestPayer = payerRepository.findByPayerName(request.getPayerName());
         EligibilityResponse eligibilityResponse = null;
         if (requestPayer == null || !requestPayer.isCbhi()) {
@@ -1686,7 +1687,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         // - Based on provider type
 
         log.info("Getting default service ID for pharmacy");
-        // Return null for now - customize based on your service setup
         return null;
     }
 
@@ -2052,14 +2052,12 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         for (int i = 0; i < itemRequests.size(); i++) {
             DispensingRecordRequest.DispensingItemRequest itemRequest = itemRequests.get(i);
 
-            // Get service from validated list or resolve from serviceId
             Servicelist service = null;
             if (!services.isEmpty() && i < services.size()) {
                 service = services.get(i);
                 log.info("Processing item request {} of {} with validated service", i + 1, itemRequests.size());
                 log.info("Service: {}, Quantity: {}, Price: {}", service.getServiceName(), itemRequest.getQuantity(), itemRequest.getPrice());
             } else {
-                // Service validation was skipped, resolve service from serviceId
                 service = resolveServiceFromItemRequest(itemRequest, dispensingRecord.getProviderUuid());
                 log.info("Processing item request {} of {} with serviceId resolution", i + 1, itemRequests.size());
                 if (service != null) {
@@ -2068,7 +2066,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             }
 
             try {
-                // Skip processing if service couldn't be resolved
                 if (service == null) {
                     log.error("Could not resolve service for item request {}", i + 1);
                     log.error("Item request details - ServiceId: {}, ContractDetailUuid: {}, ItemType: {}",
@@ -2579,6 +2576,95 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         log.info("insured member created successfully: {}", savedInsured.getInsuredUuid());
 
         return ResponseEntity.ok(new MessageResponse("insured member created successfully with UUID: " + savedInsured.getInsuredUuid()));
+    }
+
+    @Override
+    @Transactional
+    public ResponseEntity<BulkCbhiInsuredResponse> createBulkCbhiInsured(CreateBulkCbhiInsuredRequest request) {
+        log.info("Creating bulk insured members for payer: {}, count: {}",
+                request.getPayerUuid(), request.getInsuredMembers().size());
+
+        Payer payer = payerRepository.findByPayerUuid(request.getPayerUuid());
+        if (payer == null) {
+            throw new ResourceNotFoundException("Payer", "payerUuid", request.getPayerUuid());
+        }
+
+        List<BulkCbhiInsuredResponse.CreatedInsuredMember> createdMembers = new ArrayList<>();
+        List<BulkCbhiInsuredResponse.FailedInsuredMember> failedMembers = new ArrayList<>();
+
+        for (CreateBulkCbhiInsuredRequest.InsuredMemberData memberData : request.getInsuredMembers()) {
+            try {
+                Insured insured = new Insured();
+                insured.setFirstName(memberData.getFirstName());
+                insured.setFatherName(memberData.getFatherName());
+                insured.setGrandFatherName(memberData.getGrandFatherName());
+                insured.setPhone(memberData.getPhone());
+                insured.setEmail(memberData.getEmail());
+                insured.setNationalId(memberData.getNationalId());
+                insured.setIdNumber(memberData.getIdNumber());
+                insured.setInsuranceId(memberData.getInsuranceId());
+
+                if (memberData.getBirthDate() != null) {
+                    insured.setBirthDate(Date.from(memberData.getBirthDate()
+                            .atStartOfDay(ZoneId.systemDefault()).toInstant()));
+                }
+
+                insured.setGender(memberData.getGender());
+                insured.setAddress(memberData.getAddress());
+                insured.setCity(memberData.getCity());
+                insured.setState(memberData.getState());
+                insured.setCountry(memberData.getCountry());
+                insured.setStatus(Status.ACTIVE);
+                insured.setPayer(payer);
+                insured.setPayerUuid(payer.getPayerUuid());
+
+                Insured savedInsured = insuredRepository.save(insured);
+
+                createdMembers.add(BulkCbhiInsuredResponse.CreatedInsuredMember.builder()
+                        .insuredUuid(savedInsured.getInsuredUuid())
+                        .firstName(savedInsured.getFirstName())
+                        .fatherName(savedInsured.getFatherName())
+                        .grandFatherName(savedInsured.getGrandFatherName())
+                        .insuranceId(savedInsured.getInsuranceId())
+                        .nationalId(savedInsured.getNationalId())
+                        .phone(savedInsured.getPhone())
+                        .email(savedInsured.getEmail())
+                        .build());
+
+                log.info("Successfully created insured member: {} {} with UUID: {}",
+                        savedInsured.getFirstName(), savedInsured.getFatherName(), savedInsured.getInsuredUuid());
+
+            } catch (Exception e) {
+                log.error("Failed to create insured member: {} {}, error: {}",
+                        memberData.getFirstName(), memberData.getFatherName(), e.getMessage());
+
+                failedMembers.add(BulkCbhiInsuredResponse.FailedInsuredMember.builder()
+                        .firstName(memberData.getFirstName())
+                        .fatherName(memberData.getFatherName())
+                        .grandFatherName(memberData.getGrandFatherName())
+                        .insuranceId(memberData.getInsuranceId())
+                        .nationalId(memberData.getNationalId())
+                        .errorMessage(e.getMessage())
+                        .errorCode(e.getClass().getSimpleName())
+                        .build());
+            }
+        }
+
+        BulkCbhiInsuredResponse response = BulkCbhiInsuredResponse.builder()
+                .payerUuid(payer.getPayerUuid())
+                .payerName(payer.getPayerName())
+                .totalRequested(request.getInsuredMembers().size())
+                .totalCreated(createdMembers.size())
+                .totalFailed(failedMembers.size())
+                .processedAt(LocalDateTime.now())
+                .createdMembers(createdMembers)
+                .failedMembers(failedMembers)
+                .build();
+
+        log.info("Bulk insured creation completed. Total: {}, Created: {}, Failed: {}",
+                response.getTotalRequested(), response.getTotalCreated(), response.getTotalFailed());
+
+        return ResponseEntity.ok(response);
     }
 
     @Override
