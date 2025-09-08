@@ -6,6 +6,7 @@ import com.medco.HealthConnectProvider.utils.enums.SourceType;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 
 @Setter
@@ -21,6 +22,12 @@ public class PendingDispensingRecordDTO {
 
     private String payerName;
     private String patientName;
+    private String gender;
+    private String idNumber;
+    private Date birthDate;
+    private String phone;
+    private String position;
+    private String email;
     private String insuranceId;
     private LocalDate dispensingDate;
     private String prescriptionNumber;

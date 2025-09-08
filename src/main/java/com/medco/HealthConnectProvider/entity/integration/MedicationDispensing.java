@@ -107,7 +107,7 @@ public class MedicationDispensing {
     private String attachmentFileName;
     private String attachmentContentType;
 
-    @Lob
+    @Column(columnDefinition = "BYTEA")
     @Basic(fetch = FetchType.LAZY)
     private byte[] attachmentData;
 

@@ -71,7 +71,8 @@ public class User extends UserDateAudit {
     private String emailVerificationToken;
     private String profilePicture;
 
-    @Lob
+    @Column(columnDefinition = "BYTEA")
+    @Basic(fetch = FetchType.LAZY)
     private byte[] imageData;
 
     @Column(columnDefinition = "boolean default false")

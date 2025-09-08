@@ -34,26 +34,22 @@ public class ExternalDispensingRetryScheduler {
                 LocalDateTime.now());
         
         try {
-            // Get statistics before processing
-            FailedExternalDispensingService.RetryStatistics beforeStats = 
+            FailedExternalDispensingService.RetryStatistics beforeStats =
                     failedDispensingService.getRetryStatistics();
             
             log.info("Retry statistics before processing - Pending: {}, Max Retries Reached: {}, Successful: {}, Total: {}", 
                     beforeStats.pendingRetries, beforeStats.maxRetriesReached, 
                     beforeStats.successfulRetries, beforeStats.totalFailed);
             
-            // Process pending retries
             failedDispensingService.processPendingRetries();
             
-            // Get statistics after processing
-            FailedExternalDispensingService.RetryStatistics afterStats = 
+            FailedExternalDispensingService.RetryStatistics afterStats =
                     failedDispensingService.getRetryStatistics();
             
             log.info("Retry statistics after processing - Pending: {}, Max Retries Reached: {}, Successful: {}, Total: {}", 
                     afterStats.pendingRetries, afterStats.maxRetriesReached, 
                     afterStats.successfulRetries, afterStats.totalFailed);
             
-            // Calculate processed counts
             long processedRetries = beforeStats.pendingRetries - afterStats.pendingRetries;
             long newSuccessful = afterStats.successfulRetries - beforeStats.successfulRetries;
             long newMaxRetries = afterStats.maxRetriesReached - beforeStats.maxRetriesReached;
@@ -80,7 +76,6 @@ public class ExternalDispensingRetryScheduler {
                 LocalDateTime.now());
         
         try {
-            // Only process retries that are due (not all pending)
             failedDispensingService.processPendingRetries();
             
             FailedExternalDispensingService.RetryStatistics stats = 
@@ -108,8 +103,7 @@ public class ExternalDispensingRetryScheduler {
         log.info("=== Starting cleanup of old retry logs at {} ===", LocalDateTime.now());
         
         try {
-            // This would require additional implementation in the service
-            // For now, just log the intent
+
             log.info("Cleanup task executed - implementation can be added to remove logs older than 30 days");
             
         } catch (Exception e) {

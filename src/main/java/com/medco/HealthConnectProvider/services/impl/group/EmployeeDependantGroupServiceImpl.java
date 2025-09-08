@@ -325,10 +325,10 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
                     ContractDetail detail = linkage.getContractDetail();
                     return GroupContractDetailResponse.builder()
                             .contractDetailUuid(detail.getContractDetailUuid())
-                            .serviceName(detail.getServicelist().getServiceName())
-                            .serviceCode(detail.getServicelist().getServiceCode())
-                            .negotiatedPrice(BigDecimal.valueOf(detail.getNegotiatedPrice()))
-                            .status(detail.getStatus().toString())
+                            .serviceName(detail.getServicelist() != null ? detail.getServicelist().getServiceName() : null)
+                            .serviceCode(detail.getServicelist() != null ? detail.getServicelist().getServiceCode() : null)
+                            .negotiatedPrice(detail.getNegotiatedPrice() != null ? BigDecimal.valueOf(detail.getNegotiatedPrice()) : BigDecimal.ZERO)
+                            .status(detail.getStatus() != null ? detail.getStatus().toString() : "UNKNOWN")
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -371,7 +371,7 @@ public class EmployeeDependantGroupServiceImpl implements EmployeeDependantGroup
                             .contractDetailUuid(detail.getContractDetailUuid())
                             .serviceName(detail.getServicelist() != null ? detail.getServicelist().getServiceName() : null)
                             .serviceCode(detail.getServicelist() != null ? detail.getServicelist().getServiceCode() : null)
-                            .negotiatedPrice(BigDecimal.valueOf(detail.getNegotiatedPrice()))
+                            .negotiatedPrice(detail.getNegotiatedPrice() != null ? BigDecimal.valueOf(detail.getNegotiatedPrice()) : BigDecimal.ZERO)
                             .status(detail.getStatus() != null ? detail.getStatus().toString() : null)
                             .build();
                 })

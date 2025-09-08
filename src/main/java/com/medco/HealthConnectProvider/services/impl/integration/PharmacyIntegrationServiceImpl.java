@@ -1828,7 +1828,7 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         return items;
     }
 
-    private Drug findOrCreateDrug(KenemaPharmacyDispensingRequest.PrescriptionDetail prescriptionDetail) {
+    private Drug findOrCreateDrug(KenemaPharmacyDispensingRequest.PrescriptionDetail prescriptionDetail, Provider provider) {
         Optional<Drug> existingDrug = drugRepository.findByDrugName(prescriptionDetail.getMedicationName());
 
         if (existingDrug.isPresent()) {
@@ -1840,6 +1840,8 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             newDrug.setRoute(prescriptionDetail.getRoute());
             newDrug.setPrice(prescriptionDetail.getPrice());
             newDrug.setStatus(Status.ACTIVE);
+            // Fix: Set the provider to avoid null provider_uuid constraint violation
+            newDrug.setProvider(provider);
 
             return drugRepository.save(newDrug);
         }
@@ -1881,7 +1883,9 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         log.info("Resolving contract detail using drug-based resolution for medication: {}", item.getMedicationName());
 
-        Drug drug = findOrCreateDrug(item);
+        // Get the provider from the contract to avoid null provider_uuid constraint violation
+        Provider provider = activeContract.getProvider();
+        Drug drug = findOrCreateDrug(item, provider);
 
         ContractDetail contractDetail = contractDetailRepository.findByContractHeaderAndDrug(activeContract, drug)
                 .orElseGet(() -> {
@@ -2205,6 +2209,10 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                     .filter(Objects::nonNull)
                     .collect(Collectors.joining(" "));
             dto.setPatientName(fullName.trim());
+            dto.setPhone(insured.getPhone());
+            dto.setIdNumber(insured.getIdNumber());
+            dto.setGender(insured.getGender());
+            dto.setEmail(insured.getEmail());
             dto.setInsuranceId(insured.getEmployeeId() != null ? insured.getEmployeeId() : insured.getInsuranceId());
         } else {
             dto.setPatientName("Unknown");

@@ -49,6 +49,10 @@ public class ServiceCategoryMapping extends Audit implements Serializable {
     @JoinColumn(name = "package_category_id", nullable = false)
     private PackageCategory packageCategory;
 
+    private String serviceUuid;
+    private String categoryUuid;
+    private String providerUuid;
+
     @Builder.Default
     private boolean consumesFromLimit = true;
 
@@ -63,9 +67,50 @@ public class ServiceCategoryMapping extends Audit implements Serializable {
         if (mappingUuid == null) {
             mappingUuid = UUID.randomUUID().toString();
         }
+        // Populate UUID fields from relationships
+        populateUuidFields();
     }
-    
+
+    @PreUpdate
+    public void preUpdate() {
+        // Ensure UUID fields are synchronized with relationships
+        populateUuidFields();
+    }
+
+    private void populateUuidFields() {
+        if (contractDetail != null) {
+            if (contractDetail.getServicelist() != null && serviceUuid == null) {
+                serviceUuid = contractDetail.getServicelist().getServiceUuid();
+            }
+            if (contractDetail.getContractHeader() != null &&
+                contractDetail.getContractHeader().getProvider() != null && providerUuid == null) {
+                providerUuid = contractDetail.getContractHeader().getProvider().getProviderUuid();
+            }
+        }
+        if (packageCategory != null && categoryUuid == null) {
+            categoryUuid = packageCategory.getCategoryUuid();
+        }
+    }
+
     public void setContractDetail(ContractDetail contractDetail) {
         this.contractDetail = contractDetail;
+        // Automatically populate UUID fields when contract detail is set
+        if (contractDetail != null) {
+            if (contractDetail.getServicelist() != null) {
+                this.serviceUuid = contractDetail.getServicelist().getServiceUuid();
+            }
+            if (contractDetail.getContractHeader() != null &&
+                contractDetail.getContractHeader().getProvider() != null) {
+                this.providerUuid = contractDetail.getContractHeader().getProvider().getProviderUuid();
+            }
+        }
+    }
+
+    public void setPackageCategory(PackageCategory packageCategory) {
+        this.packageCategory = packageCategory;
+        // Automatically populate categoryUuid when package category is set
+        if (packageCategory != null) {
+            this.categoryUuid = packageCategory.getCategoryUuid();
+        }
     }
 }

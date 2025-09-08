@@ -152,4 +152,5 @@ public class ClaimController {
             @RequestBody @Valid BatchRejectRequest rejectRequest) {
         return claimService.rejectOrResubmitBatch(batchCode, rejectRequest.getRemark());
     }
+
 }

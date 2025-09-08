@@ -44,6 +44,8 @@ public class Drug {
     @JoinColumn(name = "provider_id")
     private Provider provider;
 
+    private String providerUuid;
+
     private boolean isDeleted = false;
     private Instant createdAt;
     private Instant updatedAt;
@@ -59,11 +61,25 @@ public class Drug {
     @PrePersist
     protected void onCreate() {
         createdAt = Instant.now();
+        // Ensure providerUuid is set from provider relationship
+        if (provider != null && providerUuid == null) {
+            providerUuid = provider.getProviderUuid();
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = Instant.now();
+        // Ensure providerUuid is set from provider relationship
+        if (provider != null && providerUuid == null) {
+            providerUuid = provider.getProviderUuid();
+        }
+    }
+
+    // Custom setter to ensure providerUuid is always synchronized with provider
+    public void setProvider(Provider provider) {
+        this.provider = provider;
+        this.providerUuid = provider != null ? provider.getProviderUuid() : null;
     }
 
 }

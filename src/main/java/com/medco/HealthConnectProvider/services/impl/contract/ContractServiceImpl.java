@@ -974,7 +974,8 @@ public class ContractServiceImpl implements ContractService {
             response.setServiceCode(detail.getServicelist().getServiceCode());
             response.setServiceCategory(detail.getServicelist().getServiceCategory());
             response.setServiceSubCategory(detail.getServicelist().getServiceSubCategory());
-            response.setNegotiatedPrice(detail.getNegotiatedPrice());
+            // Handle null negotiatedPrice safely
+            response.setNegotiatedPrice(detail.getNegotiatedPrice() != null ? detail.getNegotiatedPrice() : 0.0);
             response.setDefaultPrice(detail.getServicelist().getDefaultPrice());
             response.setStatus(detail.getStatus().toString());
 
@@ -1296,7 +1297,8 @@ public class ContractServiceImpl implements ContractService {
         ContractResponse.ContractDetailSummary summary = new ContractResponse.ContractDetailSummary();
         summary.setContractDetailUuid(detail.getContractDetailUuid());
 
-        summary.setNegotiatedPrice(detail.getNegotiatedPrice().doubleValue());
+        // Handle null negotiatedPrice safely
+        summary.setNegotiatedPrice(detail.getNegotiatedPrice() != null ? detail.getNegotiatedPrice().doubleValue() : 0.0);
 
         if (detail.getServicelist() != null) {
             summary.setServiceUuid(detail.getServiceUuid());
@@ -1498,8 +1500,9 @@ public class ContractServiceImpl implements ContractService {
         response.setContractName(contract.getContractName());
         response.setContractDetailUuid(detail.getContractDetailUuid());
         response.setServiceUuid(detail.getServiceUuid());
-        response.setNegotiatedPrice(detail.getNegotiatedPrice());
-        response.setStatus(detail.getStatus().toString());
+        // Handle null negotiatedPrice safely
+        response.setNegotiatedPrice(detail.getNegotiatedPrice() != null ? detail.getNegotiatedPrice() : 0.0);
+        response.setStatus(detail.getStatus() != null ? detail.getStatus().toString() : "UNKNOWN");
 
         if (detail.getServicelist() != null) {
             response.setServiceName(detail.getServicelist().getServiceName());
@@ -1782,7 +1785,8 @@ public class ContractServiceImpl implements ContractService {
         response.setContractDetailUuid(detail.getContractDetailUuid());
         response.setServiceUuid(detail.getServiceUuid());
         response.setServiceName(detail.getServicelist().getServiceName());
-        response.setNegotiatedPrice(detail.getNegotiatedPrice().doubleValue());
+        // Handle null negotiatedPrice safely
+        response.setNegotiatedPrice(detail.getNegotiatedPrice() != null ? detail.getNegotiatedPrice().doubleValue() : 0.0);
         response.setEmployeeDependantGroups(detail.getEmployeeDependantGroups().stream()
                 .map(EmployeeDependantGroup::getGroupName)
                 .collect(Collectors.toList()));

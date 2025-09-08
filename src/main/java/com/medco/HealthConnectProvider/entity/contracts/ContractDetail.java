@@ -64,7 +64,8 @@ public class ContractDetail extends Audit implements Serializable {
     private String serviceUuid;
 
     @Column(precision = 19)
-    private Double negotiatedPrice;
+    @Builder.Default
+    private Double negotiatedPrice = 0.0;
 
     @Enumerated(EnumType.STRING)
     private Status status;
@@ -110,6 +111,9 @@ public class ContractDetail extends Audit implements Serializable {
         if (contractDetailUuid == null) {
             contractDetailUuid = UUID.randomUUID().toString();
         }
+        if (this.negotiatedPrice == null) {
+            this.negotiatedPrice = 0.0;
+        }
     }
 
     public void addEmployeeDependantGroup(EmployeeDependantGroup group) {
@@ -138,6 +142,13 @@ public class ContractDetail extends Audit implements Serializable {
     public void removeContractDetailEmployeeGroup(ContractDetailEmployeeGroup group) {
         contractDetailEmployeeGroups.remove(group);
         group.setContractDetail(null);
+    }
+
+    @PreUpdate
+    private void preUpdate() {
+        if (this.negotiatedPrice == null) {
+            this.negotiatedPrice = 0.0;
+        }
     }
 
 }
