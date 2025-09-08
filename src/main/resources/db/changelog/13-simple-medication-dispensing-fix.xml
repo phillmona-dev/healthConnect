@@ -8,13 +8,11 @@
     <changeSet id="add-critical-medication-dispensing-columns" author="system">
         <comment>Add critical missing columns to medication_dispensing table</comment>
         
-        <!-- Add the most critical columns that are causing immediate errors -->
         <sql>ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS batch_code VARCHAR(255);</sql>
         <sql>ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS attachment_content_type VARCHAR(100);</sql>
         <sql>ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS attachment_file_name VARCHAR(255);</sql>
         <sql>ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS attachment_data BYTEA;</sql>
         
-        <!-- Add other essential columns -->
         <sql>ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS dispensing_uuid VARCHAR(255);</sql>
         <sql>ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS provider_uuid VARCHAR(255);</sql>
         <sql>ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS payer_uuid VARCHAR(255);</sql>
@@ -32,7 +30,6 @@
     <changeSet id="add-remaining-medication-dispensing-columns" author="system">
         <comment>Add remaining columns to complete medication_dispensing table</comment>
         
-        <!-- Add remaining columns -->
         <sql>ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(255);</sql>
         <sql>ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS prescribing_physician_name VARCHAR(255);</sql>
         <sql>ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS prescribing_physician_id VARCHAR(255);</sql>
@@ -55,7 +52,6 @@
     <changeSet id="add-medication-dispensing-indexes" author="system">
         <comment>Add indexes for medication_dispensing table</comment>
         
-        <!-- Add basic indexes -->
         <sql>CREATE INDEX IF NOT EXISTS idx_medication_dispensing_batch_code ON medication_dispensing(batch_code);</sql>
         <sql>CREATE INDEX IF NOT EXISTS idx_medication_dispensing_provider_uuid ON medication_dispensing(provider_uuid);</sql>
         <sql>CREATE INDEX IF NOT EXISTS idx_medication_dispensing_payer_uuid ON medication_dispensing(payer_uuid);</sql>

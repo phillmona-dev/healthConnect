@@ -8,7 +8,6 @@
     <changeSet id="add-all-missing-medication-dispensing-columns" author="system">
         <comment>Add ALL missing columns to medication_dispensing table based on MedicationDispensing entity</comment>
         
-        <!-- Core dispensing information columns -->
         <sql>
             ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(255);
         </sql>
@@ -77,7 +76,6 @@
             ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS claim_uuid VARCHAR(255);
         </sql>
         
-        <!-- Financial columns -->
         <sql>
             ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS total_amount DECIMAL(15,2);
         </sql>
@@ -98,7 +96,6 @@
             ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS source VARCHAR(50);
         </sql>
         
-        <!-- Foreign key columns -->
         <sql>
             ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS batch_id BIGINT;
         </sql>
@@ -111,7 +108,6 @@
             ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS dependant_id BIGINT;
         </sql>
         
-        <!-- System columns -->
         <sql>
             ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS deleted BOOLEAN DEFAULT false NOT NULL;
         </sql>
@@ -124,7 +120,6 @@
             ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         </sql>
         
-        <!-- Diagnosis columns -->
         <sql>
             ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS primary_diagnosis VARCHAR(500);
         </sql>
@@ -133,7 +128,6 @@
             ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS secondary_diagnosis VARCHAR(500);
         </sql>
         
-        <!-- Attachment columns -->
         <sql>
             ALTER TABLE medication_dispensing ADD COLUMN IF NOT EXISTS attachment_file_name VARCHAR(255);
         </sql>
@@ -150,7 +144,6 @@
     <changeSet id="add-medication-dispensing-indexes-and-constraints" author="system">
         <comment>Add indexes and constraints for medication_dispensing table</comment>
         
-        <!-- Add unique constraint on dispensing_uuid -->
         <sql>
             DO $$
             BEGIN
@@ -163,7 +156,6 @@
             END $$;
         </sql>
 
-        <!-- Add unique constraint on pharmacy_transaction_id -->
         <sql>
             DO $$
             BEGIN
@@ -176,7 +168,6 @@
             END $$;
         </sql>
         
-        <!-- Add indexes for better query performance -->
         <sql>
             CREATE INDEX IF NOT EXISTS idx_medication_dispensing_provider_uuid ON medication_dispensing(provider_uuid);
         </sql>
@@ -221,7 +212,6 @@
             CREATE INDEX IF NOT EXISTS idx_medication_dispensing_attachment_type ON medication_dispensing(attachment_content_type);
         </sql>
         
-        <!-- Add foreign key constraints (only if referenced tables exist) -->
         <sql>
             -- Add foreign key to batch_records if table exists
             DO $$

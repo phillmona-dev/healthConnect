@@ -8,7 +8,6 @@
     <changeSet id="create-sequences" author="filmon">
         <comment>Create sequences for non-core tables</comment>
         
-        <!-- Create sequences -->
         <createSequence sequenceName="package_category_seq" startValue="1" incrementBy="1"/>
         <createSequence sequenceName="claim_seq" startValue="1" incrementBy="1"/>
         <createSequence sequenceName="batch_record_seq" startValue="1" incrementBy="1"/>
@@ -609,11 +608,9 @@
         </createTable>
     </changeSet>
 
-    <!-- Add missing claim-related tables -->
     <changeSet id="create-missing-claim-tables" author="filmon">
         <comment>Create missing claim-related tables: BatchLog, BatchRecord, ClaimAttachment, ClaimComment, ClaimItem, ClaimLogs, ClaimPayment</comment>
 
-        <!-- BatchRecord table -->
         <createTable tableName="batch_records">
             <column name="id" type="BIGINT" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
@@ -638,7 +635,6 @@
             <column name="number_of_claims" type="DOUBLE"/>
         </createTable>
 
-        <!-- BatchLog table -->
         <createTable tableName="batch_logs">
             <column name="id" type="BIGINT" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
@@ -653,7 +649,6 @@
             <column name="changed_at" type="TIMESTAMP"/>
         </createTable>
 
-        <!-- ClaimAttachment table -->
         <createTable tableName="claim_attachments">
             <column name="id" type="BIGINT" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
@@ -679,14 +674,12 @@
                 <constraints nullable="false"/>
             </column>
             <column name="uploaded_by_name" type="VARCHAR(255)"/>
-            <!-- Audit fields -->
             <column name="created_at" type="TIMESTAMP"/>
             <column name="updated_at" type="TIMESTAMP"/>
             <column name="created_by" type="VARCHAR(255)"/>
             <column name="updated_by" type="VARCHAR(255)"/>
         </createTable>
 
-        <!-- ClaimComment table -->
         <createTable tableName="claim_comments">
             <column name="id" type="BIGINT" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
@@ -708,14 +701,12 @@
                 <constraints nullable="false"/>
             </column>
             <column name="comment_by_name" type="VARCHAR(255)"/>
-            <!-- Audit fields -->
             <column name="created_at" type="TIMESTAMP"/>
             <column name="updated_at" type="TIMESTAMP"/>
             <column name="created_by" type="VARCHAR(255)"/>
             <column name="updated_by" type="VARCHAR(255)"/>
         </createTable>
 
-        <!-- ClaimItem table -->
         <createTable tableName="claim_items">
             <column name="id" type="BIGINT" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
@@ -754,14 +745,12 @@
             <column name="notes" type="VARCHAR(500)"/>
             <column name="provided_service_uuid" type="VARCHAR(255)"/>
             <column name="dispensing_item_uuid" type="VARCHAR(255)"/>
-            <!-- Audit fields -->
             <column name="created_at" type="TIMESTAMP"/>
             <column name="updated_at" type="TIMESTAMP"/>
             <column name="created_by" type="VARCHAR(255)"/>
             <column name="updated_by" type="VARCHAR(255)"/>
         </createTable>
 
-        <!-- ClaimLogs table -->
         <createTable tableName="claim_logs">
             <column name="id" type="BIGINT" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
@@ -786,14 +775,12 @@
             </column>
             <column name="previous_status" type="VARCHAR(50)"/>
             <column name="comment" type="VARCHAR(500)"/>
-            <!-- Audit fields -->
             <column name="created_at" type="TIMESTAMP"/>
             <column name="updated_at" type="TIMESTAMP"/>
             <column name="created_by" type="VARCHAR(255)"/>
             <column name="updated_by" type="VARCHAR(255)"/>
         </createTable>
 
-        <!-- ClaimPayment table -->
         <createTable tableName="claim_payments">
             <column name="id" type="BIGINT" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
@@ -819,7 +806,6 @@
             </column>
             <column name="paid_by_uuid" type="VARCHAR(255)"/>
             <column name="paid_by_name" type="VARCHAR(255)"/>
-            <!-- Audit fields -->
             <column name="created_at" type="TIMESTAMP"/>
             <column name="updated_at" type="TIMESTAMP"/>
             <column name="created_by" type="VARCHAR(255)"/>
@@ -827,11 +813,9 @@
         </createTable>
     </changeSet>
 
-    <!-- Add foreign key constraints for missing tables -->
     <changeSet id="add-missing-foreign-keys" author="filmon">
         <comment>Add foreign key constraints for missing claim-related tables</comment>
 
-        <!-- BatchLog foreign keys -->
         <addForeignKeyConstraint
                 baseTableName="batch_logs"
                 baseColumnNames="batch_id"
@@ -839,7 +823,6 @@
                 referencedColumnNames="id"
                 constraintName="fk_batch_logs_batch_record"/>
 
-        <!-- ClaimAttachment foreign keys -->
         <addForeignKeyConstraint
                 baseTableName="claim_attachments"
                 baseColumnNames="claim_id"
@@ -847,7 +830,6 @@
                 referencedColumnNames="id"
                 constraintName="fk_claim_attachments_claim"/>
 
-        <!-- ClaimComment foreign keys -->
         <addForeignKeyConstraint
                 baseTableName="claim_comments"
                 baseColumnNames="claim_id"
@@ -855,7 +837,6 @@
                 referencedColumnNames="id"
                 constraintName="fk_claim_comments_claim"/>
 
-        <!-- ClaimItem foreign keys -->
         <addForeignKeyConstraint
                 baseTableName="claim_items"
                 baseColumnNames="claim_id"
@@ -863,7 +844,6 @@
                 referencedColumnNames="id"
                 constraintName="fk_claim_items_claim"/>
 
-        <!-- ClaimLogs foreign keys -->
         <addForeignKeyConstraint
                 baseTableName="claim_logs"
                 baseColumnNames="claim_id"
@@ -871,7 +851,6 @@
                 referencedColumnNames="id"
                 constraintName="fk_claim_logs_claim"/>
 
-        <!-- ClaimPayment foreign keys -->
         <addForeignKeyConstraint
                 baseTableName="claim_payments"
                 baseColumnNames="claim_id"

@@ -8,7 +8,6 @@
     <changeSet id="drop-non-core-tables-1" author="Filmon" runOnChange="true">
         <comment>Drop non-core tables - Part 1: Foreign key dependent tables first</comment>
 
-        <!-- Drop tables with foreign key dependencies first using SQL with IF EXISTS -->
         <sql>DROP TABLE IF EXISTS claim_attachments CASCADE;</sql>
         <sql>DROP TABLE IF EXISTS claim_comments CASCADE;</sql>
         <sql>DROP TABLE IF EXISTS claim_logs CASCADE;</sql>
@@ -31,7 +30,6 @@
     <changeSet id="drop-non-core-tables-2" author="filmon" runOnChange="true">
         <comment>Drop non-core tables - Part 2: Main tables</comment>
 
-        <!-- Drop main tables using SQL with IF EXISTS -->
         <sql>DROP TABLE IF EXISTS claims CASCADE;</sql>
         <sql>DROP TABLE IF EXISTS batch_records CASCADE;</sql>
         <sql>DROP TABLE IF EXISTS batch_logs CASCADE;</sql>
@@ -50,7 +48,6 @@
     <changeSet id="drop-sequences" author="filmon" runOnChange="true">
         <comment>Drop sequences for non-core tables</comment>
 
-        <!-- Drop sequences -->
         <sql>DROP SEQUENCE IF EXISTS package_category_seq CASCADE;</sql>
         <sql>DROP SEQUENCE IF EXISTS claim_seq CASCADE;</sql>
         <sql>DROP SEQUENCE IF EXISTS batch_record_seq CASCADE;</sql>
@@ -86,7 +83,6 @@
     <changeSet id="cleanup-indexes" author="filmon" runOnChange="true">
         <comment>Drop any remaining indexes on non-core tables</comment>
 
-        <!-- Drop indexes that might still exist -->
         <sql>DROP INDEX IF EXISTS idx_claim_payer_status CASCADE;</sql>
         <sql>DROP INDEX IF EXISTS idx_claim_provider_status CASCADE;</sql>
         <sql>DROP INDEX IF EXISTS idx_claim_payer_provider_status CASCADE;</sql>

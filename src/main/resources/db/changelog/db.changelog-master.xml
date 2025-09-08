@@ -4,9 +4,17 @@
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
                         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+    <!-- Core schema recreation (uncomment if needed) -->
+    <!-- <include file="db/changelog/00-recreate-complete-schema.xml" relativeToChangelogFile="false"/> -->
+
+    <!-- Existing changelogs -->
     <include file="db/changelog/10-drop-non-core-tables.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/11-recreate-non-core-tables.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/12-add-is-cbhi-column-simple.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/13-simple-medication-dispensing-fix.xml" relativeToChangelogFile="false"/>
+
+    <!-- Auto-generated changelogs (will be created by scripts) -->
+    <!-- <include file="db/changelog/00-complete-schema-generated.xml" relativeToChangelogFile="false"/> -->
+    <!-- <include file="db/changelog/99-missing-columns-fix.xml" relativeToChangelogFile="false"/> -->
 
 </databaseChangeLog>
