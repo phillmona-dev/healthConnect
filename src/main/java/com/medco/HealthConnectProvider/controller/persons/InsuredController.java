@@ -56,6 +56,8 @@ public class InsuredController {
         return insuredService.createInsuredPerson(insuredRequest, photo);
     }
 
+
+
     @GetMapping("/photo/{insuredUuid}")
     @Operation(summary = "Get insured person photo", description = "Retrieves the profile photo of an insured person")
     public ResponseEntity<ByteArrayResource> getInsuredPhoto(@PathVariable String insuredUuid) {
@@ -239,6 +241,8 @@ public class InsuredController {
             @RequestPart(value = "photo", required = false) MultipartFile photo) throws IOException {
         return insuredService.updateInsuredPerson(insuredUuid, insuredRequest, photo);
     }
+
+
 
     @PutMapping("/{insuredUuid}/status")
     @Operation(summary = "Update insured person's status",

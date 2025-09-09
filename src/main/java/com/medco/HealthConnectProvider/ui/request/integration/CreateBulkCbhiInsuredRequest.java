@@ -21,8 +21,6 @@ public class CreateBulkCbhiInsuredRequest {
     @NotBlank(message = "Payer UUID is required")
     private String payerUuid;
 
-    @NotNull(message = "Insured list cannot be null")
-    @NotEmpty(message = "Insured list cannot be empty")
     @Valid
     private List<InsuredMemberData> insuredMembers;
 
@@ -34,10 +32,8 @@ public class CreateBulkCbhiInsuredRequest {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class InsuredMemberData {
         
-        @NotBlank(message = "First name is required")
         private String firstName;
         
-        @NotBlank(message = "Father name is required")
         private String fatherName;
         
         private String grandFatherName;
@@ -52,10 +48,8 @@ public class CreateBulkCbhiInsuredRequest {
         
         private String insuranceId;
         
-        @NotNull(message = "Birth date is required")
         private LocalDate birthDate;
         
-        @NotBlank(message = "Gender is required")
         private String gender;
         
         private String address;

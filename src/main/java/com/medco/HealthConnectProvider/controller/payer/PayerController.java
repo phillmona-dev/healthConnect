@@ -51,6 +51,8 @@ public class PayerController {
         return payerService.createPayer(payerRequest, logo);
     }
 
+
+
     @PutMapping(path="/{payerUuid}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Update payer", description = "Updates an existing payer/insurance company with optional logo update")
     public PayerResponse updateInstitution(
@@ -59,6 +61,8 @@ public class PayerController {
             @RequestPart(value = "logo", required = false) MultipartFile logo) {
         return payerService.updatePayer(payerUuid, payerRequest, logo);
     }
+
+
 
     @PutMapping(path="/updateInstitutionStatus/{payerUuid}")
     @Operation(summary = "Update payer status", description = "Updates the status of a payer")
