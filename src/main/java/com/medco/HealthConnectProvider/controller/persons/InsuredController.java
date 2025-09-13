@@ -243,7 +243,6 @@ public class InsuredController {
     }
 
 
-
     @PutMapping("/{insuredUuid}/status")
     @Operation(summary = "Update insured person's status",
             description = "Changes the status of an insured person to the specified status")

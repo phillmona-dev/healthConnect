@@ -230,4 +230,7 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
             "LOWER(CONCAT(i.fatherName, ' ', i.grandFatherName)) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
             "LOWER(CONCAT(i.firstName, ' ', i.fatherName, ' ', i.grandFatherName)) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
     List<Insured> findByFullNameCombinations(@Param("searchTerm") String searchTerm);
+
+    Optional<Insured> findByPayerUuidAndIdNumber(String payerUuid, String idNumber);
+
 }

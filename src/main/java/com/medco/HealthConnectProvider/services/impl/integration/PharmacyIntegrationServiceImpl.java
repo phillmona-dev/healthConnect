@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.services.impl.integration;
 
 import com.medco.HealthConnectProvider.entity.contracts.ContractDetail;
 import com.medco.HealthConnectProvider.entity.contracts.ContractHeader;
+import com.medco.HealthConnectProvider.exception.DuplicateResourceException;
 import com.medco.HealthConnectProvider.repository.contract.ContractDetailRepository;
 import com.medco.HealthConnectProvider.repository.contract.ContractRepository;
 import com.medco.HealthConnectProvider.repository.persons.DependantRepository;
@@ -2602,7 +2603,16 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         for (CreateBulkCbhiInsuredRequest.InsuredMemberData memberData : request.getInsuredMembers()) {
             try {
+
+                Optional<Insured> existingInsured = insuredRepository.findByPayerUuidAndIdNumber(payer.getPayerUuid(), memberData.getIdNumber());
+
+                if (existingInsured.isPresent()) {
+                    throw new DuplicateResourceException("Insured with idNumber '" +
+                            memberData.getIdNumber() + "' already exists for this payer");
+                }
+
                 Insured insured = new Insured();
+
                 insured.setFirstName(memberData.getFirstName());
                 insured.setFatherName(memberData.getFatherName());
                 insured.setGrandFatherName(memberData.getGrandFatherName());
