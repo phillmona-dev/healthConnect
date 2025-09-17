@@ -1841,7 +1841,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             newDrug.setRoute(prescriptionDetail.getRoute());
             newDrug.setPrice(prescriptionDetail.getPrice());
             newDrug.setStatus(Status.ACTIVE);
-            // Fix: Set the provider to avoid null provider_uuid constraint violation
             newDrug.setProvider(provider);
 
             return drugRepository.save(newDrug);
@@ -1884,7 +1883,6 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         log.info("Resolving contract detail using drug-based resolution for medication: {}", item.getMedicationName());
 
-        // Get the provider from the contract to avoid null provider_uuid constraint violation
         Provider provider = activeContract.getProvider();
         Drug drug = findOrCreateDrug(item, provider);
 
