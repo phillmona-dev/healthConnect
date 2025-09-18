@@ -763,7 +763,7 @@ public class PayerServiceImpl implements PayerService {
     }
 
     @Override
-    @Transactional
+//    @Transactional
     public PayerImportResponse importPayersFromExcel(MultipartFile file) throws IOException {
         List<PayerResponse> importedPayers = new ArrayList<>();
         List<String> skippedPayers = new ArrayList<>();
@@ -781,13 +781,21 @@ public class PayerServiceImpl implements PayerService {
             Row headerRow = rows.next();
             Map<String, Integer> headerMap = createHeaderMap(headerRow);
 
+            // Debug logging for headers
+            logger.info("Headers found: {}", headerMap.keySet());
+
             if (!validateHeaders(headerMap)) {
                 errors.add("Missing required headers in the Excel file");
                 return new PayerImportResponse(importedPayers, skippedPayers, errors, 0, 0);
             }
 
+            Set<String> seen = new HashSet<>();
             int rowNumber = 1;
+            int totalRows = 0;
+            int processedRows = 0;
+
             while (rows.hasNext()) {
+                totalRows++;
                 rowNumber++;
                 Row currentRow = rows.next();
 
@@ -795,9 +803,13 @@ public class PayerServiceImpl implements PayerService {
                     Payer payer = createPayerFromRow(currentRow, headerMap);
 
                     if (payer != null) {
-                        if (isDuplicatePayer(payer)) {
+                        String key = payer.getPayerName() + "|" + (payer.getTelephone() != null ? payer.getTelephone() : "NO_PHONE");
+                        if (seen.contains(key)) {
+                            skippedPayers.add("Row " + rowNumber + ": " + payer.getPayerName() + " (duplicate in batch)");
+                        } else if (isDuplicatePayer(payer)) {
                             skippedPayers.add("Row " + rowNumber + ": " + payer.getPayerName() + " (duplicate name or phone)");
                         } else {
+                            seen.add(key);
                             Payer savedPayer = payerRepository.save(payer);
 
                             Role defaultRole = createDefaultRoleForPayer(savedPayer);
@@ -810,11 +822,14 @@ public class PayerServiceImpl implements PayerService {
                     } else {
                         skippedPayers.add("Row " + rowNumber + ": Invalid or missing required data");
                     }
+                    processedRows++;
                 } catch (Exception e) {
                     logger.error("Error processing row {}: ", rowNumber, e);
                     errors.add("Error in row " + rowNumber + ": " + e.getMessage());
                 }
             }
+
+            logger.info("Total rows in sheet: {}, Rows processed: {}", totalRows, processedRows);
 
         } catch (Exception e) {
             logger.error("Error processing Excel file: ", e);
@@ -828,7 +843,6 @@ public class PayerServiceImpl implements PayerService {
                 importedPayers.size(), skippedPayers.size(), errors.size());
 
         return new PayerImportResponse(importedPayers, skippedPayers, errors, successFullImports, skippedImports);
-
     }
 
     @Override
@@ -994,11 +1008,8 @@ public class PayerServiceImpl implements PayerService {
     }
 
     private boolean validateHeaders(Map<String, Integer> headerMap) {
-        return headerMap.containsKey("payer name") &&
-                headerMap.containsKey("phone") &&
-                headerMap.containsKey("subcity") &&
-                headerMap.containsKey("email") &&
-                headerMap.containsKey("tin number");
+        // Only payer name and subcity are mandatory now
+        return headerMap.containsKey("payer name") && headerMap.containsKey("subcity");
     }
 
     private Payer createPayerFromRow(Row row, Map<String, Integer> headerMap) {
@@ -1011,23 +1022,30 @@ public class PayerServiceImpl implements PayerService {
         String email = getStringCellValue(row, headerMap, "email");
         String tinNumber = getStringCellValue(row, headerMap, "tin number");
 
+        // Debug logging
+        logger.info("Raw data - Name: '{}', Phone: '{}', Subcity: '{}'", payerName, phone, address2);
+
         if (payerName == null || payerName.trim().isEmpty() ||
-                phone == null || phone.trim().isEmpty() ||
                 address2 == null || address2.trim().isEmpty()) {
-            log.warn("Skipping row due to missing mandatory fields (Payer Name, Phone, or subcity)");
+            log.warn("Skipping row due to missing mandatory fields (Payer Name or Subcity)");
             return null;
         }
 
-        phone = processPhoneNumber(phone);
+        // Process phone only if provided
+        if (phone != null && !phone.trim().isEmpty()) {
+            phone = processPhoneNumber(phone);
+        } else {
+            phone = null; // Explicitly set to null if empty
+        }
 
         Payer payer = new Payer();
 
-        payer.setPayerName(payerName);
+        payer.setPayerName(payerName.trim());
         payer.setTelephone(phone);
-        payer.setAddress1(address1);
-        payer.setAddress2(address2);
-        payer.setAddress3(address3);
-        payer.setState(state);
+        payer.setAddress1(address1 != null ? address1.trim() : null);
+        payer.setAddress2(address2.trim());
+        payer.setAddress3(address3 != null ? address3.trim() : null);
+        payer.setState(state != null ? state.trim() : null);
 
         if (tinNumber != null && !tinNumber.trim().isEmpty()) {
             tinNumber = tinNumber.trim().replaceAll("[^0-9]", "");
@@ -1041,7 +1059,7 @@ public class PayerServiceImpl implements PayerService {
         if (email == null || email.trim().isEmpty()) {
             email = payerName.replaceAll("\\s+", "").toLowerCase() + "@gmail.com";
         }
-        payer.setEmail(email);
+        payer.setEmail(email.trim());
 
         payer.setPayerUuid(UUID.randomUUID().toString());
         payer.setRegistrationDate(new Date());
@@ -1052,21 +1070,44 @@ public class PayerServiceImpl implements PayerService {
 
     private String processPhoneNumber(String phone) {
         if (phone == null) return null;
+
+        String originalPhone = phone;
         phone = phone.replaceAll("\\D", "");
 
-        if (!phone.startsWith("+251")) {
+        // Handle various phone number formats
+        if (phone.startsWith("0")) {
+            phone = "+251" + phone.substring(1);
+        } else if (phone.startsWith("251")) {
+            phone = "+" + phone;
+        } else if (phone.startsWith("9") && phone.length() == 9) {
             phone = "+251" + phone;
+        } else if (!phone.startsWith("+") && phone.length() == 12) {
+            phone = "+" + phone;
+        } else if (!phone.startsWith("+") && phone.length() == 13) {
+            phone = "+" + phone;
         }
 
-        if (phone.length() > 13) {
-            phone = phone.substring(0, 13);
+        // Validate Ethiopian phone number format
+        if (phone.startsWith("+251") && phone.length() == 13) {
+            return phone;
+        } else {
+            logger.warn("Invalid phone number format: '{}' -> '{}'", originalPhone, phone);
+            return null; // Return null for invalid formats
         }
-
-        return phone;
     }
 
     private boolean isDuplicatePayer(Payer payer) {
-        return payerRepository.existsByPayerNameOrTelephone(payer.getPayerName(), payer.getTelephone());
+        // Check for duplicate name
+        if (payerRepository.existsByPayerName(payer.getPayerName())) {
+            return true;
+        }
+
+        // Check for duplicate phone only if phone is provided
+        if (payer.getTelephone() != null && !payer.getTelephone().isEmpty()) {
+            return payerRepository.existsByTelephone(payer.getTelephone());
+        }
+
+        return false;
     }
 
     private PayerResponse mapToPayerResponse(Payer payer) {
@@ -1077,7 +1118,10 @@ public class PayerServiceImpl implements PayerService {
 
     private String getStringCellValue(Row row, Map<String, Integer> headerMap, String headerName) {
         Integer columnIndex = headerMap.get(headerName.toLowerCase());
-        if (columnIndex == null) return null;
+        if (columnIndex == null) {
+            logger.debug("Header '{}' not found in row", headerName.toLowerCase());
+            return null;
+        }
         Cell cell = row.getCell(columnIndex);
         return getCellValueAsString(cell);
     }
@@ -1085,7 +1129,7 @@ public class PayerServiceImpl implements PayerService {
     private String getCellValueAsString(Cell cell) {
         if (cell == null) return "";
         return switch (cell.getCellType()) {
-            case STRING -> cell.getStringCellValue();
+            case STRING -> cell.getStringCellValue().trim();
             case NUMERIC -> {
                 if (DateUtil.isCellDateFormatted(cell)) {
                     yield cell.getLocalDateTimeCellValue().toString();

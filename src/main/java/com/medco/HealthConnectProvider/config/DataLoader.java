@@ -56,7 +56,6 @@ public class DataLoader implements CommandLineRunner {
                 "CREATE_PRIVILEGE", "READ_PRIVILEGE", "UPDATE_PRIVILEGE", "DELETE_PRIVILEGE","VIEW_USER",
                 "Delete Groups","Update Groups","Create Groups","Delete Employees","Update Employees","Create Employees","Delete Drugs",
                 "Update Drugs","Create Drugs","Delete Services","Update Services","Create Services","CREATE_SERVICE", "Mange_kenema"
-
         );
 
         for (String name : privilegeNames) {

@@ -108,7 +108,7 @@ public class ServiceListController {
         fos.close();
         return convFile;
     }
-    
+
     @PostMapping("/{providerUuid}/services/export")
     public ResponseEntity<?> exportServicesToExcel(
             @PathVariable String providerUuid,

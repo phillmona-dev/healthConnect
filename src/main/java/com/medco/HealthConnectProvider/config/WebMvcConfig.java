@@ -33,6 +33,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
         jsonConverter.setSupportedMediaTypes(supportedMediaTypes);
 
         converters.add(jsonConverter);
+
     }
 
 }

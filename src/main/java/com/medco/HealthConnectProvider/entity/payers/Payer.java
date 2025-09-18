@@ -30,16 +30,13 @@ public class Payer extends Audit {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String payerUuid;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String payerName;
 
-    @Column(unique = true)
     private String email;
-
-    @Column(unique = true)
     private String telephone;
 
     @Size(max = 50)
