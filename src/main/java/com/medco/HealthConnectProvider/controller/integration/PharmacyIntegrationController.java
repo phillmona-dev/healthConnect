@@ -300,7 +300,7 @@ public class PharmacyIntegrationController {
         return pharmacyIntegrationService.createCbhiInsured(request);
     }
 
-//    @RequiresApiKey
+//  @RequiresApiKey
     @PostMapping("/insured/bulk")
     @Operation(summary = "Create multiple insured members",
             description = "Creates multiple insured members under a single payer for integration with Kenema pharmacy management system")

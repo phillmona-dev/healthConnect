@@ -16,6 +16,7 @@
     <include file="db/changelog/15-fix-contract-details-junction-table.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/16-fix-attachment-data-column-type.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/17-make-provider-uuid-nullable-package-categories.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/fix-tin-number-constraint.xml" relativeToChangelogFile="false"/>
 
     <!-- Auto-generated changelogs (will be created by scripts) -->
     <!-- <include file="db/changelog/00-complete-schema-generated.xml" relativeToChangelogFile="false"/> -->

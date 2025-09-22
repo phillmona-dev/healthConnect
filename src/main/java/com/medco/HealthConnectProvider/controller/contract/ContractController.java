@@ -172,8 +172,7 @@ public class ContractController {
 
     @GetMapping("/all")
     public ResponseEntity<?> getContracts(
-            @RequestParam(required = false) String contractNumber,
-            @RequestParam(required = false) String contractName,
+            @RequestParam(required = false) String search,
             @RequestParam(required = false) Status status,
             @RequestParam(required = false) String payerUuid,
             @RequestParam(required = false) String providerUuid,
@@ -188,8 +187,7 @@ public class ContractController {
             @RequestParam(defaultValue = "startDate") String[] sort) {
 
         ContractFilterRequest filter = ContractFilterRequest.builder()
-                .contractNumber(contractNumber)
-                .contractName(contractName)
+                .search(search)
                 .status(status)
                 .payerUuid(payerUuid)
                 .providerUuid(providerUuid)

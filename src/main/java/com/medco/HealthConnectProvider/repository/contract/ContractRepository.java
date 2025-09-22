@@ -171,16 +171,11 @@ public interface ContractRepository extends JpaRepository<ContractHeader, Long>,
 
             Predicate predicate = cb.conjunction();
 
-            if (filter.getContractNumber() != null) {
-                predicate = cb.and(predicate,
-                        cb.like(cb.lower(root.get("contractNumber")),
-                                "%" + filter.getContractNumber().toLowerCase() + "%"));
-            }
-
-            if (filter.getContractName() != null) {
-                predicate = cb.and(predicate,
-                        cb.like(cb.lower(root.get("contractName")),
-                                "%" + filter.getContractName().toLowerCase() + "%"));
+            if (filter.getSearch() != null && !filter.getSearch().trim().isEmpty()) {
+                String searchTerm = "%" + filter.getSearch().toLowerCase().trim() + "%";
+                Predicate contractNumberPredicate = cb.like(cb.lower(root.get("contractNumber")), searchTerm);
+                Predicate contractNamePredicate = cb.like(cb.lower(root.get("contractName")), searchTerm);
+                predicate = cb.and(predicate, cb.or(contractNumberPredicate, contractNamePredicate));
             }
 
             if (filter.getStatus() != null) {

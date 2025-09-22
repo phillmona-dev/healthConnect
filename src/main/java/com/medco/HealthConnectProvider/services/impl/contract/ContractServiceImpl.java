@@ -1224,14 +1224,13 @@ public class ContractServiceImpl implements ContractService {
     }
 
     @Override
-    public ResponseEntity<?> getFilteredContracts(ContractFilterRequest filter, Pageable pageable, int page) {
+    public ResponseEntity<PagedResponse<ContractResponse>> getFilteredContracts(ContractFilterRequest filter, Pageable pageable, int page) {
         if (page > 0) {
             page = page - 1;
         }
 
         ContractFilterRequest modifiedFilter = ContractFilterRequest.builder()
-                .contractNumber(filter.getContractNumber())
-                .contractName(filter.getContractName())
+                .search(filter.getSearch())
                 .status(filter.getStatus())
                 .payerUuid(filter.getPayerUuid())
                 .providerUuid(filter.getProviderUuid())
@@ -1290,7 +1289,16 @@ public class ContractServiceImpl implements ContractService {
             return response;
         });
 
-        return ResponseEntity.ok(responsePage);
+        PagedResponse<ContractResponse> pagedResponse = new PagedResponse<>(
+                responsePage.getContent(),
+                responsePage.getNumber() + 1,
+                responsePage.getSize(),
+                responsePage.getTotalElements(),
+                responsePage.getTotalPages(),
+                responsePage.isLast()
+        );
+
+        return ResponseEntity.ok(pagedResponse);
     }
 
     private ContractResponse.ContractDetailSummary mapContractDetailSummary(ContractDetail detail) {

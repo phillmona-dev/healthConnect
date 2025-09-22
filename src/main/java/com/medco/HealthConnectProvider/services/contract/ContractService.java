@@ -10,6 +10,7 @@ import com.medco.HealthConnectProvider.ui.request.contract.ContractFilterRequest
 import com.medco.HealthConnectProvider.ui.request.contract.ContractStatusUpdateRequest;
 import com.medco.HealthConnectProvider.ui.request.contract.CreateActiveContractRequest;
 import com.medco.HealthConnectProvider.ui.response.contracts.*;
+import com.medco.HealthConnectProvider.ui.response.PagedResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
@@ -56,7 +57,7 @@ public interface ContractService {
     ResponseEntity<?> terminateContract(String contractUuid, @Valid ContractTerminationRequest terminationRequest);
     ResponseEntity<?> withdrawTermination(String contractUuid);
 
-    ResponseEntity<?> getFilteredContracts(ContractFilterRequest filter, Pageable pageable, int page);
+    ResponseEntity<PagedResponse<ContractResponse>> getFilteredContracts(ContractFilterRequest filter, Pageable pageable, int page);
 
 
     ResponseEntity<?> addInsuredToContract(String contractUuid, @Valid AddInsuredToContractRequest request);

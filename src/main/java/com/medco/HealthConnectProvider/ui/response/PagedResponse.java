@@ -1,6 +1,5 @@
 package com.medco.HealthConnectProvider.ui.response;
 
-import com.medco.HealthConnectProvider.ui.response.user.UserResponse;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;

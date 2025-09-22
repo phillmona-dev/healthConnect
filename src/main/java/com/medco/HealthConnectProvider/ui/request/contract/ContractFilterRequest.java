@@ -11,8 +11,7 @@ import java.util.List;
 @Data
 @Builder
 public class ContractFilterRequest {
-    private String contractNumber;
-    private String contractName;
+    private String search;
     private Status status;
     private String payerUuid;
     private String providerUuid;

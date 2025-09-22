@@ -76,7 +76,10 @@ public class SecurityConfig {
                                 "/api/v1/healthConnect/users/role/*",
                                 "/api/v1/healthConnect/users/privilege/*",
                                 "/api/v1/healthConnect/provider/createProvider",
+
                                 "/api/v1/healthConnect/healthConnectProvider/service/{providerUuid}/service-categories",
+                                "/api/v1/healthConnect/healthConnectProvider/service/{providerUuid}/services/export",
+
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"

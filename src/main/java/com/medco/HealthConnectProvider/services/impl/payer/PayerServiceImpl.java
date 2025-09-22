@@ -781,7 +781,6 @@ public class PayerServiceImpl implements PayerService {
             Row headerRow = rows.next();
             Map<String, Integer> headerMap = createHeaderMap(headerRow);
 
-            // Debug logging for headers
             logger.info("Headers found: {}", headerMap.keySet());
 
             if (!validateHeaders(headerMap)) {
@@ -1008,7 +1007,6 @@ public class PayerServiceImpl implements PayerService {
     }
 
     private boolean validateHeaders(Map<String, Integer> headerMap) {
-        // Only payer name and subcity are mandatory now
         return headerMap.containsKey("payer name") && headerMap.containsKey("subcity");
     }
 
@@ -1022,7 +1020,6 @@ public class PayerServiceImpl implements PayerService {
         String email = getStringCellValue(row, headerMap, "email");
         String tinNumber = getStringCellValue(row, headerMap, "tin number");
 
-        // Debug logging
         logger.info("Raw data - Name: '{}', Phone: '{}', Subcity: '{}'", payerName, phone, address2);
 
         if (payerName == null || payerName.trim().isEmpty() ||
@@ -1031,11 +1028,10 @@ public class PayerServiceImpl implements PayerService {
             return null;
         }
 
-        // Process phone only if provided
         if (phone != null && !phone.trim().isEmpty()) {
             phone = processPhoneNumber(phone);
         } else {
-            phone = null; // Explicitly set to null if empty
+            phone = null;
         }
 
         Payer payer = new Payer();
@@ -1074,7 +1070,6 @@ public class PayerServiceImpl implements PayerService {
         String originalPhone = phone;
         phone = phone.replaceAll("\\D", "");
 
-        // Handle various phone number formats
         if (phone.startsWith("0")) {
             phone = "+251" + phone.substring(1);
         } else if (phone.startsWith("251")) {
@@ -1087,22 +1082,19 @@ public class PayerServiceImpl implements PayerService {
             phone = "+" + phone;
         }
 
-        // Validate Ethiopian phone number format
         if (phone.startsWith("+251") && phone.length() == 13) {
             return phone;
         } else {
             logger.warn("Invalid phone number format: '{}' -> '{}'", originalPhone, phone);
-            return null; // Return null for invalid formats
+            return null;
         }
     }
 
     private boolean isDuplicatePayer(Payer payer) {
-        // Check for duplicate name
         if (payerRepository.existsByPayerName(payer.getPayerName())) {
             return true;
         }
 
-        // Check for duplicate phone only if phone is provided
         if (payer.getTelephone() != null && !payer.getTelephone().isEmpty()) {
             return payerRepository.existsByTelephone(payer.getTelephone());
         }

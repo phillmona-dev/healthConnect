@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="fix-payers-tin-number-constraint" author="system">
+        <comment>Update payers tin_number check constraint to allow starting with zero</comment>
+
+        <sql>ALTER TABLE payers DROP CONSTRAINT IF EXISTS payers_tin_number_check;</sql>
+
+        <sql>ALTER TABLE payers ALTER COLUMN tin_number TYPE VARCHAR(13);</sql>
+
+        <sql>ALTER TABLE payers ADD CONSTRAINT payers_tin_number_check CHECK (tin_number ~ '^\d{10,13}$');</sql>
+    </changeSet>
+
+</databaseChangeLog>

@@ -2,6 +2,7 @@ package com.medco.HealthConnectProvider.exception;
 
 import com.medco.HealthConnectProvider.ui.response.ApiErrorResponse;
 import jakarta.validation.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
@@ -87,6 +88,35 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
         return ResponseEntity.badRequest().body(errors);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+        String message = "Data integrity violation occurred";
+        Throwable cause = ex.getCause();
+        if (cause != null && cause.getMessage() != null) {
+            String causeMsg = cause.getMessage();
+            if (causeMsg.contains("violates check constraint")) {
+                int start = causeMsg.indexOf("violates check constraint \"") + "violates check constraint \"".length();
+                int end = causeMsg.indexOf("\"", start);
+                if (end > start) {
+                    String constraint = causeMsg.substring(start, end);
+                    if (constraint.equals("payers_tin_number_check")) {
+                        message = "Invalid TIN number. Please ensure the TIN number is a valid 10-13 digit number";
+                    } else {
+                        message = "Validation failed: " + constraint.replace("_", " ").toUpperCase() + " constraint violated";
+                    }
+                }
+            } else if (causeMsg.contains("violates foreign key constraint")) {
+                message = "Foreign key constraint violation";
+            } else if (causeMsg.contains("violates not-null constraint")) {
+                message = "Required field is missing";
+            } else if (causeMsg.contains("duplicate key value")) {
+                message = "Duplicate entry found";
+            }
+        }
+        ApiErrorResponse errorResponse = new ApiErrorResponse(message);
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(RuntimeException.class)
