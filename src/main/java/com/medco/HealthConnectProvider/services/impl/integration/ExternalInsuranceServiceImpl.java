@@ -93,6 +93,12 @@ public class ExternalInsuranceServiceImpl implements ExternalInsuranceService {
         if (response.getStatusCode().is2xxSuccessful()) {
             log.info("Successfully sent dispensing data to external insurance system. Response: {}",
                     response.getBody());
+
+            // Log successful dispensing sends with COMPLETED status
+            for (MedicationDispensingItem item : dispensingItems) {
+                failedDispensingService.logSuccessfulDispensing(
+                    item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, response.getBody());
+            }
         } else {
             String errorMessage = String.format("HTTP %s: %s", response.getStatusCode(), response.getBody());
             log.error("Failed to send dispensing data to external insurance system. Status: {}, Response: {}",
@@ -161,6 +167,12 @@ public class ExternalInsuranceServiceImpl implements ExternalInsuranceService {
         if (response.getStatusCode().is2xxSuccessful()) {
             log.info("Successfully sent multipart dispensing data to external insurance system. Response: {}",
                     response.getBody());
+
+            // Log successful dispensing sends with COMPLETED status
+            for (MedicationDispensingItem item : dispensingItems) {
+                failedDispensingService.logSuccessfulDispensing(
+                        item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, response.getBody());
+            }
         } else {
             String errorMessage = String.format("HTTP %s: %s", response.getStatusCode(), response.getBody());
             log.error("Failed to send multipart dispensing data to external insurance system. Status: {}, Response: {}",

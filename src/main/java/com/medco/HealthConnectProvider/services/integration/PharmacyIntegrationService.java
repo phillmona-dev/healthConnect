@@ -38,7 +38,6 @@ public interface PharmacyIntegrationService {
      */
     ResponseEntity<?> createClaimFromDispensingRecords(String providerUuid, String[] dispensingUuids);
 
-
     ResponseEntity<?> authorizeDispensingRecord(String dispensingUuid);
 
     ResponseEntity<?> authorizeDispensingRecords(String[] dispensingUuids);

@@ -24,6 +24,7 @@ import com.medco.HealthConnectProvider.repository.persons.InsuredRepository;
 import com.medco.HealthConnectProvider.repository.provider.ProviderRepository;
 import com.medco.HealthConnectProvider.repository.user.UserRepository;
 import com.medco.HealthConnectProvider.services.claims.ClaimService;
+import com.medco.HealthConnectProvider.services.integration.FailedExternalDispensingService;
 import com.medco.HealthConnectProvider.services.notification.NotificationService;
 import com.medco.HealthConnectProvider.services.payment.PaymentService;
 import com.medco.HealthConnectProvider.services.providers.ProviderService;
@@ -100,6 +101,7 @@ public class ClaimServiceImpl implements ClaimService {
     private final BatchRecordRepository batchRecordRepository;
     private final MedicationDispensingRepository medicationDispensingRepository;
     private final ClaimStatusUpdater claimStatusUpdater;
+    private final FailedExternalDispensingService failedExternalDispensingService;
 
     @Value("${external.api.external-api-base-url}")
     private String hostDomain;
@@ -109,7 +111,7 @@ public class ClaimServiceImpl implements ClaimService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    public ClaimServiceImpl(ClaimRepository claimRepository, ClaimAttachmentRepository claimAttachmentRepository, ClaimCommentRepository claimCommentRepository, ClaimLogsRepository claimLogsRepository, ClaimPaymentRepository claimPaymentRepository, ContractRepository contractRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, BatchLogRepository batchLogRepository, ProviderRepository providerRepository, PayerRepository payerRepository, ProviderService providerService, PaymentService paymentService, UserRepository userRepository, NotificationService notificationService, BatchRecordRepository batchRecordRepository, MedicationDispensingRepository medicationDispensingRepository, ClaimStatusUpdater claimStatusUpdater) {
+    public ClaimServiceImpl(ClaimRepository claimRepository, ClaimAttachmentRepository claimAttachmentRepository, ClaimCommentRepository claimCommentRepository, ClaimLogsRepository claimLogsRepository, ClaimPaymentRepository claimPaymentRepository, ContractRepository contractRepository, InsuredRepository insuredRepository, DependantRepository dependantRepository, BatchLogRepository batchLogRepository, ProviderRepository providerRepository, PayerRepository payerRepository, ProviderService providerService, PaymentService paymentService, UserRepository userRepository, NotificationService notificationService, BatchRecordRepository batchRecordRepository, MedicationDispensingRepository medicationDispensingRepository, ClaimStatusUpdater claimStatusUpdater, FailedExternalDispensingService failedExternalDispensingService) {
         this.claimRepository = claimRepository;
         this.claimAttachmentRepository = claimAttachmentRepository;
         this.claimCommentRepository = claimCommentRepository;
@@ -128,6 +130,7 @@ public class ClaimServiceImpl implements ClaimService {
         this.batchRecordRepository = batchRecordRepository;
         this.medicationDispensingRepository = medicationDispensingRepository;
         this.claimStatusUpdater = claimStatusUpdater;
+        this.failedExternalDispensingService = failedExternalDispensingService;
     }
 
     @Override
@@ -900,19 +903,47 @@ public class ClaimServiceImpl implements ClaimService {
     }
 
     private void syncClaimToExternalSystem(Claim claim, BatchRecord batch) {
-        List<String> dispensingUuids = batch.getMedicationDispensing().stream()
+        // Filter dispensing records to only include those that have been successfully sent to external system (COMPLETED status)
+        List<MedicationDispensing> filteredDispensing = batch.getMedicationDispensing().stream()
+                .filter(dispensing -> {
+                    // Check if this dispensing has been successfully sent (COMPLETED status)
+                    String dispensingUuid = dispensing.getDispensingUuid();
+                    if (dispensingUuid != null) {
+                        boolean isCompleted = failedExternalDispensingService.isDispensingUuidAlreadySentSuccessfully(dispensingUuid);
+                        if (!isCompleted) {
+                            System.out.println("[External Claim Sync] Skipping dispensing " + dispensingUuid +
+                                             " - not yet successfully sent to external system");
+                        }
+                        return isCompleted;
+                    }
+                    System.out.println("[External Claim Sync] Skipping dispensing - no dispensingUuid found");
+                    return false;
+                })
+                .toList();
+
+        if (filteredDispensing.isEmpty()) {
+            System.out.println("[External Claim Sync] No dispensing records have been successfully sent to external system yet. Skipping claim sync.");
+            return;
+        }
+
+        List<String> dispensingUuids = filteredDispensing.stream()
                 .map(MedicationDispensing::getDispensingUuid)
                 .filter(Objects::nonNull)
                 .toList();
 
         String contractUuid = resolveContractHeaderUuid(claim.getProviderUuid(), claim.getPayerUuid());
 
+        // Recalculate total amount based on filtered dispensing records
+        double filteredTotalAmount = filteredDispensing.stream()
+                .mapToDouble(MedicationDispensing::getTotalAmount)
+                .sum();
+
         ClaimPaySyncRequest payload = ClaimPaySyncRequest.builder()
                 .contractUuid(contractUuid)
                 .providerUuid(claim.getProviderUuid())
                 .claimFromDate(java.sql.Date.valueOf(batch.getClaimDatingFrom()))
                 .claimToDate(java.sql.Date.valueOf(batch.getClaimDatingTo()))
-                .totalAmount(claim.getTotalAmount().doubleValue())
+                .totalAmount(filteredTotalAmount)
                 .batchCode(batch.getBatchCode())
                 .serviceProvidedUuid(dispensingUuids)
                 .build();
@@ -929,11 +960,14 @@ public class ClaimServiceImpl implements ClaimService {
         HttpEntity<ClaimPaySyncRequest> entity = new HttpEntity<>(payload, headers);
 
         try {
+            System.out.println("[External Claim Sync] Sending claim for " + filteredDispensing.size() + " successfully completed dispensing records to external system");
             restTemplate.postForEntity(url, entity, String.class);
         } catch (RestClientException ex) {
             throw new RuntimeException("External claim sync failed: " + ex.getMessage(), ex);
         }
     }
+
+
 
     private String resolveContractHeaderUuid(String providerUuid, String payerUuid) {
         List<ContractHeader> activeContracts = contractRepository

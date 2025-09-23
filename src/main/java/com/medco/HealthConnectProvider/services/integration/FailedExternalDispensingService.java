@@ -50,6 +50,22 @@ public interface FailedExternalDispensingService {
     boolean manualRetry(String logUuid);
 
     /**
+     * Check if a dispensingUuid has been successfully sent to external system
+     */
+    boolean isDispensingUuidAlreadySentSuccessfully(String dispensingUuid);
+
+    /**
+     * Log a successful external dispensing send
+     */
+    void logSuccessfulDispensing(MedicationDispensingItem item,
+                               String packageUuid,
+                               String serviceId,
+                               String dispensingUuid,
+                               String contractHeaderUuid,
+                               String externalApiUrl,
+                               String successResponse);
+
+    /**
      * Statistics for retry monitoring
      */
     class RetryStatistics {

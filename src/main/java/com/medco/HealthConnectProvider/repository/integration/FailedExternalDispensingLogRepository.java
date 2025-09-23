@@ -54,4 +54,13 @@ public interface FailedExternalDispensingLogRepository extends JpaRepository<Fai
     List<FailedExternalDispensingLog> findByDateRange(
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Check if a dispensingUuid has been successfully sent to external system (COMPLETED status)
+     */
+    @Query("SELECT CASE WHEN COUNT(f) > 0 THEN true ELSE false END FROM FailedExternalDispensingLog f " +
+           "WHERE f.dispensingUuid = :dispensingUuid " +
+           "AND f.status = 'COMPLETED' " +
+           "AND f.isDeleted = false")
+    boolean existsByDispensingUuidAndStatusCompleted(@Param("dispensingUuid") String dispensingUuid);
 }

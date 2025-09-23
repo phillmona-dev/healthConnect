@@ -225,8 +225,57 @@ public class FailedExternalDispensingServiceImpl implements FailedExternalDispen
         long maxRetriesReached = failedLogRepository.findMaxRetriesReached().size();
         long successfulRetries = failedLogRepository.countByStatus(Status.INACTIVE);
         long totalFailed = pendingRetries + maxRetriesReached + successfulRetries;
-        
+
         return new RetryStatistics(pendingRetries, maxRetriesReached, successfulRetries, totalFailed);
+    }
+
+    @Override
+    public boolean isDispensingUuidAlreadySentSuccessfully(String dispensingUuid) {
+        if (dispensingUuid == null || dispensingUuid.trim().isEmpty()) {
+            return false;
+        }
+        return failedLogRepository.existsByDispensingUuidAndStatusCompleted(dispensingUuid);
+    }
+
+    @Override
+    @Transactional
+    public void logSuccessfulDispensing(MedicationDispensingItem item,
+                                      String packageUuid,
+                                      String serviceId,
+                                      String dispensingUuid,
+                                      String contractHeaderUuid,
+                                      String externalApiUrl,
+                                      String successResponse) {
+
+        log.info("Logging successful dispensing send for item: {}, dispensingUuid: {}",
+                item.getItemUuid(), dispensingUuid);
+
+        FailedExternalDispensingLog successLog = FailedExternalDispensingLog.builder()
+                .dispensingItemUuid(item.getItemUuid())
+                .dispensingUuid(dispensingUuid)
+                .contractHeaderUuid(contractHeaderUuid)
+                .serviceId(serviceId)
+                .insuredUuid(getInsuredUuid(item))
+                .packageUuid(packageUuid)
+                .quantity(item.getQuantity() != null ? item.getQuantity().intValue() : 1)
+                .totalPrice(item.getTotalPrice() != null ? item.getTotalPrice() : 0.0)
+                .providedDate(item.getDispensing().getDispensingDate() != null ?
+                             item.getDispensing().getDispensingDate().toString() : "")
+                .providerUuid(item.getDispensing().getProviderUuid())
+                .externalApiUrl(externalApiUrl)
+                .errorMessage(null) // No error for successful send
+                .lastResponse(successResponse)
+                .retryCount(0)
+                .maxRetries(5)
+                .nextRetryAt(LocalDateTime.now()) // Not needed for completed
+                .firstFailedAt(LocalDateTime.now()) // Set to current time
+                .lastAttemptAt(LocalDateTime.now())
+                .succeededAt(LocalDateTime.now()) // Mark as succeeded
+                .status(Status.COMPLETED) // Mark as COMPLETED
+                .build();
+
+        failedLogRepository.save(successLog);
+        log.info("Successfully logged completed dispensing send for dispensingUuid: {}", dispensingUuid);
     }
 
     @Override
