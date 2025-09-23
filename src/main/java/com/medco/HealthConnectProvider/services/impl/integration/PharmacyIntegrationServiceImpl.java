@@ -1236,22 +1236,19 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         try {
             String serviceId = getServiceId(request, dispensingItems);
 
-            if (serviceId != null) {
-                log.info("Sending {} dispensing items to external insurance system with serviceId: {}",
-                        dispensingItems.size(), serviceId);
+            // Since isInsurance is true, always send to external system regardless of serviceId
+            log.info("Sending {} dispensing items to external insurance system (isInsurance=true). ServiceId: {}",
+                    dispensingItems.size(), serviceId != null ? serviceId : "not available");
 
-                externalInsuranceService.sendDispensingToExternalSystem(
-                        dispensingItems,
-                        request.getPackageUuid(),
-                        serviceId,
-                        savedRecord.getDispensingUuid(),
-                        request.getContractHeaderUuid(),
-                        attachment
-                );
-                log.info("Successfully sent dispensing data to external insurance system");
-            } else {
-                log.warn("Could not determine serviceId for external system integration");
-            }
+            externalInsuranceService.sendDispensingToExternalSystem(
+                    dispensingItems,
+                    request.getPackageUuid(),
+                    serviceId, // Can be null, external service will handle it
+                    savedRecord.getDispensingUuid(),
+                    request.getContractHeaderUuid(),
+                    attachment
+            );
+            log.info("Successfully sent dispensing data to external insurance system");
 
         } catch (Exception e) {
             log.error("Error sending data to external insurance system", e);
@@ -1498,22 +1495,20 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
             String serviceId = getServiceIdForKenemaIntegration(config, dispensingItems);
 
-            if (serviceId != null) {
-                log.info("Sending Kenema dispensing to external insurance system with serviceId: {}", serviceId);
+            // Always send to external system for insurance integration regardless of serviceId
+            log.info("Sending Kenema dispensing to external insurance system (insurance integration). ServiceId: {}",
+                    serviceId != null ? serviceId : "not available");
 
-                externalInsuranceService.sendDispensingToExternalSystem(
-                        dispensingItems,
-                        config.getPackageUuid(),
-                        serviceId,
-                        dispensing.getDispensingUuid(),
-                        config.getContractHeaderUuid(),
-                        null
-                );
+            externalInsuranceService.sendDispensingToExternalSystem(
+                    dispensingItems,
+                    config.getPackageUuid(),
+                    serviceId, // Can be null, external service will handle it
+                    dispensing.getDispensingUuid(),
+                    config.getContractHeaderUuid(),
+                    null
+            );
 
-                log.info("Successfully sent Kenema dispensing to external insurance system");
-            } else {
-                log.warn("No serviceId found for Kenema integration - skipping external integration");
-            }
+            log.info("Successfully sent Kenema dispensing to external insurance system");
 
         } catch (Exception e) {
             log.error("Error sending Kenema dispensing to external insurance system", e);
