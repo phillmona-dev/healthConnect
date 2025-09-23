@@ -580,6 +580,7 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
                 .serviceUuid(service != null ? service.getServiceUuid() : null)
                 .serviceName(service != null ? service.getServiceName() : "Unknown Service")
                 .serviceCode(service != null ? service.getServiceCode() : "N/A")
+                .serviceId(service != null ? service.getGeneratedServiceId() : "N/A")
                 .serviceDescription(service != null ? service.getServiceDescription() : null)
                 .serviceCategory(service != null ? service.getServiceCategory() : null)
                 .serviceSubCategory(service != null ? service.getServiceSubCategory() : null)

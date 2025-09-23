@@ -19,6 +19,7 @@ public class EligibleServiceResponse {
     private String serviceUuid;
     private String serviceName;
     private String serviceCode;
+    private String serviceId;
     private String serviceDescription;
     private String serviceCategory;
     private String serviceSubCategory;
