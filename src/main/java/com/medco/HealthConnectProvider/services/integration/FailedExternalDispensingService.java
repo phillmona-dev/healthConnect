@@ -55,6 +55,11 @@ public interface FailedExternalDispensingService {
     boolean isDispensingUuidAlreadySentSuccessfully(String dispensingUuid);
 
     /**
+     * Get failed logs by dispensingUuid for debugging
+     */
+    List<FailedExternalDispensingLog> getFailedLogsByDispensingUuid(String dispensingUuid);
+
+    /**
      * Log a successful external dispensing send
      */
     void logSuccessfulDispensing(MedicationDispensingItem item,

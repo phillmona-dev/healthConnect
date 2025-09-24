@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -235,6 +236,14 @@ public class FailedExternalDispensingServiceImpl implements FailedExternalDispen
             return false;
         }
         return failedLogRepository.existsByDispensingUuidAndStatusCompleted(dispensingUuid);
+    }
+
+    @Override
+    public List<FailedExternalDispensingLog> getFailedLogsByDispensingUuid(String dispensingUuid) {
+        if (dispensingUuid == null || dispensingUuid.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+        return failedLogRepository.findByDispensingUuid(dispensingUuid);
     }
 
     @Override

@@ -54,7 +54,7 @@ When `isInsurance` is `true`, the system:
 
 **External API Call Format:**
 ```
-POST http://192.168.100.85:8888/api/payer/claimconnect/service-provided/{contractUuid}
+POST http://192.168.5.234:8888/api/payer/claimconnect/service-provided/{contractUuid}
 Content-Type: application/json
 X-API-Key: your-api-key
 
@@ -120,7 +120,7 @@ Add these properties to your `application.properties`:
 
 ```properties
 # External API Configuration
-external.api.external-api-base-url=http://192.168.100.85:8888
+external.api.external-api-base-url=http://192.168.5.234:8888
 external.api.api-key=your-external-api-key-here
 external.api.connection-timeout=30000
 external.api.read-timeout=60000
@@ -134,7 +134,7 @@ The system calls: `POST {external-api-base-url}/api/payer/claimconnect/service-p
 
 **Example Request:**
 ```bash
-POST http://192.168.100.85:8888/api/payer/claimconnect/service-provided/contract-123-uuid
+POST http://192.168.5.234:8888/api/payer/claimconnect/service-provided/contract-123-uuid
 Content-Type: application/json
 X-API-Key: your-api-key
 

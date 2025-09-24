@@ -5,6 +5,7 @@ import com.medco.HealthConnectProvider.config.ClaimStatusUpdater.UpdateClaimStat
 import com.medco.HealthConnectProvider.config.securityConfig.customUserDetails.UserPrincipal;
 import com.medco.HealthConnectProvider.dto.MedicationDispensingDTO;
 import com.medco.HealthConnectProvider.entity.claims.*;
+import com.medco.HealthConnectProvider.entity.integration.FailedExternalDispensingLog;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensing;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensingItem;
 import com.medco.HealthConnectProvider.entity.payers.Payer;
@@ -911,8 +912,21 @@ public class ClaimServiceImpl implements ClaimService {
                     if (dispensingUuid != null) {
                         boolean isCompleted = failedExternalDispensingService.isDispensingUuidAlreadySentSuccessfully(dispensingUuid);
                         if (!isCompleted) {
-                            System.out.println("[External Claim Sync] Skipping dispensing " + dispensingUuid +
-                                             " - not yet successfully sent to external system");
+                            // Add detailed logging to diagnose the issue
+                            List<FailedExternalDispensingLog> logs = failedExternalDispensingService.getFailedLogsByDispensingUuid(dispensingUuid);
+                            if (logs.isEmpty()) {
+                                System.out.println("[External Claim Sync] Skipping dispensing " + dispensingUuid +
+                                                 " - NEVER SENT to external system (no log entry found)");
+                            } else {
+                                FailedExternalDispensingLog latestLog = logs.get(0); // Assuming sorted by latest
+                                System.out.println("[External Claim Sync] Skipping dispensing " + dispensingUuid +
+                                                 " - Status: " + latestLog.getStatus() +
+                                                 ", Retry Count: " + latestLog.getRetryCount() +
+                                                 ", Last Error: " + (latestLog.getErrorMessage() != null ?
+                                                     latestLog.getErrorMessage().substring(0, Math.min(100, latestLog.getErrorMessage().length())) : "none"));
+                            }
+                        } else {
+                            System.out.println("[External Claim Sync] Including dispensing " + dispensingUuid + " - COMPLETED status found");
                         }
                         return isCompleted;
                     }
