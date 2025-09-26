@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="create-dispensing-rejection-table" author="system">
+        <comment>Create dispensing_rejection table for tracking individual dispensing rejections from external system</comment>
+
+        <createTable tableName="dispensing_rejection">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            
+            <column name="rejection_uuid" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            
+            <column name="dispensing_uuid" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="claim_uuid" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="batch_code" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="contract_uuid" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="provider_uuid" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="rejection_code" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="rejection_reason" type="TEXT"/>
+            
+            <column name="rejection_category" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="rejected_amount" type="DOUBLE PRECISION">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="rejected_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="reviewer_comments" type="TEXT"/>
+            
+            <column name="can_resubmit" type="BOOLEAN" defaultValue="false">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="required_documents" type="TEXT"/>
+            
+            <column name="rejection_status" type="VARCHAR(50)" defaultValue="ACTIVE">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="external_reference_id" type="TEXT"/>
+            
+            <column name="original_request_payload" type="TEXT"/>
+            
+            <column name="external_response_payload" type="TEXT"/>
+            
+            <column name="resolved_at" type="TIMESTAMP"/>
+            
+            <column name="resolved_by" type="VARCHAR(255)"/>
+            
+            <column name="resolution_comments" type="TEXT"/>
+            
+            <column name="resubmitted_at" type="TIMESTAMP"/>
+            
+            <column name="resubmitted_by" type="VARCHAR(255)"/>
+            
+            <column name="resubmission_comments" type="TEXT"/>
+            
+            <column name="is_deleted" type="BOOLEAN" defaultValue="false">
+                <constraints nullable="false"/>
+            </column>
+            
+            <!-- Audit fields -->
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="created_by" type="VARCHAR(255)"/>
+            
+            <column name="updated_by" type="VARCHAR(255)"/>
+        </createTable>
+
+        <!-- Add rejection status constraint -->
+        <sql>
+            ALTER TABLE dispensing_rejection 
+            ADD CONSTRAINT dispensing_rejection_status_check 
+            CHECK (rejection_status IN ('ACTIVE', 'RESOLVED', 'RESUBMITTED', 'APPEALED'));
+        </sql>
+
+        <!-- Add rejection category constraint -->
+        <sql>
+            ALTER TABLE dispensing_rejection 
+            ADD CONSTRAINT dispensing_rejection_category_check 
+            CHECK (rejection_category IN ('ELIGIBILITY', 'COVERAGE', 'DOCUMENTATION', 'DUPLICATE', 'FRAUD', 'OTHER'));
+        </sql>
+
+        <!-- Create indexes -->
+        <createIndex tableName="dispensing_rejection" indexName="idx_dispensing_rejection_uuid">
+            <column name="dispensing_uuid"/>
+        </createIndex>
+        
+        <createIndex tableName="dispensing_rejection" indexName="idx_dispensing_rejection_batch">
+            <column name="batch_code"/>
+        </createIndex>
+        
+        <createIndex tableName="dispensing_rejection" indexName="idx_dispensing_rejection_status">
+            <column name="rejection_status"/>
+        </createIndex>
+        
+        <createIndex tableName="dispensing_rejection" indexName="idx_dispensing_rejection_category">
+            <column name="rejection_category"/>
+        </createIndex>
+        
+        <createIndex tableName="dispensing_rejection" indexName="idx_dispensing_rejection_date">
+            <column name="rejected_at"/>
+        </createIndex>
+        
+        <createIndex tableName="dispensing_rejection" indexName="idx_dispensing_rejection_claim">
+            <column name="claim_uuid"/>
+        </createIndex>
+        
+        <createIndex tableName="dispensing_rejection" indexName="idx_dispensing_rejection_provider">
+            <column name="provider_uuid"/>
+        </createIndex>
+        
+        <createIndex tableName="dispensing_rejection" indexName="idx_dispensing_rejection_contract">
+            <column name="contract_uuid"/>
+        </createIndex>
+        
+        <createIndex tableName="dispensing_rejection" indexName="idx_dispensing_rejection_resubmit">
+            <column name="can_resubmit"/>
+        </createIndex>
+        
+        <createIndex tableName="dispensing_rejection" indexName="idx_dispensing_rejection_deleted">
+            <column name="is_deleted"/>
+        </createIndex>
+
+    </changeSet>
+
+</databaseChangeLog>

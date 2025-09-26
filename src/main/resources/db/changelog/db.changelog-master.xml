@@ -17,6 +17,8 @@
     <include file="db/changelog/16-fix-attachment-data-column-type.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/17-make-provider-uuid-nullable-package-categories.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/17-fix-failed-external-dispensing-log-status.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/18-create-failed-external-claim-log.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/19-create-dispensing-rejection-table.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/fix-tin-number-constraint.xml" relativeToChangelogFile="false"/>
 
     <!-- Auto-generated changelogs (will be created by scripts) -->

@@ -122,14 +122,18 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
             "  LOWER(CONCAT(i.first_name, ' ', i.father_name, ' ', i.grand_father_name)) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')) OR " +
             "  LOWER(i.phone) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')) OR " +
             "  LOWER(i.email) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')) OR " +
-            "  LOWER(i.insurance_id) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')))",
+            "  LOWER(i.insurance_id) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')) OR " +
+            "  LOWER(i.id_number) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')) OR " +
+            "  LOWER(i.national_id) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')))",
             countQuery = "SELECT COUNT(*) FROM insured i " +
                     "WHERE i.payer_uuid = CAST(:payerUuid AS VARCHAR) AND i.is_deleted = CAST(:isDeleted AS BOOLEAN) " +
                     "AND (COALESCE(CAST(:searchKey AS VARCHAR), '') = '' OR " +
                     "  LOWER(CONCAT(i.first_name, ' ', i.father_name, ' ', i.grand_father_name)) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')) OR " +
                     "  LOWER(i.phone) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')) OR " +
                     "  LOWER(i.email) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')) OR " +
-                    "  LOWER(i.insurance_id) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')))",
+                    "  LOWER(i.insurance_id) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')) OR " +
+                    "  LOWER(i.id_number) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')) OR " +
+                    "  LOWER(i.national_id) LIKE LOWER(CONCAT('%', CAST(:searchKey AS VARCHAR), '%')))",
             nativeQuery = true)
     Page<Insured> findByPayerAndSearchKey(
             @Param("payerUuid") String payerUuid,
@@ -146,7 +150,9 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
             "  LOWER(CONCAT(i.firstName, ' ', i.fatherName, ' ', i.grandFatherName)) LIKE LOWER(CONCAT('%', :searchKey, '%')) OR " +
             "  LOWER(i.phone) LIKE LOWER(CONCAT('%', :searchKey, '%')) OR " +
             "  LOWER(i.email) LIKE LOWER(CONCAT('%', :searchKey, '%')) OR " +
-            "  LOWER(i.insuranceId) LIKE LOWER(CONCAT('%', :searchKey, '%')))")
+            "  LOWER(i.insuranceId) LIKE LOWER(CONCAT('%', :searchKey, '%')) OR " +
+            "  LOWER(i.idNumber) LIKE LOWER(CONCAT('%', :searchKey, '%')) OR " +
+            "  LOWER(i.nationalId) LIKE LOWER(CONCAT('%', :searchKey, '%')))")
     Page<Insured> findByPayerAndSearchKeyWithDependants(
             @Param("payerUuid") String payerUuid,
             @Param("isDeleted") Boolean isDeleted,
@@ -190,7 +196,9 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
             "   OR LOWER(i.fatherName) LIKE :searchLike " +
             "   OR LOWER(i.grandFatherName) LIKE :searchLike " +
             "   OR LOWER(i.phone) LIKE :searchLike " +
-            "   OR LOWER(i.insuranceId) LIKE :searchLike)")
+            "   OR LOWER(i.insuranceId) LIKE :searchLike " +
+            "   OR LOWER(i.idNumber) LIKE :searchLike " +
+            "   OR LOWER(i.nationalId) LIKE :searchLike)")
     Page<Insured> findByPayerAndNotInContractAndSearchKey(
             @Param("payerUuid") String payerUuid,
             @Param("contractUuid") String contractUuid,

@@ -24,6 +24,8 @@ public class ClaimPaySyncRequest {
 
     private double totalAmount;
 
+    private String claimNumber;
+
     private String batchCode;
 
     private List<String> serviceProvidedUuid;

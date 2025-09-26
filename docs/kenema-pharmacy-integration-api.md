@@ -81,7 +81,7 @@ When the system detects an insurance payer:
 
 **External API Call:**
 ```
-POST http://192.168.5.234:8888/api/payer/claimconnect/service-provided/{contractUuid}
+POST http://192.168.19.234:8888/api/payer/claimconnect/service-provided/{contractUuid}
 Content-Type: application/json
 
 {
