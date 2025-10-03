@@ -35,8 +35,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Enumeration;
 
 @RestController
 @RequestMapping("/api/v1/healthConnect/integration/pharmacy")
@@ -73,8 +75,30 @@ public class PharmacyIntegrationController {
     @Operation(summary = "Record medication dispensing",
             description = "Records medications dispensed to a patient from Kenema pharmacies")
     public ResponseEntity<DispensingResponse> recordMedicationDispensing(
-            @Valid @RequestBody KenemaPharmacyDispensingRequest request) {
-        logger.info("Received request: {}", request);
+            @Valid @RequestBody KenemaPharmacyDispensingRequest request,
+            HttpServletRequest httpRequest) {
+
+        // Log all request headers
+        logger.info("========== Incoming Request Details ==========");
+        logger.info("Request URL: {}", httpRequest.getRequestURL());
+        logger.info("Request Method: {}", httpRequest.getMethod());
+        logger.info("Remote Address: {}", httpRequest.getRemoteAddr());
+        logger.info("Remote Host: {}", httpRequest.getRemoteHost());
+        logger.info("Content Type: {}", httpRequest.getContentType());
+        logger.info("Content Length: {}", httpRequest.getContentLength());
+
+        logger.info("========== Request Headers ==========");
+        Enumeration<String> headerNames = httpRequest.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            String headerValue = httpRequest.getHeader(headerName);
+            logger.info("Header: {} = {}", headerName, headerValue);
+        }
+
+        logger.info("========== Request Body ==========");
+        logger.info("Request Body: {}", request);
+        logger.info("===========================================");
+
         return pharmacyIntegrationService.recordMedicationDispensing(request);
     }
 

@@ -72,7 +72,7 @@ CREATE TABLE failed_external_dispensing_log (
 
 ```properties
 # External API Configuration
-external.api.external-api-base-url=http://192.168.19.234:8888
+external.api.external-api-base-url=http://192.168.21.234:8888
 external.api.api-key=hc_7f9a3b2e4d5c1f8e6a0d9b7c5e3f1a2d
 external.api.enabled=true
 

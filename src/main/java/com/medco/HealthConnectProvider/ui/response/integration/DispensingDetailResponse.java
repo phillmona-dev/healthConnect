@@ -37,6 +37,11 @@ public class DispensingDetailResponse {
     private LocalDateTime updatedAt;
     private List<DispensingItemDetail> items;
 
+    // Attachment fields
+    private String attachmentFileName;
+    private String attachmentContentType;
+    private String attachmentBase64; // Base64 encoded attachment data
+
     @Data
     public static class DispensingItemDetail {
         private String contractDetailUuid;

@@ -1,5 +1,6 @@
 package com.medco.HealthConnectProvider.controller.integration;
 
+import com.medco.HealthConnectProvider.annotation.RequiresApiKey;
 import com.medco.HealthConnectProvider.dto.integration.ExternalClaimRejectionResponse;
 import com.medco.HealthConnectProvider.entity.integration.DispensingRejection;
 import com.medco.HealthConnectProvider.services.integration.DispensingRejectionService;
@@ -29,30 +30,41 @@ public class DispensingRejectionController {
     /**
      * Webhook endpoint for external system to send rejection notifications
      */
+    @RequiresApiKey
     @PostMapping("/webhook/external-rejection")
     public ResponseEntity<Map<String, String>> processExternalRejection(
             @RequestBody ExternalClaimRejectionResponse rejectionResponse) {
-        
+
         log.info("Received external rejection webhook for batch: {}", rejectionResponse.getBatchCode());
-        
+        log.debug("Rejected dispensing count: {}",
+                rejectionResponse.getRejectedDispensing() != null ? rejectionResponse.getRejectedDispensing().size() : 0);
+
         try {
+            // Validate that at least batch code is provided
+            if (rejectionResponse.getBatchCode() == null || rejectionResponse.getBatchCode().isEmpty()) {
+                Map<String, String> response = new HashMap<>();
+                response.put("message", "Batch code is required");
+                response.put("status", "error");
+                return ResponseEntity.badRequest().body(response);
+            }
+
             rejectionService.processExternalRejectionResponse(rejectionResponse);
-            
+
             Map<String, String> response = new HashMap<>();
             response.put("message", "Rejection processed successfully");
             response.put("status", "success");
             response.put("batchCode", rejectionResponse.getBatchCode());
-            
+
             return ResponseEntity.ok(response);
-            
+
         } catch (Exception e) {
             log.error("Error processing external rejection for batch: {}", rejectionResponse.getBatchCode(), e);
-            
+
             Map<String, String> response = new HashMap<>();
             response.put("message", "Failed to process rejection: " + e.getMessage());
             response.put("status", "error");
             response.put("batchCode", rejectionResponse.getBatchCode());
-            
+
             return ResponseEntity.internalServerError().body(response);
         }
     }

@@ -77,8 +77,12 @@ public class SecurityConfig {
                                 "/api/v1/healthConnect/users/privilege/*",
                                 "/api/v1/healthConnect/provider/createProvider",
 
+                                "/api/v1/healthConnect/integration/pharmacy/dispensing",
+
                                 "/api/v1/healthConnect/healthConnectProvider/service/{providerUuid}/service-categories",
                                 "/api/v1/healthConnect/healthConnectProvider/service/{providerUuid}/services/export",
+
+                                "/api/v1/healthConnect/integration/dispensing-rejections/webhook/external-rejection",
 
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",

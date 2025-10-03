@@ -20,13 +20,11 @@ public class ExternalClaimRejectionResponse {
     private String claimUuid;
     private String contractUuid;
     private String providerUuid;
-    private String status; // "APPROVED", "REJECTED", "PARTIALLY_APPROVED"
+    private String status; // "REJECTED", "PARTIALLY_REJECTED"
     private String message;
     private LocalDateTime processedAt;
-    private Double approvedAmount;
     private Double rejectedAmount;
     private List<DispensingRejectionDetail> rejectedDispensing;
-    private List<DispensingApprovalDetail> approvedDispensing;
 
     @Data
     @Builder
@@ -41,22 +39,7 @@ public class ExternalClaimRejectionResponse {
         private Double rejectedAmount;
         private LocalDateTime rejectedAt;
         private String reviewerComments;
-        private boolean canResubmit;
-        private List<String> requiredDocuments; // Documents needed for resubmission
-    }
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class DispensingApprovalDetail {
-        private String dispensingUuid;
-        private String approvalCode;
-        private Double approvedAmount;
-        private Double originalAmount;
-        private LocalDateTime approvedAt;
-        private String reviewerComments;
-        private String paymentReference;
+        private Boolean canResubmit;
+        private List<String> requiredDocuments;
     }
 }

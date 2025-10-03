@@ -476,20 +476,29 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
             if (provider.getLogoPath() != null && !provider.getLogoPath().isEmpty()) {
                 try {
                     String logoPath = providerLogosDirectory + "/" + provider.getLogoPath();
+                    log.debug("Attempting to load logo for provider {}: {}", provider.getProviderUuid(), logoPath);
                     File logoFile = new File(logoPath);
 
                     if (logoFile.exists() && logoFile.isFile()) {
                         byte[] fileContent = Files.readAllBytes(logoFile.toPath());
                         String base64Logo = Base64.getEncoder().encodeToString(fileContent);
-                        response.setLogoBase64("data:" + determineContentType(logoPath) + ";base64," + base64Logo);
+                        String contentType = determineContentType(logoPath);
+                        response.setLogoBase64("data:" + contentType + ";base64," + base64Logo);
+                        log.debug("Successfully loaded logo for provider {}, size: {} bytes, contentType: {}",
+                                provider.getProviderUuid(), fileContent.length, contentType);
                     } else {
+                        log.warn("Logo file does not exist for provider {}: {}", provider.getProviderUuid(), logoPath);
                         setDefaultLogoBase64(response);
                     }
                 } catch (IOException e) {
-                    log.warn("Could not read logo for provider {}: {}", provider.getProviderUuid(), e.getMessage());
+                    log.error("Could not read logo for provider {}: {}", provider.getProviderUuid(), e.getMessage(), e);
+                    setDefaultLogoBase64(response);
+                } catch (Exception e) {
+                    log.error("Unexpected error loading logo for provider {}: {}", provider.getProviderUuid(), e.getMessage(), e);
                     setDefaultLogoBase64(response);
                 }
             } else {
+                log.debug("No logo path set for provider {}, using default", provider.getProviderUuid());
                 setDefaultLogoBase64(response);
             }
 
@@ -533,9 +542,14 @@ private final Logger logger = LoggerFactory.getLogger(ProviderService.class);
                 byte[] fileContent = FileCopyUtils.copyToByteArray(resource.getInputStream());
                 String base64Logo = Base64.getEncoder().encodeToString(fileContent);
                 response.setLogoBase64("data:image/png;base64," + base64Logo);
+                log.debug("Set default logo for provider response, size: {} bytes", fileContent.length);
+            } else {
+                log.warn("Default provider logo file not found in classpath");
+                response.setLogoBase64(null);
             }
         } catch (IOException e) {
-            log.warn("Could not read default logo: {}", e.getMessage());
+            log.error("Could not read default logo: {}", e.getMessage(), e);
+            response.setLogoBase64(null);
         }
     }
 

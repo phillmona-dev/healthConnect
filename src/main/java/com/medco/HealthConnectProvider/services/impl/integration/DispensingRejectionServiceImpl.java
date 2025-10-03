@@ -34,17 +34,13 @@ public class DispensingRejectionServiceImpl implements DispensingRejectionServic
 
         try {
             // Process rejected dispensing records
-            if (rejectionResponse.getRejectedDispensing() != null) {
+            if (rejectionResponse.getRejectedDispensing() != null && !rejectionResponse.getRejectedDispensing().isEmpty()) {
+                log.info("Processing {} rejected dispensing records", rejectionResponse.getRejectedDispensing().size());
                 for (ExternalClaimRejectionResponse.DispensingRejectionDetail rejection : rejectionResponse.getRejectedDispensing()) {
                     processIndividualRejection(rejectionResponse, rejection);
                 }
-            }
-
-            // Process approved dispensing records (update their status)
-            if (rejectionResponse.getApprovedDispensing() != null) {
-                for (ExternalClaimRejectionResponse.DispensingApprovalDetail approval : rejectionResponse.getApprovedDispensing()) {
-                    processIndividualApproval(rejectionResponse, approval);
-                }
+            } else {
+                log.warn("No rejected dispensing records found in response for batch: {}", rejectionResponse.getBatchCode());
             }
 
             log.info("Successfully processed rejection response for batch: {}", rejectionResponse.getBatchCode());
@@ -55,23 +51,50 @@ public class DispensingRejectionServiceImpl implements DispensingRejectionServic
         }
     }
 
-    private void processIndividualRejection(ExternalClaimRejectionResponse response, 
+    private void processIndividualRejection(ExternalClaimRejectionResponse response,
                                           ExternalClaimRejectionResponse.DispensingRejectionDetail rejection) {
         try {
+            // Fetch the dispensing record to get missing information
+            MedicationDispensing dispensing = medicationDispensingRepository
+                    .findByDispensingUuid(rejection.getDispensingUuid());
+
+            if (dispensing == null) {
+                log.error("Dispensing record not found for UUID: {}", rejection.getDispensingUuid());
+                return;
+            }
+
+            // Get contract UUID from the first dispensing item (all items should have same contract)
+            String contractUuid = response.getContractUuid();
+            if (contractUuid == null && !dispensing.getItems().isEmpty()) {
+                contractUuid = dispensing.getItems().get(0).getContractDetail().getContractHeaderUuid();
+                log.debug("Retrieved contract UUID from dispensing item: {}", contractUuid);
+            }
+
+            if (contractUuid == null) {
+                log.error("Contract UUID is null for dispensing: {}", rejection.getDispensingUuid());
+                throw new IllegalStateException("Contract UUID is required but not found");
+            }
+
+            // Get provider UUID and claim UUID from dispensing if not in response
+            String providerUuid = response.getProviderUuid() != null ?
+                    response.getProviderUuid() : dispensing.getProviderUuid();
+            String claimUuid = response.getClaimUuid() != null ?
+                    response.getClaimUuid() : dispensing.getClaimUuid();
+
             // Create rejection record
             DispensingRejection rejectionEntity = DispensingRejection.builder()
                     .dispensingUuid(rejection.getDispensingUuid())
-                    .claimUuid(response.getClaimUuid())
+                    .claimUuid(claimUuid)
                     .batchCode(response.getBatchCode())
-                    .contractUuid(response.getContractUuid())
-                    .providerUuid(response.getProviderUuid())
+                    .contractUuid(contractUuid)
+                    .providerUuid(providerUuid)
                     .rejectionCode(rejection.getRejectionCode())
                     .rejectionReason(rejection.getRejectionReason())
                     .rejectionCategory(rejection.getRejectionCategory())
                     .rejectedAmount(rejection.getRejectedAmount())
                     .rejectedAt(rejection.getRejectedAt() != null ? rejection.getRejectedAt() : LocalDateTime.now())
                     .reviewerComments(rejection.getReviewerComments())
-                    .canResubmit(rejection.isCanResubmit())
+                    .canResubmit(rejection.getCanResubmit() != null ? rejection.getCanResubmit() : false)
                     .requiredDocuments(serializeRequiredDocuments(rejection.getRequiredDocuments()))
                     .rejectionStatus("ACTIVE")
                     .externalResponsePayload(serializeToJson(response))
@@ -82,36 +105,16 @@ public class DispensingRejectionServiceImpl implements DispensingRejectionServic
             // Update dispensing status
             updateDispensingStatusForRejection(rejection.getDispensingUuid(), "REJECTED");
 
-            log.info("Processed rejection for dispensing: {} with reason: {}", 
+            log.info("Processed rejection for dispensing: {} with reason: {}",
                     rejection.getDispensingUuid(), rejection.getRejectionReason());
 
         } catch (Exception e) {
             log.error("Error processing individual rejection for dispensing: {}", rejection.getDispensingUuid(), e);
+            throw new RuntimeException("Failed to process rejection for dispensing: " + rejection.getDispensingUuid(), e);
         }
     }
 
-    private void processIndividualApproval(ExternalClaimRejectionResponse response, 
-                                         ExternalClaimRejectionResponse.DispensingApprovalDetail approval) {
-        try {
-            // Update dispensing status to approved
-            MedicationDispensing dispensing = medicationDispensingRepository
-                    .findByDispensingUuid(approval.getDispensingUuid());
 
-            if (dispensing != null) {
-                dispensing.setClaimStatus("APPROVED");
-                dispensing.setUpdatedAt(LocalDateTime.now());
-                medicationDispensingRepository.save(dispensing);
-
-                log.info("Approved dispensing: {} with amount: {}",
-                        approval.getDispensingUuid(), approval.getApprovedAmount());
-            } else {
-                log.warn("Dispensing not found for approval: {}", approval.getDispensingUuid());
-            }
-
-        } catch (Exception e) {
-            log.error("Error processing individual approval for dispensing: {}", approval.getDispensingUuid(), e);
-        }
-    }
 
     @Override
     public List<DispensingRejection> getRejectionsByDispensingUuid(String dispensingUuid) {

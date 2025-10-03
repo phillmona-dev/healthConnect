@@ -421,6 +421,18 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
         response.setItems(items.stream().map(this::convertToItemDetail).collect(Collectors.toList()));
 
+        // Include attachment data if available
+        if (dispensing.getAttachmentData() != null && dispensing.getAttachmentData().length > 0) {
+            try {
+                response.setAttachmentFileName(dispensing.getAttachmentFileName());
+                response.setAttachmentContentType(dispensing.getAttachmentContentType());
+                response.setAttachmentBase64(java.util.Base64.getEncoder().encodeToString(dispensing.getAttachmentData()));
+                log.info("Attachment included in response for dispensing: {}", dispensingUuid);
+            } catch (Exception e) {
+                log.error("Error encoding attachment for dispensing {}: {}", dispensingUuid, e.getMessage());
+            }
+        }
+
         return ResponseEntity.ok(response);
 
     }
@@ -1177,6 +1189,20 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             );
 
             updateDispensingRecordTotals(dispensingRecord, dispensingItems);
+
+            // Save attachment to the dispensing record if provided
+            if (attachment != null && !attachment.isEmpty()) {
+                try {
+                    dispensingRecord.setAttachmentFileName(attachment.getOriginalFilename());
+                    dispensingRecord.setAttachmentContentType(attachment.getContentType());
+                    dispensingRecord.setAttachmentData(attachment.getBytes());
+                    log.info("Attachment saved to dispensing record: {} ({} bytes)",
+                            attachment.getOriginalFilename(), attachment.getSize());
+                } catch (Exception e) {
+                    log.error("Error saving attachment to dispensing record: {}", e.getMessage());
+                }
+            }
+
             MedicationDispensing savedRecord = dispensingRepository.save(dispensingRecord);
             dispensingItemRepository.saveAll(dispensingItems);
 
