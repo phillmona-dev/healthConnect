@@ -78,7 +78,6 @@ public class PharmacyIntegrationController {
             @Valid @RequestBody KenemaPharmacyDispensingRequest request,
             HttpServletRequest httpRequest) {
 
-        // Log all request headers
         logger.info("========== Incoming Request Details ==========");
         logger.info("Request URL: {}", httpRequest.getRequestURL());
         logger.info("Request Method: {}", httpRequest.getMethod());

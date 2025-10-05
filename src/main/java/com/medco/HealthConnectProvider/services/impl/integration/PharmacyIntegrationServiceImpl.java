@@ -1433,60 +1433,85 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     @Override
     @Transactional
     public ResponseEntity<DispensingResponse> recordMedicationDispensing(KenemaPharmacyDispensingRequest request) {
+        try {
+            log.info("Recording medication dispensing for insured UUID: {}", request.getInsuredUuid());
 
-        log.info("Recording medication dispensing for insured UUID: {}", request.getInsuredUuid());
+            if (StringUtils.isBlank(request.getInsuredUuid())) {
+                throw new BadRequestException("insuredUuid is required");
+            }
 
-        if (StringUtils.isBlank(request.getInsuredUuid())) {
-            throw new BadRequestException("insuredUuid is required");
+            Provider provider = providerRepository.findByProviderNameContainingIgnoreCase("kenema")
+                    .stream()
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Provider",
+                            "name containing 'kenema'",
+                            request.getProviderName()
+                    ));
+            log.info("Kenema provider found: {}", provider.getProviderName());
+
+            // Handle potential duplicate insured records
+            Insured insured = null;
+            try {
+                insured = insuredRepository.findByInsuredUuid(request.getInsuredUuid());
+            } catch (org.springframework.dao.IncorrectResultSizeDataAccessException e) {
+                log.warn("Multiple insured records found for UUID: {}. Using the first one.", request.getInsuredUuid());
+                List<Insured> insuredList = insuredRepository.findByInsuredUuidIn(
+                        java.util.Collections.singletonList(request.getInsuredUuid())
+                );
+                if (!insuredList.isEmpty()) {
+                    insured = insuredList.get(0);
+                    log.info("Selected insured record: {} (ID: {})", insured.getInsuredUuid(), insured.getId());
+                }
+            }
+
+            if (insured == null) {
+                throw new ResourceNotFoundException(
+                        "Insured",
+                        "insuredUuid",
+                        request.getInsuredUuid()
+                );
+            }
+            log.info("Found insured: {} {}", insured.getFirstName(), insured.getFatherName());
+
+            Payer requestPayer = payerRepository.findByPayerName(request.getPayerName());
+            EligibilityResponse eligibilityResponse = null;
+            if (requestPayer == null || !requestPayer.isCbhi()) {
+                eligibilityResponse = checkEligibility(insured, provider.getProviderUuid());
+                log.info("Eligibility check response: {}", eligibilityResponse);
+            } else {
+                log.info("Bypassing eligibility check for CBHI payer: {}", requestPayer.getPayerName());
+            }
+
+            MedicationDispensing dispensing = createDispensingRecord(request, insured, provider, eligibilityResponse);
+            log.info("Dispensing record created: {}", dispensing);
+
+            MedicationDispensing savedDispensing = dispensingRepository.save(dispensing);
+            log.info("Dispensing record saved: {}", savedDispensing.getDispensingUuid());
+
+            List<MedicationDispensingItem> items = createDispensingItems(request, savedDispensing);
+            log.info("Dispensing items created: {}", items.size());
+
+            List<MedicationDispensingItem> savedItems = dispensingItemRepository.saveAll(items);
+            log.info("Dispensing items saved: {}", savedItems.size());
+
+            handleKenemaPackageAndExternalIntegration(request, savedItems, savedDispensing);
+
+            DispensingResponse response = createDispensingResponse(savedDispensing);
+            log.info("Dispensing response created: {}", response);
+
+            return ResponseEntity.ok(response);
+
+        } catch (org.springframework.dao.IncorrectResultSizeDataAccessException e) {
+            log.error("Duplicate records found in database: {}", e.getMessage());
+            throw new BadRequestException("Multiple records found. Please contact system administrator to resolve data inconsistency.");
+        } catch (ResourceNotFoundException | BadRequestException e) {
+            log.error("Error in recordMedicationDispensing: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in recordMedicationDispensing", e);
+            throw new RuntimeException("Failed to record medication dispensing: " + e.getMessage(), e);
         }
-
-        Provider provider = providerRepository.findByProviderNameContainingIgnoreCase("kenema")
-                .stream()
-                .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Provider",
-                        "name containing 'kenema'",
-                        request.getProviderName()
-                ));
-        log.info("Kenema provider found: {}", provider.getProviderName());
-
-        Insured insured = insuredRepository.findByInsuredUuid(request.getInsuredUuid());
-        if (insured == null) {
-            throw new ResourceNotFoundException(
-                    "Insured",
-                    "insuredUuid",
-                    request.getInsuredUuid()
-            );
-        }
-        log.info("Found insured: {} {}", insured.getFirstName(), insured.getFatherName());
-
-        Payer requestPayer = payerRepository.findByPayerName(request.getPayerName());
-        EligibilityResponse eligibilityResponse = null;
-        if (requestPayer == null || !requestPayer.isCbhi()) {
-            eligibilityResponse = checkEligibility(insured, provider.getProviderUuid());
-            log.info("Eligibility check response: {}", eligibilityResponse);
-        } else {
-            log.info("Bypassing eligibility check for CBHI payer: {}", requestPayer.getPayerName());
-        }
-
-        MedicationDispensing dispensing = createDispensingRecord(request, insured, provider, eligibilityResponse);
-        log.info("Dispensing record created: {}", dispensing);
-
-        MedicationDispensing savedDispensing = dispensingRepository.save(dispensing);
-        log.info("Dispensing record saved: {}", savedDispensing.getDispensingUuid());
-
-        List<MedicationDispensingItem> items = createDispensingItems(request, savedDispensing);
-        log.info("Dispensing items created: {}", items.size());
-
-        List<MedicationDispensingItem> savedItems = dispensingItemRepository.saveAll(items);
-        log.info("Dispensing items saved: {}", savedItems.size());
-
-        handleKenemaPackageAndExternalIntegration(request, savedItems, savedDispensing);
-
-        DispensingResponse response = createDispensingResponse(savedDispensing);
-        log.info("Dispensing response created: {}", response);
-
-        return ResponseEntity.ok(response);
 
     }
 

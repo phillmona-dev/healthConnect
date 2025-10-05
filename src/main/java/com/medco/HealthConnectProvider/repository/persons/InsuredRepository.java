@@ -21,7 +21,7 @@ import java.util.Optional;
 @Repository
 public interface InsuredRepository extends JpaRepository<Insured, Long> {
 
-    @Query("SELECT i FROM Insured i WHERE i.insuredUuid = :insuredUuid AND i.isDeleted = false")
+    @Query(value = "SELECT * FROM insured WHERE insured_uuid = :insuredUuid AND is_deleted = false ORDER BY id ASC LIMIT 1", nativeQuery = true)
     Insured findByInsuredUuid(@Param("insuredUuid") String insuredUuid);
 
     boolean existsByEmailAndInsuranceIdAndPayerUuid(String stringCellValue, String stringCellValue2,
