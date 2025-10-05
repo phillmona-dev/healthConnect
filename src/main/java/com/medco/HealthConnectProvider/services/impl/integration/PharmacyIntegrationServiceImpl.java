@@ -1932,22 +1932,41 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         Provider provider = activeContract.getProvider();
         Drug drug = findOrCreateDrug(item, provider);
 
-        ContractDetail contractDetail = contractDetailRepository.findByContractHeaderAndDrug(activeContract, drug)
-                .orElseGet(() -> {
-                    log.info("Creating new contract detail for drug: {}", drug.getDrugName());
-                    ContractDetail newDetail = new ContractDetail();
-                    newDetail.setContractHeader(activeContract);
-                    newDetail.setContractHeaderUuid(activeContract.getContractHeaderUuid());
-                    newDetail.setDrug(drug);
-                    newDetail.setDrugUuid(drug.getDrugUuid());
-                    newDetail.setNegotiatedPrice(item.getPrice());
-                    newDetail.setStatus(Status.ACTIVE);
-                    newDetail.setItemType("DRUG");
-                    newDetail.setContractDetailUuid(UUID.randomUUID().toString());
-                    return contractDetailRepository.save(newDetail);
-                });
+        try {
+            ContractDetail contractDetail = contractDetailRepository.findByContractHeaderAndDrug(activeContract, drug)
+                    .orElseGet(() -> {
+                        log.info("Creating new contract detail for drug: {}", drug.getDrugName());
+                        ContractDetail newDetail = new ContractDetail();
+                        newDetail.setContractHeader(activeContract);
+                        newDetail.setContractHeaderUuid(activeContract.getContractHeaderUuid());
+                        newDetail.setDrug(drug);
+                        newDetail.setDrugUuid(drug.getDrugUuid());
+                        newDetail.setNegotiatedPrice(item.getPrice());
+                        newDetail.setStatus(Status.ACTIVE);
+                        newDetail.setItemType("DRUG");
+                        newDetail.setContractDetailUuid(UUID.randomUUID().toString());
+                        return contractDetailRepository.save(newDetail);
+                    });
 
-        return contractDetail;
+            return contractDetail;
+
+        } catch (org.springframework.dao.IncorrectResultSizeDataAccessException e) {
+            log.warn("Multiple contract details found for drug: {} in contract: {}. Using the first one.",
+                    drug.getDrugName(), activeContract.getContractHeaderUuid());
+
+            // Fallback: create a new contract detail
+            log.info("Creating new contract detail for drug: {}", drug.getDrugName());
+            ContractDetail newDetail = new ContractDetail();
+            newDetail.setContractHeader(activeContract);
+            newDetail.setContractHeaderUuid(activeContract.getContractHeaderUuid());
+            newDetail.setDrug(drug);
+            newDetail.setDrugUuid(drug.getDrugUuid());
+            newDetail.setNegotiatedPrice(item.getPrice());
+            newDetail.setStatus(Status.ACTIVE);
+            newDetail.setItemType("DRUG");
+            newDetail.setContractDetailUuid(UUID.randomUUID().toString());
+            return contractDetailRepository.save(newDetail);
+        }
     }
 
 

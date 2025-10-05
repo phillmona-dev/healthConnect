@@ -100,7 +100,8 @@ public interface ContractDetailRepository extends JpaRepository<ContractDetail, 
             @Param("medicationName") String medicationName
     );
 
-    Optional<ContractDetail> findByContractHeaderAndDrug(ContractHeader contractHeader, Drug drug);
+    @Query(value = "SELECT * FROM contract_details WHERE contract_header_id = :#{#contractHeader.id} AND drug_uuid = :#{#drug.drugUuid} AND is_deleted = false ORDER BY id ASC LIMIT 1", nativeQuery = true)
+    Optional<ContractDetail> findByContractHeaderAndDrug(@Param("contractHeader") ContractHeader contractHeader, @Param("drug") Drug drug);
 
     boolean existsByContractDetailUuid(String eligibleServiceUuid);
 }

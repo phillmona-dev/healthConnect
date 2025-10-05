@@ -47,5 +47,6 @@ public interface DrugRepository extends JpaRepository<Drug, Long> {
 
     List<Drug> findByProvider(Provider provider);
 
-    Optional<Drug> findByDrugName(String medicationName);
+    @Query(value = "SELECT * FROM drugs WHERE drug_name = :medicationName AND is_deleted = false ORDER BY id ASC LIMIT 1", nativeQuery = true)
+    Optional<Drug> findByDrugName(@Param("medicationName") String medicationName);
 }
