@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="create-services-table" author="system">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="services"/>
+            </not>
+        </preConditions>
+        
+        <comment>Create services table for healthcare services</comment>
+        
+        <createTable tableName="services">
+            <!-- Primary Key -->
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            
+            <!-- UUID and Identifiers -->
+            <column name="service_uuid" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            
+            <column name="generated_service_id" type="VARCHAR(255)">
+                <constraints unique="true"/>
+            </column>
+            
+            <column name="service_code" type="VARCHAR(255)">
+                <constraints unique="true"/>
+            </column>
+            
+            <!-- Service Information -->
+            <column name="service_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            
+            <column name="service_description" type="TEXT"/>
+            
+            <column name="service_category" type="VARCHAR(255)"/>
+            
+            <column name="service_sub_category" type="VARCHAR(255)"/>
+            
+            <!-- Pricing -->
+            <column name="default_price" type="DOUBLE PRECISION"/>
+            
+            <column name="negotiated_price" type="DOUBLE PRECISION"/>
+            
+            <column name="price" type="DOUBLE PRECISION"/>
+            
+            <!-- Other Fields -->
+            <column name="unit_of_measure" type="VARCHAR(100)"/>
+            
+            <column name="status" type="VARCHAR(50)"/>
+            
+            <!-- Foreign Key to Provider -->
+            <column name="provider_id" type="BIGINT"/>
+            
+            <!-- Soft Delete -->
+            <column name="is_deleted" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            
+            <!-- Audit Fields -->
+            <column name="created_by" type="VARCHAR(255)"/>
+            
+            <column name="updated_by" type="VARCHAR(255)"/>
+            
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+            
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+        
+        <!-- Add Foreign Key Constraint -->
+        <addForeignKeyConstraint
+                baseTableName="services"
+                baseColumnNames="provider_id"
+                constraintName="fk_services_provider"
+                referencedTableName="providers"
+                referencedColumnNames="id"
+                onDelete="SET NULL"
+                onUpdate="CASCADE"/>
+        
+        <!-- Create Indexes for Performance -->
+        <createIndex indexName="idx_services_service_uuid" tableName="services">
+            <column name="service_uuid"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_services_service_code" tableName="services">
+            <column name="service_code"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_services_service_name" tableName="services">
+            <column name="service_name"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_services_provider_id" tableName="services">
+            <column name="provider_id"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_services_status" tableName="services">
+            <column name="status"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_services_is_deleted" tableName="services">
+            <column name="is_deleted"/>
+        </createIndex>
+        
+        <createIndex indexName="idx_services_category" tableName="services">
+            <column name="service_category"/>
+        </createIndex>
+        
+        <rollback>
+            <dropTable tableName="services" cascadeConstraints="true"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
+

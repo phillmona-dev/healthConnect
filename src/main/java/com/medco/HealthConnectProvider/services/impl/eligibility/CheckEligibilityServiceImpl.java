@@ -37,7 +37,7 @@ public class CheckEligibilityServiceImpl implements CheckEligibilityService {
     private static final Logger logger = LoggerFactory.getLogger(CheckEligibilityServiceImpl.class);
 
     //private static final String BASE_URL = "http://192.168.16.234:8888";
-//    private static final String BASE_URL = "http://192.168.21.234:8888";
+//    private static final String BASE_URL = "http://192.168.0.191:8888";
     private static final String ELIGIBILITY_ENDPOINT = "/api/payer/claimconnect/insuredperson/eligiblity";
 
     @Autowired

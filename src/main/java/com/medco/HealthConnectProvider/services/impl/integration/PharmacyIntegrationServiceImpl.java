@@ -50,7 +50,6 @@ import com.medco.HealthConnectProvider.ui.request.integration.CreateCbhiInsuredR
 import com.medco.HealthConnectProvider.ui.request.integration.CreateBulkCbhiInsuredRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.DispensingRecordRequest;
 import com.medco.HealthConnectProvider.ui.request.integration.KenemaPharmacyDispensingRequest;
-import com.medco.HealthConnectProvider.ui.request.integration.MedicationDispensingRequest;
 import com.medco.HealthConnectProvider.ui.response.ApiErrorResponse;
 import com.medco.HealthConnectProvider.ui.response.MessageResponse;
 import com.medco.HealthConnectProvider.ui.response.claims.ReconciliationResponse;
@@ -1876,20 +1875,39 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
     }
 
     private Drug findOrCreateDrug(KenemaPharmacyDispensingRequest.PrescriptionDetail prescriptionDetail, Provider provider) {
-        Optional<Drug> existingDrug = drugRepository.findByDrugName(prescriptionDetail.getMedicationName());
+        try {
+            Optional<Drug> existingDrug = drugRepository.findByDrugName(prescriptionDetail.getMedicationName());
 
-        if (existingDrug.isPresent()) {
-            return existingDrug.get();
-        } else {
-            Drug newDrug = new Drug();
-            newDrug.setDrugName(prescriptionDetail.getMedicationName());
-            newDrug.setDosage(prescriptionDetail.getDosage().toString());
-            newDrug.setRoute(prescriptionDetail.getRoute());
-            newDrug.setPrice(prescriptionDetail.getPrice());
-            newDrug.setStatus(Status.ACTIVE);
-            newDrug.setProvider(provider);
+            if (existingDrug.isPresent()) {
+                log.debug("Found existing drug: {}", prescriptionDetail.getMedicationName());
+                return existingDrug.get();
+            } else {
+                log.info("Creating new drug: {}", prescriptionDetail.getMedicationName());
+                Drug newDrug = new Drug();
+                newDrug.setDrugUuid(UUID.randomUUID().toString());
+                newDrug.setDrugName(prescriptionDetail.getMedicationName());
+                newDrug.setDosage(prescriptionDetail.getDosage().toString());
+                newDrug.setRoute(prescriptionDetail.getRoute());
+                newDrug.setPrice(prescriptionDetail.getPrice());
+                newDrug.setStatus(Status.ACTIVE);
+                newDrug.setProvider(provider);
 
-            return drugRepository.save(newDrug);
+                return drugRepository.save(newDrug);
+            }
+        } catch (org.springframework.dao.IncorrectResultSizeDataAccessException e) {
+            log.warn("Multiple drugs found with name: {}. Fetching all and using the first one.", prescriptionDetail.getMedicationName());
+            // Fallback: get all drugs with this name and use the first one
+            List<Drug> drugs = drugRepository.findAll().stream()
+                    .filter(d -> d.getDrugName().equals(prescriptionDetail.getMedicationName()) && !d.isDeleted())
+                    .sorted((d1, d2) -> Long.compare(d1.getId(), d2.getId()))
+                    .toList();
+
+            if (!drugs.isEmpty()) {
+                log.info("Using existing drug (ID: {}): {}", drugs.get(0).getId(), drugs.get(0).getDrugName());
+                return drugs.get(0);
+            }
+
+            throw new RuntimeException("Failed to find or create drug: " + prescriptionDetail.getMedicationName());
         }
     }
 
@@ -1951,11 +1969,24 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
             return contractDetail;
 
         } catch (org.springframework.dao.IncorrectResultSizeDataAccessException e) {
-            log.warn("Multiple contract details found for drug: {} in contract: {}. Using the first one.",
+            log.warn("Multiple contract details found for drug: {} in contract: {}. Fetching all and using the first one.",
                     drug.getDrugName(), activeContract.getContractHeaderUuid());
 
-            // Fallback: create a new contract detail
-            log.info("Creating new contract detail for drug: {}", drug.getDrugName());
+            // Fallback: Query all contract details and use the first one (DO NOT CREATE NEW)
+            List<ContractDetail> allDetails = contractDetailRepository.findAll().stream()
+                    .filter(cd -> cd.getContractHeader().getId().equals(activeContract.getId())
+                            && cd.getDrug().getDrugUuid().equals(drug.getDrugUuid())
+                            && !cd.isDeleted())
+                    .sorted((cd1, cd2) -> Long.compare(cd1.getId(), cd2.getId()))
+                    .toList();
+
+            if (!allDetails.isEmpty()) {
+                log.info("Using existing contract detail (ID: {}) for drug: {}", allDetails.get(0).getId(), drug.getDrugName());
+                return allDetails.get(0);
+            }
+
+            // Only create if truly none exists
+            log.info("No contract detail found after fallback search. Creating new one for drug: {}", drug.getDrugName());
             ContractDetail newDetail = new ContractDetail();
             newDetail.setContractHeader(activeContract);
             newDetail.setContractHeaderUuid(activeContract.getContractHeaderUuid());

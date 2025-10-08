@@ -597,39 +597,77 @@ public class InsuredServiceImpl implements InsuredService {
 
         List<Insured> insuredList = new ArrayList<>();
 
-        List<Insured> insuredByPhone = (List<Insured>) insuredRepository.findByPhone(identifier);
-        if (!insuredByPhone.isEmpty()) {
-            insuredList.addAll(insuredByPhone);
-            return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
-        }
+        // PRIORITY 1: Search by exact ID matches first (before partial name matches)
+        // This prevents "557" from matching phone "0911685575" in name fields
 
-
-        List<Insured> insuredByName = insuredRepository.findByFullNameCombinations(identifier);
-        if (!insuredByName.isEmpty()) {
-            insuredList.addAll(insuredByName);
-            return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
-        }
-
+        // Search by ID number (exact match)
         List<Insured> insuredByIdNumber = insuredRepository.findByIdNumber(identifier);
-        if (!insuredByIdNumber.isEmpty()) {
+        if (insuredByIdNumber != null && !insuredByIdNumber.isEmpty()) {
             insuredList.addAll(insuredByIdNumber);
+            log.info("Found {} insured person(s) by idNumber '{}': {}",
+                insuredList.size(),
+                identifier,
+                insuredList.stream()
+                    .map(i -> i.getFirstName() + " " + i.getFatherName() + " (Payer: " + i.getPayerUuid() + ", idNumber: " + i.getIdNumber() + ")")
+                    .collect(Collectors.joining(", "))
+            );
             return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
         }
 
-       List<Insured> insuredByEmployeeId = (List<Insured>) insuredRepository.findByEmployeeId(identifier);
-        if (!insuredByEmployeeId.isEmpty()) {
-            insuredList.addAll(insuredByEmployeeId);
+        // Search by employee ID (exact match)
+        Insured insuredByEmployeeId = insuredRepository.findByEmployeeId(identifier);
+        if (insuredByEmployeeId != null) {
+            insuredList.add(insuredByEmployeeId);
+            log.info("Found insured person by employeeId: {}", identifier);
             return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
         }
 
-      List<Insured>  insuredByNationalId = (List<Insured>) insuredRepository.findByNationalId(identifier);
-        if (!insuredByNationalId.isEmpty()) {
-            insuredList.addAll(insuredByNationalId);
+        // Search by national ID (exact match)
+        Insured insuredByNationalId = insuredRepository.findByNationalId(identifier);
+        if (insuredByNationalId != null) {
+            insuredList.add(insuredByNationalId);
+            log.info("Found insured person by nationalId: {}", identifier);
             return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
         }
 
-        insuredList = insuredRepository.findByPhoneOrEmployeeIdOrNationalId(
+        // Search by insurance ID (exact match)
+        Insured insuredByInsuranceId = insuredRepository.findByInsuranceId(identifier);
+        if (insuredByInsuranceId != null) {
+            insuredList.add(insuredByInsuranceId);
+            log.info("Found insured person by insuranceId: {}", identifier);
+            return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
+        }
+
+        // Search by phone (exact match)
+        Collection<? extends Insured> insuredByPhone = insuredRepository.findByPhone(identifier);
+        if (insuredByPhone != null && !insuredByPhone.isEmpty()) {
+            insuredList.addAll(insuredByPhone);
+            log.info("Found {} insured person(s) by phone: {}", insuredList.size(), identifier);
+            return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
+        }
+
+        // PRIORITY 2: Search by partial name matches (LIKE queries)
+        // Only search by name if no exact ID matches found
+
+        // Search by full name combinations (partial match with LIKE)
+        List<Insured> insuredByName = insuredRepository.findByFullNameCombinations(identifier);
+        if (insuredByName != null && !insuredByName.isEmpty()) {
+            insuredList.addAll(insuredByName);
+            log.info("Found {} insured person(s) by name: {}", insuredList.size(), identifier);
+            return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
+        }
+
+        // PRIORITY 3: Final fallback - search by multiple fields
+        // This is a last resort if no exact matches or name matches found
+        List<Insured> insuredByMultipleFields = insuredRepository.findByPhoneOrEmployeeIdOrNationalId(
                 identifier, identifier, identifier);
+
+        if (insuredByMultipleFields != null && !insuredByMultipleFields.isEmpty()) {
+            insuredList.addAll(insuredByMultipleFields);
+            log.info("Found {} insured person(s) by multiple fields: {}", insuredList.size(), identifier);
+        } else {
+            log.warn("No insured person found with identifier: {}", identifier);
+        }
 
         return new MultipleInsuredResponse(mapToInsuredSearchResponses(insuredList));
 

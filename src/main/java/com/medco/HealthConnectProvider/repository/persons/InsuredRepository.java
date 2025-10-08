@@ -159,17 +159,45 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
             @Param("searchKey") String searchKey,
             Pageable pageable);
 
+    /**
+     * Find insured persons by insurance ID (not filtered by isDeleted)
+     * WARNING: This may return deleted records
+     */
     Insured findByInsuranceId(String insuranceId);
 
+    /**
+     * Find insured persons by employee ID (not filtered by isDeleted)
+     * WARNING: This may return deleted records
+     */
     Insured findByEmployeeId(String employeeId);
 
+    /**
+     * Find insured persons by national ID (not filtered by isDeleted)
+     * WARNING: This may return deleted records
+     */
     Insured findByNationalId(String nationalId);
 
+    /**
+     * Find insured persons by phone, employee ID, or national ID (not filtered by isDeleted)
+     * WARNING: This may return deleted records
+     */
     List<Insured> findByPhoneOrEmployeeIdOrNationalId(String phone, String employeeId, String nationalId);
 
-    List<Insured> findByIdNumber(String idNumber);
+    /**
+     * Find insured persons by ID number
+     * Returns ALL insured persons with the given idNumber across all payers
+     * Filters out deleted records
+     */
+    @Query("SELECT i FROM Insured i WHERE i.idNumber = :idNumber AND i.isDeleted = false ORDER BY i.id ASC")
+    List<Insured> findByIdNumber(@Param("idNumber") String idNumber);
 
-    Collection<? extends Insured> findByPhone(String phone);
+    /**
+     * Find insured persons by phone
+     * Returns ALL insured persons with the given phone across all payers
+     * Filters out deleted records
+     */
+    @Query("SELECT i FROM Insured i WHERE i.phone = :phone AND i.isDeleted = false ORDER BY i.id ASC")
+    Collection<? extends Insured> findByPhone(@Param("phone") String phone);
 
     List<Insured> findByInsuredUuidIn(List<String> insuredUuids);
 
@@ -229,14 +257,20 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
 //            "LOWER(i.grandFatherName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
 //    List<Insured> findByFirstNameOrFatherNameOrGrandFatherNameContaining(@Param("searchTerm") String searchTerm);
 
-    @Query("SELECT i FROM Insured i WHERE " +
+    /**
+     * Find insured persons by full name combinations
+     * Searches ONLY in name fields (firstName, fatherName, grandFatherName)
+     * Does NOT search in phone, idNumber, or other ID fields
+     * Filters out deleted records
+     */
+    @Query("SELECT i FROM Insured i WHERE i.isDeleted = false AND (" +
             "(LOWER(i.firstName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
             "LOWER(i.fatherName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
             "LOWER(i.grandFatherName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) OR " +
             "(LOWER(CONCAT(i.firstName, ' ', i.fatherName)) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
             "LOWER(CONCAT(i.firstName, ' ', i.grandFatherName)) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
             "LOWER(CONCAT(i.fatherName, ' ', i.grandFatherName)) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
-            "LOWER(CONCAT(i.firstName, ' ', i.fatherName, ' ', i.grandFatherName)) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+            "LOWER(CONCAT(i.firstName, ' ', i.fatherName, ' ', i.grandFatherName)) LIKE LOWER(CONCAT('%', :searchTerm, '%'))))")
     List<Insured> findByFullNameCombinations(@Param("searchTerm") String searchTerm);
 
     Optional<Insured> findByPayerUuidAndIdNumber(String payerUuid, String idNumber);

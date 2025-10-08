@@ -4,25 +4,7 @@
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
                         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
-    <!-- Core schema recreation (uncomment if needed) -->
-    <!-- <include file="db/changelog/00-recreate-complete-schema.xml" relativeToChangelogFile="false"/> -->
-
-    <!-- Existing changelogs -->
-    <include file="db/changelog/10-drop-non-core-tables.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/11-recreate-non-core-tables.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/12-add-is-cbhi-column-simple.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/13-simple-medication-dispensing-fix.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/14-simple-contract-details-table.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/15-fix-contract-details-junction-table.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/16-fix-attachment-data-column-type.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/17-make-provider-uuid-nullable-package-categories.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/17-fix-failed-external-dispensing-log-status.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/18-create-failed-external-claim-log.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/19-create-dispensing-rejection-table.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/fix-tin-number-constraint.xml" relativeToChangelogFile="false"/>
-
-    <!-- Auto-generated changelogs (will be created by scripts) -->
-    <!-- <include file="db/changelog/00-complete-schema-generated.xml" relativeToChangelogFile="false"/> -->
-    <!-- <include file="db/changelog/99-missing-columns-fix.xml" relativeToChangelogFile="false"/> -->
+    <!-- Create services table -->
+    <include file="db/changelog/01-create-services-table.xml" relativeToChangelogFile="false"/>
 
 </databaseChangeLog>
