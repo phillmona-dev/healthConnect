@@ -598,7 +598,6 @@ public class InsuredServiceImpl implements InsuredService {
         List<Insured> insuredList = new ArrayList<>();
 
         // PRIORITY 1: Search by exact ID matches first (before partial name matches)
-        // This prevents "557" from matching phone "0911685575" in name fields
 
         // Search by ID number (exact match)
         List<Insured> insuredByIdNumber = insuredRepository.findByIdNumber(identifier);

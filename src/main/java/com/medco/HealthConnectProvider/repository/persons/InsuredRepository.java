@@ -160,43 +160,47 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
             Pageable pageable);
 
     /**
-     * Find insured persons by insurance ID (not filtered by isDeleted)
-     * WARNING: This may return deleted records
+     * Find ACTIVE insured person by insurance ID
+     * Filters out deleted and inactive records
      */
-    Insured findByInsuranceId(String insuranceId);
+    @Query("SELECT i FROM Insured i WHERE i.insuranceId = :insuranceId AND i.isDeleted = false AND i.status = 'ACTIVE' ORDER BY i.id ASC LIMIT 1")
+    Insured findByInsuranceId(@Param("insuranceId") String insuranceId);
 
     /**
-     * Find insured persons by employee ID (not filtered by isDeleted)
-     * WARNING: This may return deleted records
+     * Find ACTIVE insured person by employee ID
+     * Filters out deleted and inactive records
      */
-    Insured findByEmployeeId(String employeeId);
+    @Query("SELECT i FROM Insured i WHERE i.employeeId = :employeeId AND i.isDeleted = false AND i.status = 'ACTIVE' ORDER BY i.id ASC LIMIT 1")
+    Insured findByEmployeeId(@Param("employeeId") String employeeId);
 
     /**
-     * Find insured persons by national ID (not filtered by isDeleted)
-     * WARNING: This may return deleted records
+     * Find ACTIVE insured person by national ID
+     * Filters out deleted and inactive records
      */
-    Insured findByNationalId(String nationalId);
+    @Query("SELECT i FROM Insured i WHERE i.nationalId = :nationalId AND i.isDeleted = false AND i.status = 'ACTIVE' ORDER BY i.id ASC LIMIT 1")
+    Insured findByNationalId(@Param("nationalId") String nationalId);
 
     /**
-     * Find insured persons by phone, employee ID, or national ID (not filtered by isDeleted)
-     * WARNING: This may return deleted records
+     * Find ACTIVE insured persons by phone, employee ID, or national ID
+     * Filters out deleted and inactive records
      */
-    List<Insured> findByPhoneOrEmployeeIdOrNationalId(String phone, String employeeId, String nationalId);
+    @Query("SELECT i FROM Insured i WHERE (i.phone = :phone OR i.employeeId = :employeeId OR i.nationalId = :nationalId) AND i.isDeleted = false AND i.status = 'ACTIVE' ORDER BY i.id ASC")
+    List<Insured> findByPhoneOrEmployeeIdOrNationalId(@Param("phone") String phone, @Param("employeeId") String employeeId, @Param("nationalId") String nationalId);
 
     /**
      * Find insured persons by ID number
-     * Returns ALL insured persons with the given idNumber across all payers
-     * Filters out deleted records
+     * Returns ALL ACTIVE insured persons with the given idNumber across all payers
+     * Filters out deleted and inactive records
      */
-    @Query("SELECT i FROM Insured i WHERE i.idNumber = :idNumber AND i.isDeleted = false ORDER BY i.id ASC")
+    @Query("SELECT i FROM Insured i WHERE i.idNumber = :idNumber AND i.isDeleted = false AND i.status = 'ACTIVE' ORDER BY i.id ASC")
     List<Insured> findByIdNumber(@Param("idNumber") String idNumber);
 
     /**
      * Find insured persons by phone
-     * Returns ALL insured persons with the given phone across all payers
-     * Filters out deleted records
+     * Returns ALL ACTIVE insured persons with the given phone across all payers
+     * Filters out deleted and inactive records
      */
-    @Query("SELECT i FROM Insured i WHERE i.phone = :phone AND i.isDeleted = false ORDER BY i.id ASC")
+    @Query("SELECT i FROM Insured i WHERE i.phone = :phone AND i.isDeleted = false AND i.status = 'ACTIVE' ORDER BY i.id ASC")
     Collection<? extends Insured> findByPhone(@Param("phone") String phone);
 
     List<Insured> findByInsuredUuidIn(List<String> insuredUuids);
@@ -261,9 +265,9 @@ public interface InsuredRepository extends JpaRepository<Insured, Long> {
      * Find insured persons by full name combinations
      * Searches ONLY in name fields (firstName, fatherName, grandFatherName)
      * Does NOT search in phone, idNumber, or other ID fields
-     * Filters out deleted records
+     * Filters out deleted and inactive records
      */
-    @Query("SELECT i FROM Insured i WHERE i.isDeleted = false AND (" +
+    @Query("SELECT i FROM Insured i WHERE i.isDeleted = false AND i.status = 'ACTIVE' AND (" +
             "(LOWER(i.firstName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
             "LOWER(i.fatherName) LIKE LOWER(CONCAT('%', :searchTerm, '%')) OR " +
             "LOWER(i.grandFatherName) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) OR " +
