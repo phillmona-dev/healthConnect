@@ -96,7 +96,6 @@ public class ServicelistServiceImpl implements ServicelistService {
         String generatedId = String.format("%s%010d", serviceNamePrefix, currentSequence);
 
         var service = new Servicelist();
-        BeanUtils.copyProperties(serviceRequest, service);
 
         service.setGeneratedServiceId(generatedId);
 
@@ -105,6 +104,15 @@ public class ServicelistServiceImpl implements ServicelistService {
         service.setServiceCategory(serviceRequest.getServiceCategory());
         service.setServiceSubCategory(serviceRequest.getSubCategory());
         service.setServiceDescription(serviceRequest.getServiceDescription());
+
+        // Set price - map from 'price' field in request to 'defaultPrice' in entity
+        if (serviceRequest.getPrice() != null && !serviceRequest.getPrice().isEmpty()) {
+            try {
+                service.setDefaultPrice(Double.parseDouble(serviceRequest.getPrice()));
+            } catch (NumberFormatException e) {
+                throw new BadRequestException("Invalid price format");
+            }
+        }
 
         if (serviceRequest.getStatus() != null && !serviceRequest.getStatus().isEmpty()) {
             try {
@@ -190,7 +198,7 @@ public class ServicelistServiceImpl implements ServicelistService {
         Row headerRow = sheet.createRow(0);
         String[] headers = {
                 "Service ID", "Service Code", "Service Name", "Category", "Sub Category",
-                "Description", "Negotiated Price"
+                "Description", "Negotiated Price","Price"
         };
 
         for (int i = 0; i < headers.length; i++) {
@@ -223,6 +231,7 @@ public class ServicelistServiceImpl implements ServicelistService {
             setCellValue(row, 4, service.getServiceSubCategory(), "Sub Category", dataStyle);
             setCellValue(row, 5, service.getServiceDescription(), "Description", dataStyle);
             setCellValue(row, 6, service.getNegotiatedPrice(), "Negotiated Price", dataStyle);
+            setCellValue(row, 7, service.getDefaultPrice(), "Price", dataStyle);
         }
 
         autoSizeColumns(sheet);
@@ -470,12 +479,56 @@ public class ServicelistServiceImpl implements ServicelistService {
         Servicelist service = servicelistRepository.findByServiceUuid(serviceUuid)
                 .orElseThrow(() -> new BadRequestException("Service not found"));
 
-        if (servicelistRepository.existsByServiceName(serviceRequest.getServiceName())) {
-            throw new BadRequestException("Duplicate Service entry is not followed");
+        // Check for duplicate service name only if the name is being changed
+        if (!service.getServiceName().equals(serviceRequest.getServiceName())) {
+            // Check if another service with this name exists for the same provider
+            Optional<Servicelist> existingService = servicelistRepository
+                    .findByServiceNameAndProvider(serviceRequest.getServiceName(), service.getProvider());
+
+            if (existingService.isPresent() && !existingService.get().getServiceUuid().equals(serviceUuid)) {
+                throw new BadRequestException("A service with this name already exists for this provider");
+            }
         }
 
-        BeanUtils.copyProperties(serviceRequest, service);
+        // Check for duplicate service code only if the code is being changed
+        if (serviceRequest.getServiceCode() != null &&
+            !serviceRequest.getServiceCode().equals(service.getServiceCode())) {
+            Optional<Servicelist> existingByCode = servicelistRepository
+                    .findByServiceCodeAndProvider(serviceRequest.getServiceCode(), service.getProvider());
+
+            if (existingByCode.isPresent() && !existingByCode.get().getServiceUuid().equals(serviceUuid)) {
+                throw new BadRequestException("A service with this code already exists for this provider");
+            }
+        }
+
+        // Update service fields
+        service.setServiceName(serviceRequest.getServiceName());
+        service.setServiceCode(serviceRequest.getServiceCode());
+        service.setServiceCategory(serviceRequest.getServiceCategory());
+        service.setServiceSubCategory(serviceRequest.getSubCategory());
+        service.setServiceDescription(serviceRequest.getServiceDescription());
+
+        // Update price - map from 'price' field in request to 'defaultPrice' in entity
+        if (serviceRequest.getPrice() != null) {
+            try {
+                service.setDefaultPrice(Double.parseDouble(serviceRequest.getPrice()));
+            } catch (NumberFormatException e) {
+                throw new BadRequestException("Invalid price format");
+            }
+        }
+
+        // Update status
+        if (serviceRequest.getStatus() != null && !serviceRequest.getStatus().isEmpty()) {
+            try {
+                service.setStatus(Status.valueOf(serviceRequest.getStatus().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Invalid status value. Allowed values: ACTIVE, INACTIVE");
+            }
+        }
+
+        // Save updated service
         servicelistRepository.save(service);
+
         return ResponseEntity.ok(new MessageResponse("Service Updated Successfully!"));
     }
 
@@ -493,8 +546,34 @@ public class ServicelistServiceImpl implements ServicelistService {
     @Override
     public ServicelistResponse getService(String serviceUuid) {
         Servicelist service = servicelistRepository.findByServiceUuidAndIsDeleted(serviceUuid, false);
+        if (service == null) {
+            throw new BadRequestException("Service not found");
+        }
+
         ServicelistResponse serviceResponse = new ServicelistResponse();
         BeanUtils.copyProperties(service, serviceResponse);
+
+        // Set price with null check
+        if (service.getDefaultPrice() != null) {
+            serviceResponse.setPrice(BigDecimal.valueOf(service.getDefaultPrice()));
+        } else if (service.getPrice() != null) {
+            serviceResponse.setPrice(BigDecimal.valueOf(service.getPrice()));
+        } else {
+            serviceResponse.setPrice(BigDecimal.ZERO);
+        }
+
+        // Set status with null check
+        if (service.getStatus() != null) {
+            serviceResponse.setStatus(service.getStatus().toString());
+        } else {
+            serviceResponse.setStatus("ACTIVE");
+        }
+
+        // Set provider name with null check
+        if (service.getProvider() != null) {
+            serviceResponse.setProviderName(service.getProvider().getProviderName());
+        }
+
         return serviceResponse;
     }
 
@@ -507,9 +586,30 @@ public class ServicelistServiceImpl implements ServicelistService {
         List<ServicelistResponse> servicelistResponses = serviceLists.getContent().stream()
                 .map(servicelist -> {
                     var servicelistResponse = new ServicelistResponse();
+
+                    // Copy properties first
                     BeanUtils.copyProperties(servicelist, servicelistResponse);
-                    servicelistResponse.setStatus(String.valueOf(servicelist.getStatus()));
-                    servicelistResponse.setProviderName(servicelist.getProvider().getProviderName());
+
+                    // Set price with null check
+                    if (servicelist.getDefaultPrice() != null) {
+                        servicelistResponse.setPrice(BigDecimal.valueOf(servicelist.getDefaultPrice()));
+                    } else if (servicelist.getPrice() != null) {
+                        servicelistResponse.setPrice(BigDecimal.valueOf(servicelist.getPrice()));
+                    } else {
+                        servicelistResponse.setPrice(BigDecimal.ZERO);
+                    }
+
+                    // Set status with null check
+                    if (servicelist.getStatus() != null) {
+                        servicelistResponse.setStatus(servicelist.getStatus().toString());
+                    } else {
+                        servicelistResponse.setStatus("ACTIVE");
+                    }
+
+                    // Set provider name with null check
+                    if (servicelist.getProvider() != null) {
+                        servicelistResponse.setProviderName(servicelist.getProvider().getProviderName());
+                    }
 
                     if (servicelistResponse.getCreatedAt() != null) {
                         servicelist.setCreatedAt(servicelistResponse.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant());

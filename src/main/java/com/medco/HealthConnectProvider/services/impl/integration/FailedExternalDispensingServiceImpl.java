@@ -6,6 +6,7 @@ import com.medco.HealthConnectProvider.entity.integration.FailedExternalDispensi
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensingItem;
 import com.medco.HealthConnectProvider.repository.integration.FailedExternalDispensingLogRepository;
 import com.medco.HealthConnectProvider.services.integration.FailedExternalDispensingService;
+import com.medco.HealthConnectProvider.utils.ErrorMessageFormatter;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +33,7 @@ public class FailedExternalDispensingServiceImpl implements FailedExternalDispen
     private final ExternalApiConfig externalApiConfig;
 
     // External insurance system endpoint for dispensing
-    private static final String DISPENSING_ENDPOINT = "/api/payer/claimconnect/service-provided";
+    private static final String DISPENSING_ENDPOINT = "/api/payer/claimconnect/service-provided/synchronizeServiceProvided";
 
     @Override
     @Transactional
@@ -46,7 +47,12 @@ public class FailedExternalDispensingServiceImpl implements FailedExternalDispen
                                   String lastResponse) {
         
         log.info("Logging failed external dispensing for item: {}", item.getItemUuid());
-        
+
+        // Convert technical error to user-friendly message
+        String userFriendlyError = ErrorMessageFormatter.formatErrorMessage(errorMessage, null);
+        log.debug("Original error: {}", errorMessage);
+        log.debug("User-friendly error: {}", userFriendlyError);
+
         FailedExternalDispensingLog failedLog = FailedExternalDispensingLog.builder()
                 .dispensingItemUuid(item.getItemUuid())
                 .dispensingUuid(dispensingUuid)
@@ -60,7 +66,7 @@ public class FailedExternalDispensingServiceImpl implements FailedExternalDispen
                              item.getDispensing().getDispensingDate().toString() : "")
                 .providerUuid(item.getDispensing().getProviderUuid())
                 .externalApiUrl(externalApiUrl)
-                .errorMessage(errorMessage)
+                .errorMessage(userFriendlyError)  // Use user-friendly error
                 .lastResponse(lastResponse)
                 .retryCount(0)
                 .maxRetries(5)
@@ -124,7 +130,7 @@ public class FailedExternalDispensingServiceImpl implements FailedExternalDispen
 
             if (response.getStatusCode().is2xxSuccessful()) {
                 // If successful, mark as completed
-                failedLog.setStatus(Status.INACTIVE); // Using INACTIVE to mean COMPLETED
+                failedLog.setStatus(Status.COMPLETED);
                 failedLog.setSucceededAt(LocalDateTime.now());
                 failedLog.setLastAttemptAt(LocalDateTime.now());
                 failedLog.setLastResponse(response.getBody());
@@ -138,7 +144,10 @@ public class FailedExternalDispensingServiceImpl implements FailedExternalDispen
             // Retry failed, increment count and schedule next retry
             failedLog.setRetryCount(failedLog.getRetryCount() + 1);
             failedLog.setLastAttemptAt(LocalDateTime.now());
-            failedLog.setErrorMessage(e.getMessage());
+
+            // Convert technical error to user-friendly message
+            String userFriendlyError = ErrorMessageFormatter.formatHttpError(e);
+            failedLog.setErrorMessage(userFriendlyError);
 
             if (failedLog.getRetryCount() < failedLog.getMaxRetries()) {
                 failedLog.setNextRetryAt(calculateNextRetryTime(failedLog.getRetryCount()));

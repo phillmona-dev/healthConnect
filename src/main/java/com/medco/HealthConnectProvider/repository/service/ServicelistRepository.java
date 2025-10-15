@@ -56,6 +56,8 @@ public interface ServicelistRepository extends JpaRepository<Servicelist, Long> 
 
     Optional<Servicelist> findByServiceName(String serviceName);
 
+    Optional<Servicelist> findByServiceCodeAndProvider(String serviceCode, Provider provider);
+
     long countByProviderId(Long id);
 
     @Query("SELECT s FROM Servicelist s LEFT JOIN FETCH s.provider WHERE s.provider = :provider")

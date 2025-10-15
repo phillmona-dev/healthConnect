@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ServicelistResponse implements Serializable {
+
     private String serviceUuid;
     private String serviceCode;
     private String serviceName;

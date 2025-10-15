@@ -13,6 +13,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -83,33 +84,61 @@ public class ExternalInsuranceServiceImpl implements ExternalInsuranceService {
 
         HttpEntity<ExternalDispensingRequest> request = new HttpEntity<>(payload, headers);
 
-        ResponseEntity<String> response = restTemplate.exchange(
-            url,
-            HttpMethod.POST,
-            request,
-            String.class
-        );
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                request,
+                String.class
+            );
 
-        if (response.getStatusCode().is2xxSuccessful()) {
-            log.info("Successfully sent dispensing data to external insurance system. Response: {}",
-                    response.getBody());
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.info("Successfully sent dispensing data to external insurance system. Response: {}",
+                        response.getBody());
 
-            // Log successful dispensing sends with COMPLETED status
-            for (MedicationDispensingItem item : dispensingItems) {
-                failedDispensingService.logSuccessfulDispensing(
-                    item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, response.getBody());
+                // Log successful dispensing sends with COMPLETED status
+                for (MedicationDispensingItem item : dispensingItems) {
+                    failedDispensingService.logSuccessfulDispensing(
+                        item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, response.getBody());
+                }
+            } else {
+                String errorMessage = String.format("HTTP %s: %s", response.getStatusCode(), response.getBody());
+                log.error("Failed to send dispensing data to external insurance system. Status: {}, Response: {}",
+                         response.getStatusCode(), response.getBody());
+
+                for (MedicationDispensingItem item : dispensingItems) {
+                    failedDispensingService.logFailedDispensing(
+                        item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, errorMessage, response.getBody());
+                }
+
+                throw new RuntimeException(errorMessage);
             }
-        } else {
-            String errorMessage = String.format("HTTP %s: %s", response.getStatusCode(), response.getBody());
-            log.error("Failed to send dispensing data to external insurance system. Status: {}, Response: {}",
-                     response.getStatusCode(), response.getBody());
+        } catch (HttpServerErrorException e) {
+            String errorMessage = e.getResponseBodyAsString();
+
+            // Handle duplicate service error as success (record already exists in external system)
+            if (errorMessage != null && errorMessage.contains("A service is only allowed once per claim")) {
+                log.warn("Dispensing record {} already exists in external system (duplicate service detected). Treating as success.",
+                         dispensingUuid);
+
+                // Log as successful since the data is already in the external system
+                for (MedicationDispensingItem item : dispensingItems) {
+                    failedDispensingService.logSuccessfulDispensing(
+                        item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url,
+                        "Duplicate detected - record already exists in external system");
+                }
+                return; // Don't throw error - treat as success
+            }
+
+            // Re-throw other server errors
+            log.error("Server error from external system: {}", errorMessage);
 
             for (MedicationDispensingItem item : dispensingItems) {
                 failedDispensingService.logFailedDispensing(
-                    item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, errorMessage, response.getBody());
+                    item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, errorMessage, e.getResponseBodyAsString());
             }
 
-            throw new RuntimeException(errorMessage);
+            throw e;
         }
     }
 
@@ -157,33 +186,61 @@ public class ExternalInsuranceServiceImpl implements ExternalInsuranceService {
 
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(multipartBody, headers);
 
-        ResponseEntity<String> response = restTemplate.exchange(
-                url,
-                HttpMethod.POST,
-                requestEntity,
-                String.class
-        );
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    requestEntity,
+                    String.class
+            );
 
-        if (response.getStatusCode().is2xxSuccessful()) {
-            log.info("Successfully sent multipart dispensing data to external insurance system. Response: {}",
-                    response.getBody());
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.info("Successfully sent multipart dispensing data to external insurance system. Response: {}",
+                        response.getBody());
 
-            // Log successful dispensing sends with COMPLETED status
-            for (MedicationDispensingItem item : dispensingItems) {
-                failedDispensingService.logSuccessfulDispensing(
-                        item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, response.getBody());
+                // Log successful dispensing sends with COMPLETED status
+                for (MedicationDispensingItem item : dispensingItems) {
+                    failedDispensingService.logSuccessfulDispensing(
+                            item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, response.getBody());
+                }
+            } else {
+                String errorMessage = String.format("HTTP %s: %s", response.getStatusCode(), response.getBody());
+                log.error("Failed to send multipart dispensing data to external insurance system. Status: {}, Response: {}",
+                        response.getStatusCode(), response.getBody());
+
+                for (MedicationDispensingItem item : dispensingItems) {
+                    failedDispensingService.logFailedDispensing(
+                            item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, errorMessage, response.getBody());
+                }
+
+                throw new RuntimeException(errorMessage);
             }
-        } else {
-            String errorMessage = String.format("HTTP %s: %s", response.getStatusCode(), response.getBody());
-            log.error("Failed to send multipart dispensing data to external insurance system. Status: {}, Response: {}",
-                    response.getStatusCode(), response.getBody());
+        } catch (HttpServerErrorException e) {
+            String errorMessage = e.getResponseBodyAsString();
+
+            // Handle duplicate service error as success (record already exists in external system)
+            if (errorMessage != null && errorMessage.contains("A service is only allowed once per claim")) {
+                log.warn("Dispensing record {} already exists in external system (duplicate service detected). Treating as success.",
+                         dispensingUuid);
+
+                // Log as successful since the data is already in the external system
+                for (MedicationDispensingItem item : dispensingItems) {
+                    failedDispensingService.logSuccessfulDispensing(
+                        item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url,
+                        "Duplicate detected - record already exists in external system");
+                }
+                return; // Don't throw error - treat as success
+            }
+
+            // Re-throw other server errors
+            log.error("Server error from external system: {}", errorMessage);
 
             for (MedicationDispensingItem item : dispensingItems) {
                 failedDispensingService.logFailedDispensing(
-                        item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, errorMessage, response.getBody());
+                    item, packageUuid, serviceId, dispensingUuid, contractHeaderUuid, url, errorMessage, e.getResponseBodyAsString());
             }
 
-            throw new RuntimeException(errorMessage);
+            throw e;
         }
     }
 

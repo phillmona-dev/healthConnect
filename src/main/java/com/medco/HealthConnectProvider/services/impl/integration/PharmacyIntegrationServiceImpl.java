@@ -21,6 +21,7 @@ import com.medco.HealthConnectProvider.entity.claims.Claim;
 import com.medco.HealthConnectProvider.entity.claims.ClaimItem;
 import com.medco.HealthConnectProvider.entity.claims.ClaimLogs;
 import com.medco.HealthConnectProvider.entity.drug.Drug;
+import com.medco.HealthConnectProvider.entity.integration.FailedExternalDispensingLog;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensing;
 import com.medco.HealthConnectProvider.entity.integration.MedicationDispensingItem;
 import com.medco.HealthConnectProvider.entity.persons.Dependant;
@@ -62,6 +63,8 @@ import com.medco.HealthConnectProvider.utils.security.SecurityUtils;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -243,6 +246,24 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
                 if (payerUuid != null && !payerUuid.isEmpty()) {
                     predicates.add(cb.equal(root.get("payerUuid"), payerUuid));
                 }
+
+                // Exclude dispensing records that have ACTIVE status in failed external dispensing log
+                // Only show records that either:
+                // 1. Have COMPLETED status in the failed log (successfully sent to external system), OR
+                // 2. Don't have any entry in the failed log at all
+                Subquery<Long> activeFailedLogSubquery = query.subquery(Long.class);
+                Root<FailedExternalDispensingLog> failedLogRoot = activeFailedLogSubquery.from(FailedExternalDispensingLog.class);
+                activeFailedLogSubquery.select(cb.count(failedLogRoot))
+                        .where(
+                                cb.and(
+                                        cb.equal(failedLogRoot.get("dispensingUuid"), root.get("dispensingUuid")),
+                                        cb.equal(failedLogRoot.get("status"), Status.ACTIVE),
+                                        cb.equal(failedLogRoot.get("isDeleted"), false)
+                                )
+                        );
+
+                // Exclude records that have ACTIVE status in failed log (count > 0)
+                predicates.add(cb.equal(activeFailedLogSubquery, 0L));
 
                 return cb.and(predicates.toArray(new Predicate[0]));
 

@@ -31,6 +31,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             logger.info("Multipart request parameters: {}", params);
             filterChain.doFilter(request, response);
             return;
+
         }
 
         // For non-multipart requests, wrap and log safely

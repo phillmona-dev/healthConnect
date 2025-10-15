@@ -2,7 +2,6 @@ package com.medco.HealthConnectProvider.repository.persons;
 
 import com.medco.HealthConnectProvider.entity.persons.Insured;
 import com.medco.HealthConnectProvider.ui.response.persons.InsuredDependantListResponse;
-import com.medco.HealthConnectProvider.ui.response.persons.InsuredListResponse;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

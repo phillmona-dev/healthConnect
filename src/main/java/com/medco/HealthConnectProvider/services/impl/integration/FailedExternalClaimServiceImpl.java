@@ -6,6 +6,7 @@ import com.medco.HealthConnectProvider.dto.ClaimPaySyncRequest;
 import com.medco.HealthConnectProvider.entity.integration.FailedExternalClaimLog;
 import com.medco.HealthConnectProvider.repository.integration.FailedExternalClaimLogRepository;
 import com.medco.HealthConnectProvider.services.integration.FailedExternalClaimService;
+import com.medco.HealthConnectProvider.utils.ErrorMessageFormatter;
 import com.medco.HealthConnectProvider.utils.enums.Status;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +37,11 @@ public class FailedExternalClaimServiceImpl implements FailedExternalClaimServic
     public void logFailedClaim(ClaimPaySyncRequest request, String claimUuid, String batchCode,
                               String externalApiUrl, String errorMessage, String requestPayload) {
         try {
+            // Convert technical error to user-friendly message
+            String userFriendlyError = ErrorMessageFormatter.formatErrorMessage(errorMessage, null);
+            log.debug("Original error: {}", errorMessage);
+            log.debug("User-friendly error: {}", userFriendlyError);
+
             FailedExternalClaimLog failedLog = FailedExternalClaimLog.builder()
                     .claimUuid(claimUuid)
                     .batchCode(batchCode)
@@ -47,7 +53,7 @@ public class FailedExternalClaimServiceImpl implements FailedExternalClaimServic
                     .serviceProvidedUuids(objectMapper.writeValueAsString(request.getServiceProvidedUuid()))
                     .externalApiUrl(externalApiUrl)
                     .requestPayload(requestPayload)
-                    .errorMessage(errorMessage)
+                    .errorMessage(userFriendlyError)  // Use user-friendly error
                     .status(Status.ACTIVE)
                     .retryCount(0)
                     .maxRetries(5)
@@ -56,7 +62,7 @@ public class FailedExternalClaimServiceImpl implements FailedExternalClaimServic
                     .build();
 
             failedClaimRepository.save(failedLog);
-            log.info("Logged failed claim sync for batch: {} with error: {}", batchCode, errorMessage);
+            log.info("Logged failed claim sync for batch: {} with error: {}", batchCode, userFriendlyError);
 
         } catch (Exception e) {
             log.error("Failed to log failed claim sync for batch: {}", batchCode, e);
@@ -227,7 +233,9 @@ public class FailedExternalClaimServiceImpl implements FailedExternalClaimServic
             }
 
         } catch (Exception e) {
-            handleRetryFailure(failedLog, e.getMessage());
+            // Use formatHttpError to handle HTTP exceptions properly
+            String errorMessage = ErrorMessageFormatter.formatHttpError(e);
+            handleRetryFailure(failedLog, errorMessage);
             return false;
         }
     }
@@ -235,7 +243,10 @@ public class FailedExternalClaimServiceImpl implements FailedExternalClaimServic
     private void handleRetryFailure(FailedExternalClaimLog failedLog, String errorMessage) {
         failedLog.setRetryCount(failedLog.getRetryCount() + 1);
         failedLog.setLastAttemptAt(LocalDateTime.now());
-        failedLog.setErrorMessage(errorMessage);
+
+        // Convert technical error to user-friendly message
+        String userFriendlyError = ErrorMessageFormatter.formatErrorMessage(errorMessage, null);
+        failedLog.setErrorMessage(userFriendlyError);
 
         if (failedLog.getRetryCount() >= failedLog.getMaxRetries()) {
             failedLog.setStatus(Status.INACTIVE);

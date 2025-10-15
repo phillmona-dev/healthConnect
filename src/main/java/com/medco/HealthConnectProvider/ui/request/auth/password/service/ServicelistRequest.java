@@ -26,4 +26,6 @@ public class ServicelistRequest {
     private String status;
 
     private String serviceDescription;
+
+    private String price;  // Maps to defaultPrice in Servicelist entity
 }
