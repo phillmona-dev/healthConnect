@@ -19,7 +19,16 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "services")
+@Table(name = "services",
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_services_code_provider", columnNames = {"service_code", "provider_id"}),
+        @UniqueConstraint(name = "uk_services_generated_id_provider", columnNames = {"generated_service_id", "provider_id"})
+    },
+    indexes = {
+        @Index(name = "idx_services_code_provider", columnList = "service_code, provider_id"),
+        @Index(name = "idx_services_generated_id_provider", columnList = "generated_service_id, provider_id")
+    }
+)
 public class Servicelist extends Audit implements Serializable {
 
     @Serial
@@ -32,13 +41,13 @@ public class Servicelist extends Audit implements Serializable {
     @Column(unique = true, nullable = false)
     private String serviceUuid;
 
-    @Column(unique = true)
+    @Column
     private String generatedServiceId;
 
     @Column(nullable = false)
     private String serviceName;
 
-    @Column(unique = true)
+    @Column
     private String serviceCode;
 
     @Column(columnDefinition = "TEXT")

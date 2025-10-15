@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="fix-services-unique-constraints-per-provider" author="system">
+        <comment>
+            Fix services table unique constraints to be per provider instead of global.
+            This allows different providers to have services with the same service_code or generated_service_id.
+        </comment>
+        
+        <!-- Step 1: Drop existing global unique constraints -->
+        <dropUniqueConstraint 
+            tableName="services" 
+            constraintName="services_service_code_key"/>
+        
+        <dropUniqueConstraint 
+            tableName="services" 
+            constraintName="services_generated_service_id_key"/>
+        
+        <!-- Step 2: Add composite unique constraints (service_code + provider_id) -->
+        <addUniqueConstraint 
+            tableName="services" 
+            columnNames="service_code, provider_id" 
+            constraintName="uk_services_code_provider"/>
+        
+        <!-- Step 3: Add composite unique constraint (generated_service_id + provider_id) -->
+        <addUniqueConstraint 
+            tableName="services" 
+            columnNames="generated_service_id, provider_id" 
+            constraintName="uk_services_generated_id_provider"/>
+        
+        <!-- Step 4: Drop old index on service_code (will be replaced by composite index) -->
+        <dropIndex 
+            tableName="services" 
+            indexName="idx_services_service_code"/>
+        
+        <!-- Step 5: Create composite index for better query performance -->
+        <createIndex 
+            indexName="idx_services_code_provider" 
+            tableName="services">
+            <column name="service_code"/>
+            <column name="provider_id"/>
+        </createIndex>
+        
+        <createIndex 
+            indexName="idx_services_generated_id_provider" 
+            tableName="services">
+            <column name="generated_service_id"/>
+            <column name="provider_id"/>
+        </createIndex>
+        
+        <rollback>
+            <!-- Rollback: Restore global unique constraints -->
+            <dropUniqueConstraint tableName="services" constraintName="uk_services_code_provider"/>
+            <dropUniqueConstraint tableName="services" constraintName="uk_services_generated_id_provider"/>
+            <dropIndex tableName="services" indexName="idx_services_code_provider"/>
+            <dropIndex tableName="services" indexName="idx_services_generated_id_provider"/>
+            
+            <addUniqueConstraint tableName="services" columnNames="service_code" constraintName="services_service_code_key"/>
+            <addUniqueConstraint tableName="services" columnNames="generated_service_id" constraintName="services_generated_service_id_key"/>
+            
+            <createIndex indexName="idx_services_service_code" tableName="services">
+                <column name="service_code"/>
+            </createIndex>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
+

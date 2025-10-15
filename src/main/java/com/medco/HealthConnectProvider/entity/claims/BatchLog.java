@@ -28,4 +28,5 @@ public class BatchLog {
     private String changedByName;
     private String message;
     private LocalDateTime changedAt;
+
 }

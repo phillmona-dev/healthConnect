@@ -7,4 +7,7 @@
     <!-- Create services table -->
     <include file="db/changelog/01-create-services-table.xml" relativeToChangelogFile="false"/>
 
+    <!-- Fix services unique constraints to be per provider -->
+    <include file="db/changelog/02-fix-services-unique-constraints-per-provider.xml" relativeToChangelogFile="false"/>
+
 </databaseChangeLog>
