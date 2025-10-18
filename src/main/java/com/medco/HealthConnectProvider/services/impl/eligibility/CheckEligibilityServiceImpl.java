@@ -138,7 +138,6 @@ public class CheckEligibilityServiceImpl implements CheckEligibilityService {
                 insured.setState(response.getState());
                 insured.setCountry(response.getCountry());
 
-
                 insured.setBirthDate(response.getBirthDate());
 
                 Payer payer = payerRepository.findByPayerName(response.getPayerName());

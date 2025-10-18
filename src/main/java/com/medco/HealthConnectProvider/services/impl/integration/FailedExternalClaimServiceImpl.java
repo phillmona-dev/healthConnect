@@ -39,6 +39,13 @@ public class FailedExternalClaimServiceImpl implements FailedExternalClaimServic
         try {
             // Convert technical error to user-friendly message
             String userFriendlyError = ErrorMessageFormatter.formatErrorMessage(errorMessage, null);
+
+            // Ensure we never store null error message
+            if (userFriendlyError == null || userFriendlyError.trim().isEmpty()) {
+                userFriendlyError = "An error occurred while communicating with the insurance system.";
+                log.warn("ErrorMessageFormatter returned null/empty for error: {}", errorMessage);
+            }
+
             log.debug("Original error: {}", errorMessage);
             log.debug("User-friendly error: {}", userFriendlyError);
 
@@ -53,7 +60,7 @@ public class FailedExternalClaimServiceImpl implements FailedExternalClaimServic
                     .serviceProvidedUuids(objectMapper.writeValueAsString(request.getServiceProvidedUuid()))
                     .externalApiUrl(externalApiUrl)
                     .requestPayload(requestPayload)
-                    .errorMessage(userFriendlyError)  // Use user-friendly error
+                    .errorMessage(userFriendlyError)  // Use user-friendly error (guaranteed non-null)
                     .status(Status.ACTIVE)
                     .retryCount(0)
                     .maxRetries(5)
@@ -235,6 +242,13 @@ public class FailedExternalClaimServiceImpl implements FailedExternalClaimServic
         } catch (Exception e) {
             // Use formatHttpError to handle HTTP exceptions properly
             String errorMessage = ErrorMessageFormatter.formatHttpError(e);
+
+            // Ensure we never pass null error message
+            if (errorMessage == null || errorMessage.trim().isEmpty()) {
+                errorMessage = "An error occurred while retrying claim sync: " + e.getMessage();
+                log.warn("ErrorMessageFormatter.formatHttpError returned null/empty for exception: {}", e.getMessage());
+            }
+
             handleRetryFailure(failedLog, errorMessage);
             return false;
         }
@@ -246,6 +260,13 @@ public class FailedExternalClaimServiceImpl implements FailedExternalClaimServic
 
         // Convert technical error to user-friendly message
         String userFriendlyError = ErrorMessageFormatter.formatErrorMessage(errorMessage, null);
+
+        // Ensure we never store null error message
+        if (userFriendlyError == null || userFriendlyError.trim().isEmpty()) {
+            userFriendlyError = "An error occurred while retrying claim sync.";
+            log.warn("ErrorMessageFormatter returned null/empty for error: {}", errorMessage);
+        }
+
         failedLog.setErrorMessage(userFriendlyError);
 
         if (failedLog.getRetryCount() >= failedLog.getMaxRetries()) {

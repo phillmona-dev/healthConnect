@@ -147,11 +147,10 @@ public class ServiceCategoryMappingController {
         return mappingService.getEligibleServicesForCategory(search);
     }
 
-
     @GetMapping("/packageInsurance/eligible-services")
     @Operation(summary = "Get eligible services for a package",
             description = "Fetches eligible services from external system for the given package and insured")
-    public ResponseEntity<ExternalPackageEligibleServicesResponse> getEligibleServices(
+    public ResponseEntity<?> getEligibleServices(
             @Parameter(description = "Contract UUID", required = true)
             @RequestParam @NotBlank String contractUuid,
 
@@ -177,6 +176,14 @@ public class ServiceCategoryMappingController {
                 search,
                 page,
                 limit);
+
+        // If response indicates no data, return simple message
+        if ("NO_DATA".equals(response.getStatus())) {
+            String message = response.getPackageName() != null
+                ? response.getPackageName()
+                : "No data available";
+            return ResponseEntity.ok(message);
+        }
 
         return ResponseEntity.ok(response);
     }

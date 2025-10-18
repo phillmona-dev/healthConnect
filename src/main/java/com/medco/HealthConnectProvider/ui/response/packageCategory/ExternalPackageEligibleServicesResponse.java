@@ -1,6 +1,10 @@
 package com.medco.HealthConnectProvider.ui.response.packageCategory;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.medco.HealthConnectProvider.utils.enums.PackageGender;
+import com.medco.HealthConnectProvider.utils.enums.Status;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -16,12 +20,18 @@ public class ExternalPackageEligibleServicesResponse {
     private String packageName;
     private String packageCategory;
     private String packageDescription;
-    private List<Object> benefitRanges;
-    private Double minLimit;
-    private Double maxLimit;
-    private String status;
-    private String gender;
-    private Integer totalPages;
+    private Status status;
+
+    private Double sumAssured;
+
+    private Double usage;
+
+    @Enumerated(EnumType.STRING)
+    private PackageGender gender;
+
+    private Double excessAllowedAmount;
+    private boolean isExcessAllowed;
+
     private List<EligibleServiceDto> packageEligibleServices;
 }
 

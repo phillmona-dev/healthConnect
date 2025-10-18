@@ -1,13 +1,19 @@
 package com.medco.HealthConnectProvider.ui.response.eligibility;
 
+import com.medco.HealthConnectProvider.utils.enums.Relationship;
+import com.medco.HealthConnectProvider.utils.enums.Status;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.List;
 
 @Data
 public class CheckEligibilityResponse {
+
     private String insuredUuid;
     private String profilePicture;
     private String status;
@@ -44,4 +50,30 @@ public class CheckEligibilityResponse {
     private Date payerInstitutionContractBeginDate;
     private Date payerInstitutionContractEndDate;
     private String gender;
+
+
+    private List<DependantResponse> dependantResponses;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DependantResponse {
+
+        private String insuredPersonUuid;
+        private String dependantUuid;
+        private String title;
+        private String firstName;
+        private String fatherName;
+        private String grandFatherName;
+        private String Gender;
+        private Date birthDate;
+
+        @Enumerated(EnumType.STRING)
+        private Relationship relationship;
+
+        private String phone;
+        private Status status;
+        private String profile;
+
+    }
 }

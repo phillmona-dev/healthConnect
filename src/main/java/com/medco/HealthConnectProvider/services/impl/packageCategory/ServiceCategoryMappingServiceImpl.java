@@ -397,18 +397,44 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
                     entity,
                     ExternalPackageEligibleServicesResponse.class);
 
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            log.debug("[External API] Response status: {}, Body is null: {}",
+                     response.getStatusCode(), response.getBody() == null);
+
+            if (response.getStatusCode().is2xxSuccessful()) {
                 ExternalPackageEligibleServicesResponse responseBody = response.getBody();
 
-                if (responseBody.getPackageEligibleServices() != null && !responseBody.getPackageEligibleServices().isEmpty()) {
-                    persistEligibleServices(contractUuid, responseBody.getPackageEligibleServices());
+                if (responseBody == null) {
+                    log.warn("[External API] Response body is null for contract: {}", contractUuid);
+                    return createEmptyResponseWithMessage(packageUuid, "No data available from external system");
                 }
 
+                // Check if response has null or empty eligible services
+                if (responseBody.getPackageEligibleServices() == null || responseBody.getPackageEligibleServices().isEmpty()) {
+                    log.debug("[External API] No eligible services returned for contract: {}", contractUuid);
+
+                    // If all fields are null, return user-friendly message
+                    if (isResponseEmpty(responseBody)) {
+                        return createEmptyResponseWithMessage(packageUuid,
+                            search != null && !search.isEmpty()
+                                ? "No services found matching your search criteria"
+                                : "No eligible services available for this package");
+                    }
+
+                    // Response has package info but no services
+                    responseBody.setPackageEligibleServices(Collections.emptyList());
+                    return responseBody;
+                }
+
+                // Response has eligible services - persist them
+                persistEligibleServices(contractUuid, responseBody.getPackageEligibleServices());
                 return responseBody;
             }
+
+            log.error("[External API] Non-success status: {}", response.getStatusCode());
             throw new RuntimeException("External API returned status: " + response.getStatusCode());
 
         } catch (RestClientException e) {
+            log.error("[External API] Error calling external API: {}", e.getMessage(), e);
             throw new RuntimeException("Error calling external API", e);
         }
     }
@@ -446,6 +472,30 @@ public class ServiceCategoryMappingServiceImpl implements ServiceCategoryMapping
                             () -> log.warn("Service not found with generatedServiceId: {}", eligibleService.getServiceId())
                     );
         });
+    }
+
+    /**
+     * Create an empty response with user-friendly message
+     */
+    private ExternalPackageEligibleServicesResponse createEmptyResponseWithMessage(String packageUuid, String message) {
+        ExternalPackageEligibleServicesResponse response = new ExternalPackageEligibleServicesResponse();
+        response.setPackageUuid(packageUuid);
+        response.setPackageName(message);
+        response.setPackageDescription(message);
+        response.setStatus(Status.NO_DATA);
+        response.setPackageEligibleServices(Collections.emptyList());
+        return response;
+    }
+
+    /**
+     * Check if the response has all null fields (except packageEligibleServices)
+     */
+    private boolean isResponseEmpty(ExternalPackageEligibleServicesResponse response) {
+        return response.getPackageUuid() == null &&
+               response.getPackageName() == null &&
+               response.getPackageCategory() == null &&
+               response.getPackageDescription() == null &&
+               response.getStatus() == null;
     }
 
     private Specification<ServiceCategoryMapping> createSpecification(EligibleServiceSearchRequest request) {

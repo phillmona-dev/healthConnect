@@ -199,6 +199,17 @@ public class PharmacyIntegrationController {
         return pharmacyIntegrationService.addDispensingRecord(request, null);
     }
 
+
+    @PutMapping("/updateDispensing/{dispensingUuid}")
+    @Operation(summary = "Edit a dispensing record",
+            description = "Edits an existing dispensing record identified by its UUID. " +
+                    "For REJECTED records, you can optionally change status to RESUBMITTED by including claimStatus=RESUBMITTED in the request.")
+    public ResponseEntity<?> editDispensingRecord(
+            @PathVariable String dispensingUuid,
+            @Valid @RequestBody DispensingRecordEditRequest editRequest) {
+        return pharmacyIntegrationService.editDispensingRecord(dispensingUuid, editRequest);
+    }
+
     @PutMapping("/reconcile/{claimUuid}")
     @Operation(
             summary = "Reconcile payment for a claim by the provider",
@@ -280,15 +291,7 @@ public class PharmacyIntegrationController {
         return pharmacyIntegrationService.getDispensingDetail(dispensingUuid);
     }
 
-    @PutMapping("/updateDispensing/{dispensingUuid}")
-    @Operation(summary = "Edit a dispensing record",
-            description = "Edits an existing dispensing record identified by its UUID. " +
-                    "For REJECTED records, you can optionally change status to RESUBMITTED by including claimStatus=RESUBMITTED in the request.")
-    public ResponseEntity<?> editDispensingRecord(
-            @PathVariable String dispensingUuid,
-            @Valid @RequestBody DispensingRecordEditRequest editRequest) {
-        return pharmacyIntegrationService.editDispensingRecord(dispensingUuid, editRequest);
-    }
+
 
     @PutMapping("/drug-dispensing/{dispensingUuid}")
     @Operation(summary = "Edit drug dispensing record",

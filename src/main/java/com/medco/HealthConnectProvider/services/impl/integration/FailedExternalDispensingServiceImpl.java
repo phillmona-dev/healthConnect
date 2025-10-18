@@ -50,6 +50,13 @@ public class FailedExternalDispensingServiceImpl implements FailedExternalDispen
 
         // Convert technical error to user-friendly message
         String userFriendlyError = ErrorMessageFormatter.formatErrorMessage(errorMessage, null);
+
+        // Ensure we never store null error message
+        if (userFriendlyError == null || userFriendlyError.trim().isEmpty()) {
+            userFriendlyError = "An error occurred while communicating with the insurance system.";
+            log.warn("ErrorMessageFormatter returned null/empty for error: {}", errorMessage);
+        }
+
         log.debug("Original error: {}", errorMessage);
         log.debug("User-friendly error: {}", userFriendlyError);
 
@@ -66,7 +73,7 @@ public class FailedExternalDispensingServiceImpl implements FailedExternalDispen
                              item.getDispensing().getDispensingDate().toString() : "")
                 .providerUuid(item.getDispensing().getProviderUuid())
                 .externalApiUrl(externalApiUrl)
-                .errorMessage(userFriendlyError)  // Use user-friendly error
+                .errorMessage(userFriendlyError)  // Use user-friendly error (guaranteed non-null)
                 .lastResponse(lastResponse)
                 .retryCount(0)
                 .maxRetries(5)
@@ -147,14 +154,21 @@ public class FailedExternalDispensingServiceImpl implements FailedExternalDispen
 
             // Convert technical error to user-friendly message
             String userFriendlyError = ErrorMessageFormatter.formatHttpError(e);
+
+            // Ensure we never store null error message
+            if (userFriendlyError == null || userFriendlyError.trim().isEmpty()) {
+                userFriendlyError = "An error occurred while retrying communication with the insurance system.";
+                log.warn("ErrorMessageFormatter returned null/empty for exception: {}", e.getMessage());
+            }
+
             failedLog.setErrorMessage(userFriendlyError);
 
             if (failedLog.getRetryCount() < failedLog.getMaxRetries()) {
                 failedLog.setNextRetryAt(calculateNextRetryTime(failedLog.getRetryCount()));
-                log.warn("Retry {} failed for log: {}. Next retry at: {}",
-                        failedLog.getRetryCount(), failedLog.getLogUuid(), failedLog.getNextRetryAt());
+                log.warn("Retry {} failed for log: {}. Next retry at: {}. Error: {}",
+                        failedLog.getRetryCount(), failedLog.getLogUuid(), failedLog.getNextRetryAt(), userFriendlyError);
             } else {
-                log.error("Max retries reached for log: {}", failedLog.getLogUuid());
+                log.error("Max retries reached for log: {}. Final error: {}", failedLog.getLogUuid(), userFriendlyError);
             }
         }
 

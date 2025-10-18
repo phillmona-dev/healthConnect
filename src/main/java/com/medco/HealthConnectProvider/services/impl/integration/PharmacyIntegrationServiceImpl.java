@@ -642,9 +642,19 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
 
     private void updateDispensingRecordDetails(MedicationDispensing dispensing, DispensingRecordEditRequest editRequest, Insured insured, Dependant dependant) {
         dispensing.setInsured(insured);
+        dispensing.setInsuredUuid(insured.getInsuredUuid());
         dispensing.setDependant(dependant);
         dispensing.setPrimaryDiagnosis(editRequest.getPrimaryDiagnosis());
         dispensing.setSecondaryDiagnosis(editRequest.getSecondaryDiagnosis());
+
+        // Update dispensing date if provided
+        if (editRequest.getDispensingDate() != null && !editRequest.getDispensingDate().isEmpty()) {
+            try {
+                dispensing.setDispensingDate(LocalDate.parse(editRequest.getDispensingDate()));
+            } catch (Exception e) {
+                log.warn("Invalid dispensing date format: {}", editRequest.getDispensingDate());
+            }
+        }
     }
 
     @Transactional
@@ -700,9 +710,28 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         item.setRemark(itemRequest.getRemark());
         item.setItemType(ItemType.valueOf(itemRequest.getItemType().toUpperCase(java.util.Locale.ROOT)));
 
-        ContractDetail contractDetail = contractDetailRepository.findByContractDetailUuid(itemRequest.getContractDetailUuid());
+        ContractDetail contractDetail = null;
+
+        // Try to find contract detail by UUID first
+        if (itemRequest.getContractDetailUuid() != null && !itemRequest.getContractDetailUuid().isEmpty()) {
+            contractDetail = contractDetailRepository.findByContractDetailUuid(itemRequest.getContractDetailUuid());
+            log.debug("Contract detail found by UUID: {}", itemRequest.getContractDetailUuid());
+        }
+
+        // If not found and serviceId is provided, try to resolve by serviceId
+        if (contractDetail == null && itemRequest.getServiceId() != null && !itemRequest.getServiceId().isEmpty()) {
+            log.debug("Attempting to resolve contract detail by serviceId: {}", itemRequest.getServiceId());
+            Servicelist service = resolveServiceFromServiceId(itemRequest.getServiceId(), provider.getProviderUuid(), itemRequest.getItemType());
+            if (service != null) {
+                contractDetail = contractDetailRepository.findByContractHeaderAndServiceUuid(activeContract, service.getServiceUuid())
+                        .orElse(null);
+                log.debug("Contract detail resolved by serviceId: {}", service.getServiceUuid());
+            }
+        }
+
         if (contractDetail == null) {
-            throw new ResourceNotFoundException("ContractDetail", "uuid", itemRequest.getContractDetailUuid());
+            throw new ResourceNotFoundException("ContractDetail", "uuid or serviceId",
+                    itemRequest.getContractDetailUuid() != null ? itemRequest.getContractDetailUuid() : itemRequest.getServiceId());
         }
 
         item.setContractDetail(contractDetail);
@@ -1728,6 +1757,39 @@ public class PharmacyIntegrationServiceImpl implements PharmacyIntegrationServic
         }
 
         log.error("Cannot resolve service - neither serviceId nor contractDetailUuid provided");
+        return null;
+    }
+
+    /**
+     * Resolve service from serviceId for edit operations
+     */
+    private Servicelist resolveServiceFromServiceId(String serviceId, String providerUuid, String itemType) {
+        if (serviceId == null || serviceId.trim().isEmpty()) {
+            return null;
+        }
+
+        log.info("Resolving service using serviceId: {} for itemType: {}", serviceId, itemType);
+
+        // Try to find by generated service ID
+        Servicelist service = servicelistRepository.findByGeneratedServiceIdAndProviderProviderUuid(
+                serviceId, providerUuid);
+
+        if (service != null) {
+            log.info("Service resolved successfully by generatedServiceId: {}", service.getServiceName());
+            return service;
+        }
+
+        // Try to find by service code as fallback
+        Provider provider = providerRepository.findByProviderUuid(providerUuid);
+        if (provider != null) {
+            Optional<Servicelist> serviceOpt = servicelistRepository.findByServiceCodeAndProvider(serviceId, provider);
+            if (serviceOpt.isPresent()) {
+                log.info("Service resolved by service code: {}", serviceOpt.get().getServiceName());
+                return serviceOpt.get();
+            }
+        }
+
+        log.error("Service not found for serviceId: {} and provider: {}", serviceId, providerUuid);
         return null;
     }
 
